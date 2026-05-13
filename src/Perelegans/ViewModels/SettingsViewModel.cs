@@ -99,8 +99,7 @@ public partial class SettingsViewModel : ObservableObject
     public SettingsViewModel(
         ThemeService themeService,
         SettingsService settingsService,
-        StartupRegistrationService startupRegistrationService,
-        DatabaseService dbService)
+        StartupRegistrationService startupRegistrationService)
     {
         _themeService = themeService;
         _settingsService = settingsService;
@@ -170,14 +169,6 @@ public partial class SettingsViewModel : ObservableObject
         s.AiApiBaseUrl = AiApiBaseUrl.Trim();
         s.AiApiKey = AiApiKey.Trim();
         s.AiModel = AiModel.Trim();
-
-        s.BangumiAccessToken = string.Empty;
-        s.BangumiRefreshToken = string.Empty;
-        s.BangumiClientId = string.Empty;
-        s.BangumiClientSecret = string.Empty;
-        s.BangumiUsername = string.Empty;
-        s.BangumiSyncEnabled = false;
-        s.BangumiPushOnMetadataSave = false;
 
         _settingsService.Save();
         _themeService.ApplyTheme(s.Theme);

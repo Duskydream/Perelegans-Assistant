@@ -1,14 +1,10 @@
-using System;
 using System.Net;
 using System.Net.Http;
 using Perelegans.Models;
 
 namespace Perelegans.Services;
 
-/// <summary>
-/// Creates HttpClient instances for metadata APIs, optionally using a user-configured proxy.
-/// </summary>
-public static class MetadataHttpClientFactory
+public static class AppHttpClientFactory
 {
     public static HttpClient Create(AppSettings settings)
     {

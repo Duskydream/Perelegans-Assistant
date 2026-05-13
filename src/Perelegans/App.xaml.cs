@@ -4,7 +4,6 @@ using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using MahApps.Metro.Controls.Dialogs;
 using Perelegans.ViewModels;
 using Perelegans.Models;
 using Perelegans.Services;
@@ -22,7 +21,9 @@ public partial class App : System.Windows.Application
     private ThemeService? _themeService;
     private ProcessMonitorService? _processMonitor;
     private SettingsService? _settingsService;
+    private DatabaseService? _dbService;
     private MainWindow? _mainWindow;
+    private FloatingPetWindow? _floatingPetWindow;
     private Forms.NotifyIcon? _trayIcon;
     private bool _allowExit;
     private Mutex? _singleInstanceMutex;
@@ -30,7 +31,8 @@ public partial class App : System.Windows.Application
     private CancellationTokenSource? _activationListenerCts;
     private Task? _activationListenerTask;
     private volatile bool _pendingActivationRequest;
-    private System.Net.Http.HttpClient? _metadataHttpClient;
+    private System.Net.Http.HttpClient? _appHttpClient;
+    private FocusClassificationClient? _focusClassificationClient;
 
     private async void App_OnStartup(object sender, StartupEventArgs e)
     {
@@ -58,31 +60,48 @@ public partial class App : System.Windows.Application
         TranslationService.Instance.ChangeLanguage(settingsService.Settings.Language);
 
         var dbService = new DatabaseService();
+        _dbService = dbService;
         _processMonitor = new ProcessMonitorService(dbService);
-        _metadataHttpClient = MetadataHttpClientFactory.Create(settingsService.Settings);
+        _appHttpClient = AppHttpClientFactory.Create(settingsService.Settings);
+        _focusClassificationClient = new FocusClassificationClient(_appHttpClient, settingsService);
 
-        // Create MainViewModel with all services
-        var mainVm = new MainViewModel(dbService, settingsService, _themeService, _processMonitor, _metadataHttpClient, DialogCoordinator.Instance);
+        var mainVm = new MainViewModel(
+            dbService,
+            settingsService,
+            _processMonitor,
+            OpenSettingsFromAgent,
+            RequestShutdown);
 
-        // Create and show MainWindow
+        // Create the data dashboard but keep it behind the floating agent until requested.
         _mainWindow = new MainWindow
         {
             DataContext = mainVm
         };
-        MainWindow = _mainWindow;
         _mainWindow.Closing += MainWindow_OnClosing;
-        _mainWindow.Show();
+
+        InitializeTrayIcon();
+
+        _floatingPetWindow = new FloatingPetWindow
+        {
+            DataContext = new FloatingPetViewModel(
+                _processMonitor,
+                _focusClassificationClient,
+                dbService,
+                ShowDashboard,
+                OpenSettingsFromAgent,
+                RequestShutdown)
+        };
+        MainWindow = _floatingPetWindow;
+        _floatingPetWindow.Show();
+
+        // Initialize async data (DB creation, focus history, start monitor)
+        await mainVm.InitializeAsync();
 
         if (_pendingActivationRequest)
         {
             _pendingActivationRequest = false;
-            RestoreFromTray();
+            ShowDashboard();
         }
-
-        InitializeTrayIcon();
-
-        // Initialize async data (DB creation, load games, start monitor)
-        await mainVm.InitializeAsync();
     }
 
     public void RequestShutdown()
@@ -133,7 +152,7 @@ public partial class App : System.Windows.Application
             _trayIcon.Dispose();
         }
 
-        _metadataHttpClient?.Dispose();
+        _appHttpClient?.Dispose();
         _processMonitor?.Stop();
         _themeService?.Dispose();
         base.OnExit(e);
@@ -194,34 +213,38 @@ public partial class App : System.Windows.Application
             ContextMenuStrip = new Forms.ContextMenuStrip()
         };
 
-        _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(RestoreFromTray);
+        _trayIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ShowDashboard);
     }
 
     private void MainWindow_OnClosing(object? sender, CancelEventArgs e)
     {
-        if (_allowExit || _settingsService?.Settings.CloseBehavior != AppCloseBehavior.MinimizeToTray)
+        if (_allowExit)
         {
             return;
         }
 
         e.Cancel = true;
-        HideToTray();
+        HideDashboard();
     }
 
-    private void HideToTray()
+    private void HideDashboard()
     {
-        if (_mainWindow == null || _trayIcon == null)
+        if (_mainWindow == null)
         {
             return;
         }
 
-        UpdateTrayMenu();
         _mainWindow.ShowInTaskbar = false;
         _mainWindow.Hide();
-        _trayIcon.Visible = true;
+
+        if (_trayIcon != null && _settingsService?.Settings.CloseBehavior == AppCloseBehavior.MinimizeToTray)
+        {
+            UpdateTrayMenu();
+            _trayIcon.Visible = true;
+        }
     }
 
-    private void RestoreFromTray()
+    private void ShowDashboard()
     {
         if (_mainWindow == null)
         {
@@ -242,6 +265,28 @@ public partial class App : System.Windows.Application
         }
 
         _mainWindow.Activate();
+    }
+
+    private void OpenSettingsFromAgent()
+    {
+        if (_themeService == null || _settingsService == null || _dbService == null)
+        {
+            return;
+        }
+
+        var window = new SettingsWindow
+        {
+            DataContext = new SettingsViewModel(
+                _themeService,
+                _settingsService,
+                new StartupRegistrationService()),
+            Owner = _mainWindow?.IsVisible == true ? _mainWindow : null
+        };
+
+        if (window.ShowDialog() == true)
+        {
+            _processMonitor?.SetInterval(_settingsService.Settings.MonitorIntervalSeconds);
+        }
     }
 
     private bool TryAcquireSingleInstanceLock()
@@ -338,7 +383,7 @@ public partial class App : System.Windows.Application
                         return;
                     }
 
-                    RestoreFromTray();
+                    ShowDashboard();
                 });
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -365,7 +410,7 @@ public partial class App : System.Windows.Application
         }
 
         menu.Items.Clear();
-        menu.Items.Add(TranslationService.Instance["Tray_Show"], null, (_, _) => Dispatcher.Invoke(RestoreFromTray));
+        menu.Items.Add(TranslationService.Instance["Tray_Show"], null, (_, _) => Dispatcher.Invoke(ShowDashboard));
         menu.Items.Add(TranslationService.Instance["Tray_Exit"], null, (_, _) => Dispatcher.Invoke(RequestShutdown));
     }
 }

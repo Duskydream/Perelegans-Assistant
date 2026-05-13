@@ -23,12 +23,9 @@
     <!-- Typography -->
     <SolidColorBrush x:Key="Perelegans.ForegroundBrush" Color="#DCDCDC"/>
     <SolidColorBrush x:Key="Perelegans.SubtleForegroundBrush" Color="#9E9E9E"/>
-    <SolidColorBrush x:Key="Perelegans.PlaytimeForegroundBrush" Color="#DCDCDC"/>
     <SolidColorBrush x:Key="Perelegans.StatusBarValueForegroundBrush" Color="#C8C8C8"/>
     <SolidColorBrush x:Key="Perelegans.DataGridSelectedPrimaryForegroundBrush" Color="#000000"/>
     <SolidColorBrush x:Key="Perelegans.StatusIconBrush" Color="#FFD2DB"/>
-    <SolidColorBrush x:Key="Perelegans.CoverStatusBadgeBackgroundBrush" Color="#2d2d30"/>
-    <Color x:Key="Perelegans.CoverStatusBadgeShadowColor">#FDFCF8</Color>
     
     <!-- Borders -->
     <SolidColorBrush x:Key="Perelegans.BorderBrush" Color="#3F3F46"/>

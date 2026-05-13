@@ -9,167 +9,139 @@ using Perelegans.Models;
 
 namespace Perelegans.Services;
 
-/// <summary>
-/// Provides CRUD operations for the database.
-/// </summary>
 public class DatabaseService
 {
     public string GetDatabasePath() => PerelegansDbContext.GetDefaultDatabasePath();
 
-    /// <summary>
-    /// Ensures the database and tables exist.
-    /// </summary>
     public async Task EnsureDatabaseCreatedAsync()
     {
-        await using var db = new PerelegansDbContext();
-        await db.Database.EnsureCreatedAsync();
-        await EnsureGamesTagsColumnAsync();
-        await EnsureGamesCoverImageUrlColumnAsync();
-        await EnsureGamesCoverImagePathColumnAsync();
-        await EnsureGamesBangumiSyncColumnsAsync();
-        await EnsureRecommendationFeedbackTableAsync();
+        await EnsureApplicationUsageSchemaAsync();
+        await DropLegacyGameTablesAsync();
     }
 
-    // ---- Games ----
-
-    public async Task<List<Game>> GetAllGamesAsync()
+    public async Task<List<ApplicationUsage>> GetAllApplicationUsagesAsync()
     {
         await using var db = new PerelegansDbContext();
-        return await db.Games
-            .OrderByDescending(g => g.AccessedDate)
-            .ToListAsync();
-    }
-
-    public async Task<Game?> GetGameByIdAsync(int id)
-    {
-        await using var db = new PerelegansDbContext();
-        return await db.Games.FindAsync(id);
-    }
-
-    public async Task<Game?> GetGameByVndbIdAsync(string vndbId)
-    {
-        await using var db = new PerelegansDbContext();
-        return await db.Games.FirstOrDefaultAsync(g => g.VndbId == vndbId);
-    }
-
-    public async Task AddGameAsync(Game game)
-    {
-        await using var db = new PerelegansDbContext();
-        db.Games.Add(game);
-        await db.SaveChangesAsync();
-    }
-
-    public async Task UpdateGameAsync(Game game)
-    {
-        await using var db = new PerelegansDbContext();
-        db.Games.Update(game);
-        await db.SaveChangesAsync();
-    }
-
-    public async Task DeleteGameAsync(int gameId)
-    {
-        await using var db = new PerelegansDbContext();
-        var game = await db.Games.FindAsync(gameId);
-        if (game != null)
-        {
-            db.Games.Remove(game);
-            await db.SaveChangesAsync();
-        }
-    }
-
-    // ---- Play Sessions ----
-
-    public async Task AddPlaySessionAsync(PlaySession session)
-    {
-        await using var db = new PerelegansDbContext();
-        db.PlaySessions.Add(session);
-
-        // Also update game's playtime and accessed date
-        var game = await db.Games.FindAsync(session.GameId);
-        if (game != null)
-        {
-            game.Playtime += session.Duration;
-            game.AccessedDate = session.EndTime;
-        }
-
-        await db.SaveChangesAsync();
-    }
-
-    public async Task<List<PlaySession>> GetSessionsForGameAsync(int gameId)
-    {
-        await using var db = new PerelegansDbContext();
-        return await db.PlaySessions
-            .Where(s => s.GameId == gameId)
-            .OrderByDescending(s => s.StartTime)
-            .ToListAsync();
-    }
-
-    public async Task<List<PlaySession>> GetAllSessionsAsync()
-    {
-        await using var db = new PerelegansDbContext();
-        return await db.PlaySessions
-            .OrderByDescending(s => s.StartTime)
-            .ToListAsync();
-    }
-
-    public async Task<Dictionary<string, RecommendationFeedback>> GetRecommendationFeedbackMapAsync()
-    {
-        await using var db = new PerelegansDbContext();
-        return await db.RecommendationFeedback
+        return await db.ApplicationUsages
             .AsNoTracking()
-            .ToDictionaryAsync(item => item.VndbId, StringComparer.OrdinalIgnoreCase);
+            .OrderByDescending(a => a.LastSeenAt)
+            .ToListAsync();
     }
 
-    public async Task RecordRecommendationSignalAsync(string? vndbId, double positiveDelta = 0, double negativeDelta = 0)
+    public async Task<List<ApplicationUsageSession>> GetAllApplicationUsageSessionsAsync()
     {
-        var normalizedId = VndbIdUtilities.Normalize(vndbId);
-        if (string.IsNullOrWhiteSpace(normalizedId) || (positiveDelta <= 0 && negativeDelta <= 0))
-            return;
+        await using var db = new PerelegansDbContext();
+        return await db.ApplicationUsageSessions
+            .AsNoTracking()
+            .OrderByDescending(s => s.StartTime)
+            .ToListAsync();
+    }
+
+    public async Task<ApplicationUsage> RecordApplicationUsageSessionAsync(
+        string processName,
+        string executablePath,
+        DateTime startTime,
+        DateTime endTime,
+        bool isKnownProductivityApp)
+    {
+        var duration = endTime > startTime ? endTime - startTime : TimeSpan.FromSeconds(1);
+        if (duration.TotalSeconds < 1)
+        {
+            duration = TimeSpan.FromSeconds(1);
+        }
+
+        var normalizedProcessName = string.IsNullOrWhiteSpace(processName)
+            ? "Unknown"
+            : processName.Trim();
 
         await using var db = new PerelegansDbContext();
-        var feedback = await db.RecommendationFeedback
-            .FirstOrDefaultAsync(item => item.VndbId == normalizedId);
+        var usage = await db.ApplicationUsages
+            .FirstOrDefaultAsync(a => a.ProcessName == normalizedProcessName);
 
-        if (feedback == null)
+        if (usage == null)
         {
-            feedback = new RecommendationFeedback
+            usage = new ApplicationUsage
             {
-                VndbId = normalizedId,
-                CreatedAt = DateTime.Now
+                DisplayName = normalizedProcessName,
+                ProcessName = normalizedProcessName,
+                FirstSeenAt = startTime
             };
-            db.RecommendationFeedback.Add(feedback);
+            db.ApplicationUsages.Add(usage);
         }
 
-        if (positiveDelta > 0)
+        usage.ExecutablePath = executablePath;
+        usage.TotalDuration += duration;
+        usage.LastSeenAt = endTime;
+        usage.Category = isKnownProductivityApp
+            ? ApplicationFocusCategory.Productive
+            : usage.Category == ApplicationFocusCategory.Productive
+                ? ApplicationFocusCategory.Productive
+                : ApplicationFocusCategory.Unknown;
+
+        db.ApplicationUsageSessions.Add(new ApplicationUsageSession
         {
-            feedback.PositiveSignal += positiveDelta;
-            feedback.LastPositiveAt = DateTime.Now;
-        }
+            ApplicationUsage = usage,
+            ProcessName = normalizedProcessName,
+            ExecutablePath = executablePath,
+            StartTime = startTime,
+            EndTime = endTime,
+            Duration = duration,
+            IsKnownProductivityApp = isKnownProductivityApp
+        });
 
-        if (negativeDelta > 0)
+        await db.SaveChangesAsync();
+        return usage;
+    }
+
+    public async Task UpdateApplicationAssessmentAsync(
+        string processName,
+        bool isProductive,
+        string? description,
+        string? assistantMessage)
+    {
+        if (string.IsNullOrWhiteSpace(processName))
         {
-            feedback.NegativeSignal += negativeDelta;
-            feedback.LastNegativeAt = DateTime.Now;
+            return;
         }
 
-        feedback.UpdatedAt = DateTime.Now;
+        var normalizedProcessName = processName.Trim();
+        await using var db = new PerelegansDbContext();
+        var usage = await db.ApplicationUsages
+            .FirstOrDefaultAsync(a => a.ProcessName == normalizedProcessName);
+
+        if (usage == null)
+        {
+            usage = new ApplicationUsage
+            {
+                DisplayName = normalizedProcessName,
+                ProcessName = normalizedProcessName,
+                FirstSeenAt = DateTime.Now,
+                LastSeenAt = DateTime.Now
+            };
+            db.ApplicationUsages.Add(usage);
+        }
+
+        usage.Category = isProductive
+            ? ApplicationFocusCategory.Productive
+            : ApplicationFocusCategory.Distracting;
+        usage.AiDescription = description;
+        usage.LastAssistantMessage = assistantMessage;
         await db.SaveChangesAsync();
     }
 
-    /// <summary>
-    /// Updates a game's playtime and accessed date atomically.
-    /// Used by the process monitor during live tracking.
-    /// </summary>
-    public async Task UpdateGamePlaytimeAsync(int gameId, TimeSpan additionalTime, DateTime accessedDate)
+    public async Task ClearApplicationUsageDataAsync()
     {
-        await using var db = new PerelegansDbContext();
-        var game = await db.Games.FindAsync(gameId);
-        if (game != null)
-        {
-            game.Playtime += additionalTime;
-            game.AccessedDate = accessedDate;
-            await db.SaveChangesAsync();
-        }
+        await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            DELETE FROM "ApplicationUsageSessions";
+            DELETE FROM "ApplicationUsages";
+            VACUUM;
+            """;
+        await command.ExecuteNonQueryAsync();
     }
 
     public async Task BackupDatabaseAsync(string backupPath)
@@ -212,94 +184,7 @@ public class DatabaseService
         }.ToString();
     }
 
-    private async Task EnsureGamesTagsColumnAsync()
-    {
-        await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
-        await connection.OpenAsync();
-
-        await using var command = connection.CreateCommand();
-        command.CommandText = "PRAGMA table_info(\"Games\");";
-
-        var hasTagsColumn = false;
-        await using (var reader = await command.ExecuteReaderAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                if (string.Equals(reader.GetString(1), "Tags", StringComparison.OrdinalIgnoreCase))
-                {
-                    hasTagsColumn = true;
-                    break;
-                }
-            }
-        }
-
-        if (hasTagsColumn)
-            return;
-
-        await using var alterCommand = connection.CreateCommand();
-        alterCommand.CommandText = "ALTER TABLE \"Games\" ADD COLUMN \"Tags\" TEXT NULL;";
-        await alterCommand.ExecuteNonQueryAsync();
-    }
-
-    private async Task EnsureGamesCoverImageUrlColumnAsync()
-    {
-        await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
-        await connection.OpenAsync();
-
-        await using var command = connection.CreateCommand();
-        command.CommandText = "PRAGMA table_info(\"Games\");";
-
-        var hasCoverImageUrlColumn = false;
-        await using (var reader = await command.ExecuteReaderAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                if (string.Equals(reader.GetString(1), "CoverImageUrl", StringComparison.OrdinalIgnoreCase))
-                {
-                    hasCoverImageUrlColumn = true;
-                    break;
-                }
-            }
-        }
-
-        if (hasCoverImageUrlColumn)
-            return;
-
-        await using var alterCommand = connection.CreateCommand();
-        alterCommand.CommandText = "ALTER TABLE \"Games\" ADD COLUMN \"CoverImageUrl\" TEXT NULL;";
-        await alterCommand.ExecuteNonQueryAsync();
-    }
-
-    private async Task EnsureGamesCoverImagePathColumnAsync()
-    {
-        await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
-        await connection.OpenAsync();
-
-        await using var command = connection.CreateCommand();
-        command.CommandText = "PRAGMA table_info(\"Games\");";
-
-        var hasCoverImagePathColumn = false;
-        await using (var reader = await command.ExecuteReaderAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                if (string.Equals(reader.GetString(1), "CoverImagePath", StringComparison.OrdinalIgnoreCase))
-                {
-                    hasCoverImagePathColumn = true;
-                    break;
-                }
-            }
-        }
-
-        if (hasCoverImagePathColumn)
-            return;
-
-        await using var alterCommand = connection.CreateCommand();
-        alterCommand.CommandText = "ALTER TABLE \"Games\" ADD COLUMN \"CoverImagePath\" TEXT NULL;";
-        await alterCommand.ExecuteNonQueryAsync();
-    }
-
-    private async Task EnsureRecommendationFeedbackTableAsync()
+    private async Task EnsureApplicationUsageSchemaAsync()
     {
         await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
         await connection.OpenAsync();
@@ -307,61 +192,60 @@ public class DatabaseService
         await using var command = connection.CreateCommand();
         command.CommandText =
             """
-            CREATE TABLE IF NOT EXISTS "RecommendationFeedback" (
-                "Id" INTEGER NOT NULL CONSTRAINT "PK_RecommendationFeedback" PRIMARY KEY AUTOINCREMENT,
-                "VndbId" TEXT NOT NULL,
-                "PositiveSignal" REAL NOT NULL DEFAULT 0,
-                "NegativeSignal" REAL NOT NULL DEFAULT 0,
-                "CreatedAt" TEXT NOT NULL,
-                "UpdatedAt" TEXT NOT NULL,
-                "LastPositiveAt" TEXT NULL,
-                "LastNegativeAt" TEXT NULL
+            CREATE TABLE IF NOT EXISTS "ApplicationUsages" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_ApplicationUsages" PRIMARY KEY AUTOINCREMENT,
+                "DisplayName" TEXT NOT NULL,
+                "ProcessName" TEXT NOT NULL,
+                "ExecutablePath" TEXT NOT NULL DEFAULT '',
+                "TotalDuration" INTEGER NOT NULL DEFAULT 0,
+                "FirstSeenAt" TEXT NOT NULL,
+                "LastSeenAt" TEXT NOT NULL,
+                "Category" INTEGER NOT NULL DEFAULT 0,
+                "AiDescription" TEXT NULL,
+                "LastAssistantMessage" TEXT NULL
             );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_ApplicationUsages_ProcessName"
+            ON "ApplicationUsages" ("ProcessName");
+
+            CREATE TABLE IF NOT EXISTS "ApplicationUsageSessions" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_ApplicationUsageSessions" PRIMARY KEY AUTOINCREMENT,
+                "ApplicationUsageId" INTEGER NOT NULL,
+                "ProcessName" TEXT NOT NULL,
+                "ExecutablePath" TEXT NOT NULL DEFAULT '',
+                "StartTime" TEXT NOT NULL,
+                "EndTime" TEXT NOT NULL,
+                "Duration" INTEGER NOT NULL DEFAULT 0,
+                "IsKnownProductivityApp" INTEGER NOT NULL DEFAULT 0,
+                CONSTRAINT "FK_ApplicationUsageSessions_ApplicationUsages_ApplicationUsageId"
+                    FOREIGN KEY ("ApplicationUsageId")
+                    REFERENCES "ApplicationUsages" ("Id")
+                    ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS "IX_ApplicationUsageSessions_ApplicationUsageId"
+            ON "ApplicationUsageSessions" ("ApplicationUsageId");
+
+            CREATE INDEX IF NOT EXISTS "IX_ApplicationUsageSessions_StartTime"
+            ON "ApplicationUsageSessions" ("StartTime");
             """;
         await command.ExecuteNonQueryAsync();
-
-        await using var indexCommand = connection.CreateCommand();
-        indexCommand.CommandText =
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS "IX_RecommendationFeedback_VndbId"
-            ON "RecommendationFeedback" ("VndbId");
-            """;
-        await indexCommand.ExecuteNonQueryAsync();
     }
 
-    private async Task EnsureGamesBangumiSyncColumnsAsync()
+    private async Task DropLegacyGameTablesAsync()
     {
         await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
         await connection.OpenAsync();
 
-        var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        await using (var command = connection.CreateCommand())
-        {
-            command.CommandText = "PRAGMA table_info(\"Games\");";
-            await using var reader = await command.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                existingColumns.Add(reader.GetString(1));
-            }
-        }
-
-        var columns = new (string Name, string Sql)[]
-        {
-            ("BangumiComment", "TEXT NULL"),
-            ("BangumiRating", "INTEGER NULL"),
-            ("BangumiCollectionType", "INTEGER NULL"),
-            ("BangumiCollectionUpdatedAt", "TEXT NULL"),
-            ("BangumiLastSyncedAt", "TEXT NULL")
-        };
-
-        foreach (var (name, sql) in columns)
-        {
-            if (existingColumns.Contains(name))
-                continue;
-
-            await using var alterCommand = connection.CreateCommand();
-            alterCommand.CommandText = $"ALTER TABLE \"Games\" ADD COLUMN \"{name}\" {sql};";
-            await alterCommand.ExecuteNonQueryAsync();
-        }
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            PRAGMA foreign_keys = OFF;
+            DROP TABLE IF EXISTS "PlaySessions";
+            DROP TABLE IF EXISTS "Games";
+            DROP TABLE IF EXISTS "RecommendationFeedback";
+            PRAGMA foreign_keys = ON;
+            """;
+        await command.ExecuteNonQueryAsync();
     }
 }

@@ -69,57 +69,7 @@ public class AppSettings
     public string AiApiKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Model identifier for recommendation explanations.
+    /// Model identifier for focus classification.
     /// </summary>
     public string AiModel { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Bangumi OAuth access token or personal access token.
-    /// </summary>
-    public string BangumiAccessToken { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Bangumi OAuth refresh token.
-    /// </summary>
-    public string BangumiRefreshToken { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Expiration time for the Bangumi access token.
-    /// </summary>
-    public DateTime? BangumiAccessTokenExpiresAt { get; set; }
-
-    /// <summary>
-    /// User-provided Bangumi OAuth application client ID.
-    /// </summary>
-    public string BangumiClientId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// User-provided Bangumi OAuth application client secret.
-    /// </summary>
-    public string BangumiClientSecret { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Local loopback port used for Bangumi OAuth browser sign-in.
-    /// </summary>
-    public int BangumiOAuthCallbackPort { get; set; } = 45127;
-
-    /// <summary>
-    /// Display name or username returned by Bangumi token check.
-    /// </summary>
-    public string BangumiUsername { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Whether local games with Bangumi IDs should periodically pull collection state.
-    /// </summary>
-    public bool BangumiSyncEnabled { get; set; }
-
-    /// <summary>
-    /// Polling interval in minutes for Bangumi collection synchronization.
-    /// </summary>
-    public int BangumiSyncIntervalMinutes { get; set; } = 15;
-
-    /// <summary>
-    /// Whether metadata saves should push local Bangumi fields back to Bangumi.
-    /// </summary>
-    public bool BangumiPushOnMetadataSave { get; set; } = true;
 }

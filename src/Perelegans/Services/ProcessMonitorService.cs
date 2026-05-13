@@ -2,37 +2,37 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Threading;
 using Perelegans.Models;
 
 namespace Perelegans.Services;
 
-/// <summary>
-/// Background service that monitors running processes and tracks game playtime.
-/// </summary>
 public class ProcessMonitorService
 {
     private readonly DatabaseService _dbService;
     private readonly DispatcherTimer _timer;
-    private readonly Dictionary<int, ActiveSession> _activeSessions = new();
-
-    /// <summary>
-    /// List of games to monitor, primarily matched by executable path.
-    /// </summary>
-    private List<MonitoredGame> _monitoredGames = new();
+    private readonly HashSet<string> _productivityProcessNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Code",
+        "devenv",
+        "WINWORD",
+        "EXCEL",
+        "POWERPNT",
+        "ONENOTE",
+        "msedge",
+        "chrome",
+        "firefox",
+        "notion",
+        "Obsidian",
+        "Teams",
+        "OUTLOOK"
+    };
+    private ForegroundFocusSession? _foregroundFocusSession;
 
     public bool IsRunning { get; private set; }
 
-    /// <summary>
-    /// Fired when a game's playtime is updated so the UI can refresh.
-    /// </summary>
-    public event Action<int, TimeSpan>? PlaytimeUpdated;
-
-    /// <summary>
-    /// Fired when a game starts or stops being detected.
-    /// </summary>
-    public event Action<int, bool>? GameDetectionChanged;
+    public event Action<ForegroundFocusSnapshot>? ForegroundFocusUpdated;
 
     public ProcessMonitorService(DatabaseService dbService)
     {
@@ -44,196 +44,192 @@ public class ProcessMonitorService
         _timer.Tick += OnTimerTick;
     }
 
-    /// <summary>
-    /// Sets the monitoring interval.
-    /// </summary>
     public void SetInterval(int seconds)
     {
         _timer.Interval = TimeSpan.FromSeconds(Math.Max(1, seconds));
     }
 
-    /// <summary>
-    /// Updates the list of games to monitor.
-    /// </summary>
-    public void UpdateMonitoredGames(IEnumerable<Game> games)
-    {
-        _monitoredGames = games
-            .Select(g => new MonitoredGame
-            {
-                GameId = g.Id,
-                NormalizedExecutablePath = NormalizeExecutablePath(g.ExecutablePath),
-                NormalizedProcessName = NormalizeProcessName(g.ProcessName)
-            })
-            .Where(g => !string.IsNullOrWhiteSpace(g.NormalizedExecutablePath) ||
-                        !string.IsNullOrWhiteSpace(g.NormalizedProcessName))
-            .ToList();
-    }
-
-    /// <summary>
-    /// Starts the process monitoring timer.
-    /// </summary>
     public void Start()
     {
-        if (IsRunning) return;
+        if (IsRunning)
+        {
+            return;
+        }
+
         IsRunning = true;
         _timer.Start();
+        SampleForegroundWindowFocus();
     }
 
-    public IReadOnlyList<ActiveSessionSnapshot> GetActiveSessionsSnapshot()
-    {
-        var now = DateTime.Now;
-
-        return _activeSessions.Values
-            .Select(session => new ActiveSessionSnapshot(
-                session.GameId,
-                session.StartTime,
-                GetCurrentDuration(session, now)))
-            .ToList();
-    }
-
-    /// <summary>
-    /// Stops the process monitoring timer and finalizes active sessions.
-    /// </summary>
     public void Stop()
     {
         _ = StopAsync();
     }
 
-    /// <summary>
-    /// Stops the process monitoring timer and finalizes active sessions.
-    /// </summary>
     public async Task StopAsync()
     {
-        if (!IsRunning) return;
+        if (!IsRunning)
+        {
+            return;
+        }
+
         _timer.Stop();
         IsRunning = false;
 
-        // Finalize all active sessions
-        var sessionsToFinalize = _activeSessions.ToList();
-        _activeSessions.Clear();
-
-        foreach (var kvp in sessionsToFinalize)
+        if (_foregroundFocusSession != null)
         {
-            await FinalizeSession(kvp.Key, kvp.Value);
-            GameDetectionChanged?.Invoke(kvp.Key, false);
+            await FinalizeForegroundSessionAsync(_foregroundFocusSession, DateTime.Now);
+            _foregroundFocusSession = null;
         }
     }
 
-    private async void OnTimerTick(object? sender, EventArgs e)
+    public ForegroundFocusSnapshot? SampleForegroundWindowFocus()
+    {
+        var process = TryGetForegroundProcess();
+        if (process == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var now = DateTime.Now;
+            var processName = NormalizeProcessName(TryGetProcessName(process));
+            if (string.IsNullOrWhiteSpace(processName))
+            {
+                return null;
+            }
+
+            var executablePath = NormalizeExecutablePath(TryGetExecutablePath(process));
+            var isProductivityApp = _productivityProcessNames.Contains(processName);
+
+            if (_foregroundFocusSession == null ||
+                _foregroundFocusSession.ProcessId != process.Id ||
+                !string.Equals(_foregroundFocusSession.ProcessName, processName, StringComparison.OrdinalIgnoreCase))
+            {
+                if (_foregroundFocusSession != null)
+                {
+                    QueueFinalizeForegroundSession(_foregroundFocusSession, now);
+                }
+
+                _foregroundFocusSession = new ForegroundFocusSession
+                {
+                    ProcessId = process.Id,
+                    ProcessName = processName,
+                    ExecutablePath = executablePath,
+                    StartedAt = now,
+                    LastSeenAt = now,
+                    IsProductivityApp = isProductivityApp
+                };
+            }
+            else
+            {
+                _foregroundFocusSession.LastSeenAt = now;
+                _foregroundFocusSession.ExecutablePath = executablePath;
+                _foregroundFocusSession.IsProductivityApp = isProductivityApp;
+            }
+
+            var snapshot = new ForegroundFocusSnapshot(
+                _foregroundFocusSession.ProcessId,
+                _foregroundFocusSession.ProcessName,
+                _foregroundFocusSession.ExecutablePath,
+                _foregroundFocusSession.StartedAt,
+                now - _foregroundFocusSession.StartedAt,
+                _foregroundFocusSession.IsProductivityApp);
+
+            ForegroundFocusUpdated?.Invoke(snapshot);
+            return snapshot;
+        }
+        finally
+        {
+            process.Dispose();
+        }
+    }
+
+    private void OnTimerTick(object? sender, EventArgs e)
     {
         try
         {
-            var runningProcesses = CaptureRunningProcesses();
-
-            // Check each monitored game
-            foreach (var game in _monitoredGames)
-            {
-                bool isRunning = !string.IsNullOrWhiteSpace(game.NormalizedExecutablePath)
-                    ? runningProcesses.ExecutablePaths.Contains(game.NormalizedExecutablePath)
-                    : runningProcesses.ProcessNames.Contains(game.NormalizedProcessName);
-
-                if (isRunning && !_activeSessions.ContainsKey(game.GameId))
-                {
-                    // Game just started
-                    _activeSessions[game.GameId] = new ActiveSession
-                    {
-                        GameId = game.GameId,
-                        StartTime = DateTime.Now,
-                        LastTick = DateTime.Now
-                    };
-                    GameDetectionChanged?.Invoke(game.GameId, true);
-                }
-                else if (isRunning && _activeSessions.ContainsKey(game.GameId))
-                {
-                    // Game still running - update elapsed time
-                    var session = _activeSessions[game.GameId];
-                    var now = DateTime.Now;
-                    var elapsed = now - session.LastTick;
-                    session.LastTick = now;
-                    session.AccumulatedTime += elapsed;
-
-                    // Notify UI of updated playtime
-                    PlaytimeUpdated?.Invoke(game.GameId, elapsed);
-                }
-                else if (!isRunning && _activeSessions.TryGetValue(game.GameId, out var session))
-                {
-                    // Game just stopped
-                    _activeSessions.Remove(game.GameId);
-                    await FinalizeSession(game.GameId, session);
-                    GameDetectionChanged?.Invoke(game.GameId, false);
-                }
-            }
+            SampleForegroundWindowFocus();
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"ProcessMonitor error: {ex.Message}");
+            Debug.WriteLine($"ProcessMonitor error: {ex.Message}");
         }
     }
 
-    private async Task FinalizeSession(int gameId, ActiveSession session)
+    private void QueueFinalizeForegroundSession(ForegroundFocusSession session, DateTime endTime)
     {
-        var duration = GetCurrentDuration(session, DateTime.Now);
-        if (duration.TotalSeconds < 1) return;
-
-        var playSession = new PlaySession
+        var snapshot = new ForegroundFocusSession
         {
-            GameId = gameId,
-            StartTime = session.StartTime,
-            EndTime = DateTime.Now,
-            Duration = duration
+            ProcessId = session.ProcessId,
+            ProcessName = session.ProcessName,
+            ExecutablePath = session.ExecutablePath,
+            StartedAt = session.StartedAt,
+            LastSeenAt = endTime,
+            IsProductivityApp = session.IsProductivityApp
         };
 
-        try
-        {
-            await _dbService.AddPlaySessionAsync(playSession);
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Failed to save play session: {ex.Message}");
-        }
-    }
-
-    private class ActiveSession
-    {
-        public int GameId { get; set; }
-        public DateTime StartTime { get; set; }
-        public DateTime LastTick { get; set; }
-        public TimeSpan AccumulatedTime { get; set; } = TimeSpan.Zero;
-    }
-
-    private static TimeSpan GetCurrentDuration(ActiveSession session, DateTime now)
-    {
-        var tail = now > session.LastTick
-            ? now - session.LastTick
-            : TimeSpan.Zero;
-
-        return session.AccumulatedTime + tail;
-    }
-
-    private static RunningProcessSnapshot CaptureRunningProcesses()
-    {
-        var processNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var executablePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var process in Process.GetProcesses())
+        _ = Task.Run(async () =>
         {
             try
             {
-                var normalizedProcessName = NormalizeProcessName(TryGetProcessName(process));
-                if (!string.IsNullOrWhiteSpace(normalizedProcessName))
-                    processNames.Add(normalizedProcessName);
-
-                var normalizedExecutablePath = NormalizeExecutablePath(TryGetExecutablePath(process));
-                if (!string.IsNullOrWhiteSpace(normalizedExecutablePath))
-                    executablePaths.Add(normalizedExecutablePath);
+                await FinalizeForegroundSessionAsync(snapshot, endTime);
             }
-            finally
+            catch (Exception ex)
             {
-                process.Dispose();
+                Debug.WriteLine($"Failed to save application usage session: {ex.Message}");
             }
+        });
+    }
+
+    private async Task FinalizeForegroundSessionAsync(ForegroundFocusSession session, DateTime endTime)
+    {
+        if (endTime <= session.StartedAt)
+        {
+            return;
         }
 
-        return new RunningProcessSnapshot(processNames, executablePaths);
+        await _dbService.RecordApplicationUsageSessionAsync(
+            session.ProcessName,
+            session.ExecutablePath,
+            session.StartedAt,
+            endTime,
+            session.IsProductivityApp);
+    }
+
+    private sealed class ForegroundFocusSession
+    {
+        public int ProcessId { get; set; }
+        public string ProcessName { get; set; } = string.Empty;
+        public string ExecutablePath { get; set; } = string.Empty;
+        public DateTime StartedAt { get; set; }
+        public DateTime LastSeenAt { get; set; }
+        public bool IsProductivityApp { get; set; }
+    }
+
+    private static Process? TryGetForegroundProcess()
+    {
+        var hwnd = GetForegroundWindow();
+        if (hwnd == IntPtr.Zero)
+        {
+            return null;
+        }
+
+        _ = GetWindowThreadProcessId(hwnd, out var processId);
+        if (processId == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            return Process.GetProcessById((int)processId);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static string? TryGetProcessName(Process process)
@@ -270,7 +266,9 @@ public class ProcessMonitorService
     private static string NormalizeExecutablePath(string? executablePath)
     {
         if (string.IsNullOrWhiteSpace(executablePath))
+        {
             return string.Empty;
+        }
 
         var trimmed = executablePath.Trim().Trim('"');
 
@@ -284,16 +282,17 @@ public class ProcessMonitorService
         }
     }
 
-    private sealed record RunningProcessSnapshot(
-        HashSet<string> ProcessNames,
-        HashSet<string> ExecutablePaths);
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 
-    private sealed class MonitoredGame
-    {
-        public int GameId { get; set; }
-        public string NormalizedExecutablePath { get; set; } = string.Empty;
-        public string NormalizedProcessName { get; set; } = string.Empty;
-    }
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 }
 
-public sealed record ActiveSessionSnapshot(int GameId, DateTime StartTime, TimeSpan Duration);
+public sealed record ForegroundFocusSnapshot(
+    int ProcessId,
+    string ProcessName,
+    string ExecutablePath,
+    DateTime StartedAt,
+    TimeSpan Duration,
+    bool IsKnownProductivityApp);

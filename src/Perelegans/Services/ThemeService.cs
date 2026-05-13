@@ -26,12 +26,9 @@ public class ThemeService
         string MahAppsAccentColor,
         string ForegroundColor,
         string SubtleForegroundColor,
-        string PlaytimeForegroundColor,
         string StatusBarValueForegroundColor,
         string DataGridSelectedPrimaryForegroundColor,
         string StatusIconColor,
-        string CoverStatusBadgeBackgroundColor,
-        string CoverStatusBadgeShadowColor,
         string GlassPanelBackgroundColor,
         string GlassPanelBorderColor,
         string CardBackgroundColor,
@@ -61,12 +58,9 @@ public class ThemeService
         MahAppsAccentColor: "#FFC0CB",
         ForegroundColor: "#1E1E1E",
         SubtleForegroundColor: "#757575",
-        PlaytimeForegroundColor: "#000000",
         StatusBarValueForegroundColor: "#1E1E1E",
         DataGridSelectedPrimaryForegroundColor: "#FFC0CB",
         StatusIconColor: "#FFD2DB",
-        CoverStatusBadgeBackgroundColor: "#FDFCF8",
-        CoverStatusBadgeShadowColor: "#2D2D30",
         GlassPanelBackgroundColor: "#CCFFFDF8",
         GlassPanelBorderColor: "#80FFFFFF",
         CardBackgroundColor: "#14FFFFFF",
@@ -96,12 +90,9 @@ public class ThemeService
         MahAppsAccentColor: "#FFC0CB",
         ForegroundColor: "#DCDCDC",
         SubtleForegroundColor: "#9E9E9E",
-        PlaytimeForegroundColor: "#DCDCDC",
         StatusBarValueForegroundColor: "#C8C8C8",
         DataGridSelectedPrimaryForegroundColor: "#000000",
         StatusIconColor: "#FFD2DB",
-        CoverStatusBadgeBackgroundColor: "#2D2D30",
-        CoverStatusBadgeShadowColor: "#FDFCF8",
         GlassPanelBackgroundColor: "#99202832",
         GlassPanelBorderColor: "#44FFFFFF",
         CardBackgroundColor: "#18222832",
@@ -180,12 +171,9 @@ public class ThemeService
         resources["Perelegans.StatsChartHighlightBorderBrush"] = CreateBrush(palette.StatsChartHighlightBorderColor);
         resources["Perelegans.ForegroundBrush"] = CreateBrush(palette.ForegroundColor);
         resources["Perelegans.SubtleForegroundBrush"] = CreateBrush(palette.SubtleForegroundColor);
-        resources["Perelegans.PlaytimeForegroundBrush"] = CreateBrush(palette.PlaytimeForegroundColor);
         resources["Perelegans.StatusBarValueForegroundBrush"] = CreateBrush(palette.StatusBarValueForegroundColor);
         resources["Perelegans.DataGridSelectedPrimaryForegroundBrush"] = CreateBrush(palette.DataGridSelectedPrimaryForegroundColor);
         resources["Perelegans.StatusIconBrush"] = CreateBrush(palette.StatusIconColor);
-        resources["Perelegans.CoverStatusBadgeBackgroundBrush"] = CreateBrush(palette.CoverStatusBadgeBackgroundColor);
-        resources["Perelegans.CoverStatusBadgeShadowColor"] = ParseColor(palette.CoverStatusBadgeShadowColor);
         resources["Perelegans.GlassPanelBackground"] = CreateBrush(palette.GlassPanelBackgroundColor);
         resources["Perelegans.GlassPanelBorderBrush"] = CreateBrush(palette.GlassPanelBorderColor);
         resources["Perelegans.CardBackgroundBrush"] = CreateBrush(palette.CardBackgroundColor);

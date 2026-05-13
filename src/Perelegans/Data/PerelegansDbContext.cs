@@ -7,9 +7,8 @@ namespace Perelegans.Data;
 
 public class PerelegansDbContext : DbContext
 {
-    public DbSet<Game> Games => Set<Game>();
-    public DbSet<PlaySession> PlaySessions => Set<PlaySession>();
-    public DbSet<RecommendationFeedback> RecommendationFeedback => Set<RecommendationFeedback>();
+    public DbSet<ApplicationUsage> ApplicationUsages => Set<ApplicationUsage>();
+    public DbSet<ApplicationUsageSession> ApplicationUsageSessions => Set<ApplicationUsageSession>();
 
     private readonly string _dbPath;
 
@@ -39,55 +38,38 @@ public class PerelegansDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Game entity
-        modelBuilder.Entity<Game>(entity =>
+        modelBuilder.Entity<ApplicationUsage>(entity =>
         {
-            entity.HasKey(g => g.Id);
-            entity.Property(g => g.Title).IsRequired().HasMaxLength(500);
-            entity.Property(g => g.Brand).HasMaxLength(200);
-            entity.Property(g => g.ProcessName).HasMaxLength(200);
-            entity.Property(g => g.ExecutablePath).HasMaxLength(1000);
-            entity.Property(g => g.VndbId).HasMaxLength(50);
-            entity.Property(g => g.ErogameSpaceId).HasMaxLength(50);
-            entity.Property(g => g.BangumiId).HasMaxLength(50);
-            entity.Property(g => g.BangumiComment).HasMaxLength(1000);
-            entity.Property(g => g.OfficialWebsite).HasMaxLength(500);
-            entity.Property(g => g.Tags);
-            entity.Property(g => g.CoverImageUrl).HasMaxLength(1000);
-            entity.Property(g => g.CoverImagePath).HasMaxLength(1000);
-
-            // Store TimeSpan as ticks (long)
-            entity.Property(g => g.Playtime)
+            entity.HasKey(a => a.Id);
+            entity.HasIndex(a => a.ProcessName).IsUnique();
+            entity.Property(a => a.DisplayName).IsRequired().HasMaxLength(240);
+            entity.Property(a => a.ProcessName).IsRequired().HasMaxLength(240);
+            entity.Property(a => a.ExecutablePath).HasMaxLength(1000);
+            entity.Property(a => a.AiDescription).HasMaxLength(1000);
+            entity.Property(a => a.LastAssistantMessage).HasMaxLength(1000);
+            entity.Property(a => a.TotalDuration)
                   .HasConversion(
                       v => v.Ticks,
                       v => TimeSpan.FromTicks(v));
+            entity.Property(a => a.Category).HasConversion<int>();
 
-            entity.Property(g => g.Status)
-                  .HasConversion<int>();
-
-            entity.HasMany(g => g.PlaySessions)
-                  .WithOne(s => s.Game)
-                  .HasForeignKey(s => s.GameId)
+            entity.HasMany(a => a.Sessions)
+                  .WithOne(s => s.ApplicationUsage)
+                  .HasForeignKey(s => s.ApplicationUsageId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // PlaySession entity
-        modelBuilder.Entity<PlaySession>(entity =>
+        modelBuilder.Entity<ApplicationUsageSession>(entity =>
         {
             entity.HasKey(s => s.Id);
-            entity.HasIndex(s => s.GameId);
-
+            entity.HasIndex(s => s.ApplicationUsageId);
+            entity.HasIndex(s => s.StartTime);
+            entity.Property(s => s.ProcessName).IsRequired().HasMaxLength(240);
+            entity.Property(s => s.ExecutablePath).HasMaxLength(1000);
             entity.Property(s => s.Duration)
                   .HasConversion(
                       v => v.Ticks,
                       v => TimeSpan.FromTicks(v));
-        });
-
-        modelBuilder.Entity<RecommendationFeedback>(entity =>
-        {
-            entity.HasKey(f => f.Id);
-            entity.HasIndex(f => f.VndbId).IsUnique();
-            entity.Property(f => f.VndbId).IsRequired().HasMaxLength(50);
         });
     }
 }
