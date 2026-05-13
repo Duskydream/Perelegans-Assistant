@@ -19,6 +19,7 @@ public partial class MainViewModel : ObservableObject
     private readonly DatabaseService _dbService;
     private readonly SettingsService _settingsService;
     private readonly ProcessMonitorService _processMonitor;
+    private readonly FocusClassificationClient? _focusClient;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
 
@@ -29,19 +30,41 @@ public partial class MainViewModel : ObservableObject
     private ObservableCollection<ApplicationUsageSession> _recentSessions = new();
 
     [ObservableProperty]
-    private string _currentProcessName = "Waiting for foreground app";
+    private string _currentProcessName = TranslationService.Instance["Main_WaitingForApp"];
 
     [ObservableProperty]
-    private string _currentProcessDurationText = "0m";
+    private string _currentProcessDurationText = TranslationService.Instance["Main_ZeroDuration"];
 
     [ObservableProperty]
-    private string _currentFocusLabel = "Unknown";
+    private string _currentFocusLabel = TranslationService.Instance["Main_Unknown"];
 
     [ObservableProperty]
     private bool _isBusy;
 
     [ObservableProperty]
     private string _statusText = string.Empty;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SendConversationMessageCommand))]
+    private string _conversationInput = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<ConversationMessage> _conversationMessages = new();
+
+    [ObservableProperty]
+    private ObservableCollection<FocusTask> _focusTasks = new();
+
+    [ObservableProperty]
+    private ObservableCollection<GalaxyLinkViewModel> _galaxyLinks = new();
+
+    [ObservableProperty]
+    private string _currentFocusGoal = string.Empty;
+
+    [ObservableProperty]
+    private bool _isGalaxyVisible;
+
+    [ObservableProperty]
+    private bool _hasConversationStarted;
 
     public int ApplicationCount => Applications.Count;
     public int ProductiveCount => Applications.Count(a => a.Category == ApplicationFocusCategory.Productive);
@@ -50,17 +73,39 @@ public partial class MainViewModel : ObservableObject
     public string TotalDurationText => FormatDuration(Applications.Aggregate(TimeSpan.Zero, (total, item) => total + item.TotalDuration));
     public string RecentSessionCountText => RecentSessions.Count.ToString();
     public bool IsMonitorEnabled => _settingsService.Settings.MonitorEnabled;
+    public string MonitorButtonText => IsMonitorEnabled ? T("Main_PauseMonitor") : T("Main_StartMonitor");
+    public string MonitoringStateText => IsMonitorEnabled ? T("Main_MonitoringOn") : T("Main_MonitoringOff");
+    public string CurrentFocusGoalDisplay => string.IsNullOrWhiteSpace(CurrentFocusGoal)
+        ? T("Main_NoTask")
+        : CurrentFocusGoal;
+    public string ApplicationCountText => string.Format(T("Main_AppsCountFormat"), ApplicationCount);
+    public string FocusTaskCountText => string.Format(T("Main_FocusTaskCountFormat"), FocusTasks.Count(t => t.Status == FocusTaskStatus.Completed), FocusTasks.Count);
+    public string ProductiveShareText
+    {
+        get
+        {
+            if (ApplicationCount == 0)
+            {
+                return T("Main_NoSignal");
+            }
+
+            var share = (int)Math.Round(ProductiveCount * 100d / ApplicationCount);
+            return string.Format(T("Main_ProductiveShareFormat"), share);
+        }
+    }
 
     public MainViewModel(
         DatabaseService dbService,
         SettingsService settingsService,
         ProcessMonitorService processMonitor,
+        FocusClassificationClient? focusClient,
         Action openSettings,
         Action exitApplication)
     {
         _dbService = dbService;
         _settingsService = settingsService;
         _processMonitor = processMonitor;
+        _focusClient = focusClient;
         _openSettings = openSettings;
         _exitApplication = exitApplication;
 
@@ -69,15 +114,30 @@ public partial class MainViewModel : ObservableObject
         {
             if (e.PropertyName == "Item[]")
             {
+                if (CurrentProcessName == "Waiting for foreground app" || CurrentProcessName == "等待前台应用")
+                {
+                    CurrentProcessName = T("Main_WaitingForApp");
+                }
+
+                if (CurrentFocusLabel == "Unknown" || CurrentFocusLabel == "未知")
+                {
+                    CurrentFocusLabel = T("Main_Unknown");
+                }
+
                 RefreshComputedStats();
+                RefreshUiTextProperties();
             }
         };
+
+        SyncFocusGoalFromSettings();
+        SeedConversation();
     }
 
     public async Task InitializeAsync()
     {
         await _dbService.EnsureDatabaseCreatedAsync();
         await RefreshAsync();
+        await RefreshFocusTasksAsync();
 
         _processMonitor.SetInterval(_settingsService.Settings.MonitorIntervalSeconds);
         if (_settingsService.Settings.MonitorEnabled)
@@ -95,7 +155,7 @@ public partial class MainViewModel : ObservableObject
             Applications = new ObservableCollection<ApplicationUsage>(await _dbService.GetAllApplicationUsagesAsync());
             RecentSessions = new ObservableCollection<ApplicationUsageSession>(
                 (await _dbService.GetAllApplicationUsageSessionsAsync()).Take(80));
-            StatusText = $"Last refreshed {DateTime.Now:HH:mm:ss}";
+            StatusText = string.Format(T("Main_LastRefreshedFormat"), DateTime.Now.ToString("HH:mm:ss"));
             RefreshComputedStats();
         }
         catch (Exception ex)
@@ -113,8 +173,8 @@ public partial class MainViewModel : ObservableObject
     private async Task ClearUsageData()
     {
         var result = MessageBox.Show(
-            "Clear all recorded application usage data?",
-            "FocusArchive",
+            T("Main_ClearDataConfirm"),
+            T("Main_WindowTitle"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
 
@@ -142,7 +202,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         await _dbService.BackupDatabaseAsync(dialog.FileName);
-        StatusText = "Backup saved.";
+        StatusText = T("Main_BackupSaved");
     }
 
     [RelayCommand]
@@ -172,7 +232,7 @@ public partial class MainViewModel : ObservableObject
             _processMonitor.Start();
         }
 
-        StatusText = "Backup restored.";
+        StatusText = T("Main_BackupRestored");
     }
 
     [RelayCommand]
@@ -192,12 +252,15 @@ public partial class MainViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(IsMonitorEnabled));
+        OnPropertyChanged(nameof(MonitorButtonText));
+        OnPropertyChanged(nameof(MonitoringStateText));
     }
 
     [RelayCommand]
     private void OpenSettings()
     {
         _openSettings();
+        SyncFocusGoalFromSettings();
     }
 
     [RelayCommand]
@@ -210,7 +273,442 @@ public partial class MainViewModel : ObservableObject
     {
         CurrentProcessName = snapshot.ProcessName;
         CurrentProcessDurationText = FormatDuration(snapshot.Duration);
-        CurrentFocusLabel = snapshot.IsKnownProductivityApp ? "Likely productive" : "Unclassified";
+        CurrentFocusLabel = snapshot.IsKnownProductivityApp ? T("Main_LikelyProductive") : T("Main_Unclassified");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSendConversationMessage))]
+    private async Task SendConversationMessage()
+    {
+        var text = ConversationInput.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        ConversationMessages.Add(ConversationMessage.User(text));
+        ConversationInput = string.Empty;
+        HasConversationStarted = true;
+        await DispatchConversationAsync(text);
+    }
+
+    [RelayCommand]
+    private void UseGoalPreset(string preset)
+    {
+        if (string.IsNullOrWhiteSpace(preset))
+        {
+            return;
+        }
+
+        ConversationInput = preset;
+    }
+
+    [RelayCommand]
+    private void ToggleGalaxy()
+    {
+        IsGalaxyVisible = !IsGalaxyVisible;
+    }
+
+    private bool CanSendConversationMessage()
+    {
+        return !string.IsNullOrWhiteSpace(ConversationInput);
+    }
+
+    private async Task DispatchConversationAsync(string text)
+    {
+        var aiResult = await TryParseWithAiAsync(text);
+        if (aiResult != null && aiResult.Confidence >= 0.45)
+        {
+            await DispatchParsedInstructionAsync(aiResult);
+            return;
+        }
+
+        await DispatchLocalFallbackAsync(text);
+    }
+
+    private async Task<TaskInstructionResult?> TryParseWithAiAsync(string text)
+    {
+        if (_focusClient?.IsConfigured != true)
+        {
+            return null;
+        }
+
+        StatusText = T("Main_ParsingInput");
+        try
+        {
+            return await _focusClient.ParseTaskInstructionAsync(text, CurrentFocusGoal);
+        }
+        catch (Exception ex)
+        {
+            App.WriteCrashLog(ex);
+            StatusText = ex.Message;
+            return null;
+        }
+    }
+
+    private async Task DispatchParsedInstructionAsync(TaskInstructionResult instruction)
+    {
+        var command = NormalizeCommand(instruction.Command);
+        var tasks = NormalizeTasks(instruction.Tasks, instruction.PrimaryTask);
+        var intent = instruction.Intent.Trim().ToLowerInvariant();
+
+        if (command != "none")
+        {
+            await ExecuteCommandAsync(command);
+        }
+
+        if ((intent == "task" || intent == "mixed") && tasks.Count > 0)
+        {
+            await CreateAdventureTasksAsync(tasks, string.Join("；", tasks));
+            return;
+        }
+
+        if (command != "none")
+        {
+            return;
+        }
+
+        ConversationMessages.Add(ConversationMessage.Assistant(
+            string.IsNullOrWhiteSpace(instruction.AssistantMessage)
+                ? T("Main_AssistantNoTaskRecognized")
+                : instruction.AssistantMessage.Trim()));
+    }
+
+    private async Task DispatchLocalFallbackAsync(string text)
+    {
+        var normalized = text.Trim().ToLowerInvariant();
+
+        if (ContainsAny(normalized, "help", "commands", "怎么", "帮助"))
+        {
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantHelp")));
+            return;
+        }
+
+        if (ContainsAny(normalized, "settings", "configure", "设置", "配置"))
+        {
+            OpenSettings();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantSettingsOpened")));
+            return;
+        }
+
+        if (ContainsAny(normalized, "refresh", "reload", "刷新", "更新"))
+        {
+            await RefreshAsync();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantRefreshed")));
+            return;
+        }
+
+        if (ContainsAny(normalized, "pause", "stop monitor", "disable monitor", "停止监控", "暂停监控"))
+        {
+            SetMonitorEnabled(false);
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantMonitoringPaused")));
+            return;
+        }
+
+        if (ContainsAny(normalized, "start", "resume", "enable monitor", "开始监控", "启动监控", "继续监控"))
+        {
+            SetMonitorEnabled(true);
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantMonitoringOn")));
+            return;
+        }
+
+        if (ContainsAny(normalized, "backup", "备份"))
+        {
+            await SaveBackup();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantBackupDone")));
+            return;
+        }
+
+        if (ContainsAny(normalized, "restore", "恢复"))
+        {
+            await RestoreBackup();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantRestoreDone")));
+            return;
+        }
+
+        if (ContainsAny(normalized, "clear usage", "clear data", "清空", "清除"))
+        {
+            await ClearUsageData();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantDataActionDone")));
+            return;
+        }
+
+        if (ContainsAny(normalized, "complete", "done", "finish task", "完成任务", "完成了", "已完成"))
+        {
+            await CompleteLatestTaskAsync();
+            return;
+        }
+
+        if (!LooksLikeTask(text))
+        {
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantNoTaskRecognized")));
+            return;
+        }
+
+        await CreateAdventureTasksAsync([text], text);
+    }
+
+    private async Task ExecuteCommandAsync(string command)
+    {
+        switch (command)
+        {
+            case "settings":
+                OpenSettings();
+                ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantSettingsOpened")));
+                break;
+            case "refresh":
+                await RefreshAsync();
+                ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantRefreshed")));
+                break;
+            case "pause_monitor":
+                SetMonitorEnabled(false);
+                ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantMonitoringPaused")));
+                break;
+            case "start_monitor":
+                SetMonitorEnabled(true);
+                ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantMonitoringOn")));
+                break;
+            case "complete_task":
+                await CompleteLatestTaskAsync();
+                break;
+            case "backup":
+                await SaveBackup();
+                ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantBackupDone")));
+                break;
+            case "restore":
+                await RestoreBackup();
+                ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantRestoreDone")));
+                break;
+            case "clear_data":
+                await ClearUsageData();
+                ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantDataActionDone")));
+                break;
+        }
+    }
+
+    private static string NormalizeCommand(string? command)
+    {
+        return command?.Trim().ToLowerInvariant() switch
+        {
+            "start" or "start_monitor" or "resume" => "start_monitor",
+            "pause" or "stop" or "pause_monitor" or "stop_monitor" => "pause_monitor",
+            "complete" or "complete_task" or "done" or "finish" => "complete_task",
+            "reload" or "refresh" => "refresh",
+            "config" or "configure" or "settings" => "settings",
+            "backup" => "backup",
+            "restore" => "restore",
+            "clear" or "clear_data" or "clear_usage" => "clear_data",
+            _ => "none"
+        };
+    }
+
+    private static List<string> NormalizeTasks(IEnumerable<string>? tasks, string? primaryTask)
+    {
+        var result = (tasks ?? [])
+            .Select(task => task.Trim())
+            .Where(task => !string.IsNullOrWhiteSpace(task))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(6)
+            .ToList();
+
+        if (result.Count == 0 && !string.IsNullOrWhiteSpace(primaryTask))
+        {
+            result.Add(primaryTask.Trim());
+        }
+
+        return result;
+    }
+
+    private static bool LooksLikeTask(string text)
+    {
+        var normalized = text.Trim();
+        if (normalized.Length < 3)
+        {
+            return false;
+        }
+
+        var lower = normalized.ToLowerInvariant();
+        if (normalized.EndsWith('?') ||
+            normalized.EndsWith('？') ||
+            ContainsAny(lower, "是什么", "为什么", "怎么", "如何", "吗", "呢", "hello", "hi", "thanks", "谢谢"))
+        {
+            return false;
+        }
+
+        return ContainsAny(lower,
+            "写", "做", "完成", "复习", "学习", "整理", "实现", "开发", "阅读", "总结", "修改", "准备",
+            "write", "finish", "study", "review", "implement", "build", "read", "prepare", "draft", "fix");
+    }
+
+    private async Task CreateAdventureTasksAsync(IReadOnlyList<string> tasks, string originalInput)
+    {
+        var created = new List<FocusTask>();
+        foreach (var task in tasks)
+        {
+            var adventure = await CreateAdventureDraftAsync(task);
+            var focusTask = await _dbService.CreateFocusTaskAsync(task, originalInput, adventure);
+            created.Add(focusTask);
+            ConversationMessages.Add(ConversationMessage.Assistant(focusTask.QuestNarrative));
+        }
+
+        if (created.Count == 0)
+        {
+            return;
+        }
+
+        SetFocusGoal(string.Join("；", created.Select(t => t.Title)));
+        await RefreshFocusTasksAsync();
+        IsGalaxyVisible = true;
+    }
+
+    private async Task<TaskAdventureDraft?> CreateAdventureDraftAsync(string task)
+    {
+        if (_focusClient?.IsConfigured == true)
+        {
+            try
+            {
+                var draft = await _focusClient.CreateTaskAdventureAsync(task);
+                if (draft != null)
+                {
+                    return draft;
+                }
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+        }
+
+        return new TaskAdventureDraft
+        {
+            QuestTitle = T("Main_FallbackQuestTitle"),
+            QuestNarrative = string.Format(T("Main_FallbackQuestNarrativeFormat"), task),
+            RewardName = T("Main_FallbackRewardName")
+        };
+    }
+
+    private async Task CompleteLatestTaskAsync()
+    {
+        var latest = FocusTasks
+            .Where(t => t.Status == FocusTaskStatus.Active)
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefault();
+        if (latest == null)
+        {
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantNoActiveTask")));
+            return;
+        }
+
+        TaskCompletionDraft? completion = null;
+        if (_focusClient?.IsConfigured == true)
+        {
+            try
+            {
+                completion = await _focusClient.CreateTaskCompletionAsync(latest.Title, latest.RewardName);
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+        }
+
+        completion ??= new TaskCompletionDraft
+        {
+            CompletionNarrative = string.Format(T("Main_FallbackCompletionNarrativeFormat"), latest.Title, latest.RewardName),
+            RewardName = latest.RewardName
+        };
+
+        var completed = await _dbService.CompleteLatestActiveFocusTaskAsync(completion);
+        if (completed == null)
+        {
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantNoActiveTask")));
+            return;
+        }
+
+        ConversationMessages.Add(ConversationMessage.Assistant(completed.CompletionNarrative));
+        await RefreshFocusTasksAsync();
+        IsGalaxyVisible = true;
+    }
+
+    private async Task RefreshFocusTasksAsync()
+    {
+        var tasks = await _dbService.GetFocusTasksAsync();
+        var links = await _dbService.GetFocusTaskLinksAsync();
+        FocusTasks = new ObservableCollection<FocusTask>(tasks.OrderBy(t => t.CreatedAt));
+        GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateGalaxyLinks(tasks, links));
+        OnPropertyChanged(nameof(FocusTaskCountText));
+    }
+
+    private static IEnumerable<GalaxyLinkViewModel> CreateGalaxyLinks(
+        IReadOnlyCollection<FocusTask> tasks,
+        IEnumerable<FocusTaskLink> links)
+    {
+        var byId = tasks.ToDictionary(t => t.Id);
+        foreach (var link in links)
+        {
+            if (!byId.TryGetValue(link.SourceTaskId, out var source) ||
+                !byId.TryGetValue(link.TargetTaskId, out var target))
+            {
+                continue;
+            }
+
+            yield return new GalaxyLinkViewModel(
+                source.X + source.NodeSize / 2,
+                source.Y + source.NodeSize / 2,
+                target.X + target.NodeSize / 2,
+                target.Y + target.NodeSize / 2,
+                link.Strength);
+        }
+    }
+
+    private void SetMonitorEnabled(bool enabled)
+    {
+        if (_settingsService.Settings.MonitorEnabled == enabled)
+        {
+            RefreshMonitorStateProperties();
+            return;
+        }
+
+        ToggleMonitor();
+    }
+
+    private void SetFocusGoal(string goal)
+    {
+        var normalized = goal.Trim();
+        CurrentFocusGoal = normalized;
+        _settingsService.Settings.FocusGoal = normalized;
+        _settingsService.Save();
+        StatusText = T("Main_TaskGoalUpdated");
+        OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
+    }
+
+    private void SyncFocusGoalFromSettings()
+    {
+        CurrentFocusGoal = _settingsService.Settings.FocusGoal;
+        OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
+        RefreshMonitorStateProperties();
+    }
+
+    private void RefreshMonitorStateProperties()
+    {
+        OnPropertyChanged(nameof(IsMonitorEnabled));
+        OnPropertyChanged(nameof(MonitorButtonText));
+        OnPropertyChanged(nameof(MonitoringStateText));
+    }
+
+    private void SeedConversation()
+    {
+        ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantSeed")));
+
+        if (!string.IsNullOrWhiteSpace(CurrentFocusGoal))
+        {
+            ConversationMessages.Add(ConversationMessage.Assistant(
+                string.Format(T("Main_AssistantCurrentTaskFormat"), CurrentFocusGoal)));
+        }
+    }
+
+    private static bool ContainsAny(string text, params string[] candidates)
+    {
+        return candidates.Any(text.Contains);
     }
 
     private void RefreshComputedStats()
@@ -221,20 +719,81 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(UnknownCount));
         OnPropertyChanged(nameof(TotalDurationText));
         OnPropertyChanged(nameof(RecentSessionCountText));
+        OnPropertyChanged(nameof(ProductiveShareText));
+        OnPropertyChanged(nameof(ApplicationCountText));
+        OnPropertyChanged(nameof(FocusTaskCountText));
     }
+
+    private void RefreshUiTextProperties()
+    {
+        OnPropertyChanged(nameof(MonitorButtonText));
+        OnPropertyChanged(nameof(MonitoringStateText));
+        OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
+        OnPropertyChanged(nameof(ProductiveShareText));
+        OnPropertyChanged(nameof(ApplicationCountText));
+        OnPropertyChanged(nameof(FocusTaskCountText));
+    }
+
+    private static string T(string key) => TranslationService.Instance[key];
 
     private static string FormatDuration(TimeSpan duration)
     {
         if (duration.TotalHours >= 1)
         {
-            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+            return string.Format(T("Main_HoursMinutesFormat"), (int)duration.TotalHours, duration.Minutes);
         }
 
         if (duration.TotalMinutes >= 1)
         {
-            return $"{Math.Max(1, (int)Math.Round(duration.TotalMinutes))}m";
+            return string.Format(T("Main_MinutesFormat"), Math.Max(1, (int)Math.Round(duration.TotalMinutes)));
         }
 
-        return $"{Math.Max(0, (int)Math.Round(duration.TotalSeconds))}s";
+        return string.Format(T("Main_SecondsFormat"), Math.Max(0, (int)Math.Round(duration.TotalSeconds)));
     }
+}
+
+public partial class ConversationMessage : ObservableObject
+{
+    private static readonly TimeSpan TypingDelay = TimeSpan.FromMilliseconds(14);
+
+    private ConversationMessage(string text, bool isUser)
+    {
+        _text = isUser ? text : string.Empty;
+        IsUser = isUser;
+        Timestamp = DateTime.Now;
+        Alignment = isUser ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Left;
+
+        if (!isUser)
+        {
+            _ = StreamTextAsync(text);
+        }
+    }
+
+    [ObservableProperty]
+    private string _text;
+
+    public bool IsUser { get; }
+    public DateTime Timestamp { get; }
+    public System.Windows.HorizontalAlignment Alignment { get; }
+
+    public static ConversationMessage User(string text) => new(text, true);
+    public static ConversationMessage Assistant(string text) => new(text, false);
+
+    private async Task StreamTextAsync(string text)
+    {
+        foreach (var character in text)
+        {
+            Text += character;
+            await Task.Delay(TypingDelay);
+        }
+    }
+}
+
+public sealed class GalaxyLinkViewModel(double x1, double y1, double x2, double y2, double strength)
+{
+    public double X1 { get; } = x1;
+    public double Y1 { get; } = y1;
+    public double X2 { get; } = x2;
+    public double Y2 { get; } = y2;
+    public double Opacity { get; } = Math.Clamp(strength, 0.25, 0.85);
 }

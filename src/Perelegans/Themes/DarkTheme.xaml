@@ -2,45 +2,45 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:system="clr-namespace:System;assembly=mscorlib">
 
-    <!-- Perelegans Dark Theme: Dark Gray + Pink (desaturated) -->
+    <!-- Perelegans Dark Theme: Obsidian-like dark surface + quiet pink accent -->
 
     <!-- Window & Panel Backgrounds -->
-    <SolidColorBrush x:Key="Perelegans.WindowBackground" Color="#252526"/>
-    <SolidColorBrush x:Key="Perelegans.PanelBackground" Color="#2D2D30"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBackground" Color="#252526"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBorderBrush" Color="#3A3A3C"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartMetricBackground" Color="#303033"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartSliceBorderBrush" Color="#252526"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBackground" Color="#3A2E31"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBorderBrush" Color="#E37F7F"/>
+    <SolidColorBrush x:Key="Perelegans.WindowBackground" Color="#1E1E1E"/>
+    <SolidColorBrush x:Key="Perelegans.PanelBackground" Color="#242424"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBackground" Color="#1E1E1E"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBorderBrush" Color="#343434"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartMetricBackground" Color="#2A2A2A"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartSliceBorderBrush" Color="#1E1E1E"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBackground" Color="#30272A"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBorderBrush" Color="#DFA8B5"/>
     
     <!-- Accent (slightly desaturated pink for dark-mode contrast) -->
-    <Color x:Key="Perelegans.AccentColor">#FFC0CB</Color>
-    <SolidColorBrush x:Key="Perelegans.AccentBrush" Color="#FFC0CB"/>
-    <SolidColorBrush x:Key="Perelegans.AccentHoverBrush" Color="#FFC0CB"/>
-    <SolidColorBrush x:Key="MahApps.Brushes.Accent" Color="#FFC0CB"/>
+    <Color x:Key="Perelegans.AccentColor">#DFA8B5</Color>
+    <SolidColorBrush x:Key="Perelegans.AccentBrush" Color="#DFA8B5"/>
+    <SolidColorBrush x:Key="Perelegans.AccentHoverBrush" Color="#E8BAC4"/>
+    <SolidColorBrush x:Key="MahApps.Brushes.Accent" Color="#DFA8B5"/>
     
     <!-- Typography -->
-    <SolidColorBrush x:Key="Perelegans.ForegroundBrush" Color="#DCDCDC"/>
-    <SolidColorBrush x:Key="Perelegans.SubtleForegroundBrush" Color="#9E9E9E"/>
-    <SolidColorBrush x:Key="Perelegans.StatusBarValueForegroundBrush" Color="#C8C8C8"/>
+    <SolidColorBrush x:Key="Perelegans.ForegroundBrush" Color="#D8D8D8"/>
+    <SolidColorBrush x:Key="Perelegans.SubtleForegroundBrush" Color="#A0A0A0"/>
+    <SolidColorBrush x:Key="Perelegans.StatusBarValueForegroundBrush" Color="#C6C6C6"/>
     <SolidColorBrush x:Key="Perelegans.DataGridSelectedPrimaryForegroundBrush" Color="#000000"/>
-    <SolidColorBrush x:Key="Perelegans.StatusIconBrush" Color="#FFD2DB"/>
+    <SolidColorBrush x:Key="Perelegans.StatusIconBrush" Color="#DFA8B5"/>
     
     <!-- Borders -->
-    <SolidColorBrush x:Key="Perelegans.BorderBrush" Color="#3F3F46"/>
-    <SolidColorBrush x:Key="Perelegans.ButtonBorderBrush" Color="#3F3F46"/>
+    <SolidColorBrush x:Key="Perelegans.BorderBrush" Color="#363636"/>
+    <SolidColorBrush x:Key="Perelegans.ButtonBorderBrush" Color="#363636"/>
     
     <!-- DataGrid -->
-    <SolidColorBrush x:Key="Perelegans.DataGridAltRowBrush" Color="#2A2A2E"/>
-    <SolidColorBrush x:Key="Perelegans.DataGridHeaderBackground" Color="#333337"/>
-    <SolidColorBrush x:Key="Perelegans.DataGridSelectedRowBrush" Color="#FFE6ED"/>
+    <SolidColorBrush x:Key="Perelegans.DataGridAltRowBrush" Color="#222222"/>
+    <SolidColorBrush x:Key="Perelegans.DataGridHeaderBackground" Color="#292929"/>
+    <SolidColorBrush x:Key="Perelegans.DataGridSelectedRowBrush" Color="#3A3034"/>
     
     <!-- StatusBar -->
-    <SolidColorBrush x:Key="Perelegans.StatusBarBackground" Color="#1E1E1E"/>
+    <SolidColorBrush x:Key="Perelegans.StatusBarBackground" Color="#191919"/>
     
     <!-- Menu -->
-    <SolidColorBrush x:Key="Perelegans.MenuBackground" Color="#252526"/>
-    <SolidColorBrush x:Key="Perelegans.MenuHoverBrush" Color="#3E3E42"/>
+    <SolidColorBrush x:Key="Perelegans.MenuBackground" Color="#202020"/>
+    <SolidColorBrush x:Key="Perelegans.MenuHoverBrush" Color="#2E2E2E"/>
 
 </ResourceDictionary>

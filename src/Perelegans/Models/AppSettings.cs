@@ -39,7 +39,7 @@ public class AppSettings
     public bool MonitorEnabled { get; set; } = true;
 
     /// <summary>
-    /// UI Language code (e.g. zh-Hans, en-US, ja-JP).
+    /// UI Language code (e.g. zh-Hans, en-US).
     /// </summary>
     public string Language { get; set; } = "zh-Hans";
 
@@ -72,4 +72,9 @@ public class AppSettings
     /// Model identifier for focus classification.
     /// </summary>
     public string AiModel { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional user-defined focus goal used by AI classification.
+    /// </summary>
+    public string FocusGoal { get; set; } = string.Empty;
 }

@@ -27,6 +27,9 @@
   <data name="Settings_AiProviderHint_OpenAI" xml:space="preserve"><value>用于 OpenAI 或 OpenAI 兼容 API。Base URL 示例：https://api.openai.com/v1</value></data>
   <data name="Settings_AiProviderHint_OpenRouter" xml:space="preserve"><value>使用 OpenRouter 的 OpenAI 兼容 API。Base URL 示例：https://openrouter.ai/api/v1</value></data>
   <data name="Settings_AiProviderHint_Anthropic" xml:space="preserve"><value>保留给后续支持。当前专注判断需要 OpenAI 兼容接口。</value></data>
+  <data name="Settings_FocusGoal" xml:space="preserve"><value>专注目标：</value></data>
+  <data name="Settings_FocusGoalWatermark" xml:space="preserve"><value>通用专注、考研复习、写论文、开发项目……</value></data>
+  <data name="Settings_FocusGoalHint" xml:space="preserve"><value>留空时按通用专注判断；填写后，AI 会围绕这个目标判断当前应用是否有帮助。</value></data>
   <data name="Settings_AiBaseUrl" xml:space="preserve"><value>Base URL：</value></data>
   <data name="Settings_AiApiKey" xml:space="preserve"><value>API Key：</value></data>
   <data name="Settings_AiModel" xml:space="preserve"><value>模型：</value></data>
@@ -34,9 +37,83 @@
   <data name="Settings_AiTestSuccess" xml:space="preserve"><value>配置看起来可用，模型：{0}</value></data>
   <data name="Settings_AiTestMissingConfig" xml:space="preserve"><value>请先填写 API Base URL、API Key 和模型。</value></data>
   <data name="Settings_AiTestInvalidUrl" xml:space="preserve"><value>API Base URL 无效。</value></data>
+  <data name="Settings_AiTestRunning" xml:space="preserve"><value>正在发送测试消息...</value></data>
+  <data name="Settings_AiTestInvalidResponse" xml:space="preserve"><value>API 有响应，但没有解析到有效的 JSON 消息。</value></data>
+  <data name="Settings_AiTestTimeout" xml:space="preserve"><value>测试请求超时。</value></data>
+  <data name="Settings_AiTestFailed" xml:space="preserve"><value>AI 测试失败：{0}</value></data>
   <data name="Settings_System" xml:space="preserve"><value>系统</value></data>
   <data name="Settings_LaunchAtStartup" xml:space="preserve"><value>开机启动：</value></data>
   <data name="Settings_CloseBehavior" xml:space="preserve"><value>关闭行为：</value></data>
   <data name="Settings_CloseBehaviorExit" xml:space="preserve"><value>退出应用</value></data>
   <data name="Settings_CloseBehaviorTray" xml:space="preserve"><value>最小化到托盘</value></data>
+  <data name="Settings_Data" xml:space="preserve"><value>数据</value></data>
+  <data name="Settings_DataActions" xml:space="preserve"><value>数据库：</value></data>
+  <data name="Settings_DataBackupSaved" xml:space="preserve"><value>已备份。</value></data>
+  <data name="Settings_DataBackupRestored" xml:space="preserve"><value>已恢复。必要时可重新打开或刷新主面板。</value></data>
+  <data name="Settings_WindowTitle" xml:space="preserve"><value>设置</value></data>
+  <data name="Main_WindowTitle" xml:space="preserve"><value>re-Perelegans</value></data>
+  <data name="Main_AppTitle" xml:space="preserve"><value>re-Perelegans</value></data>
+  <data name="Main_PrimaryPrompt" xml:space="preserve"><value>今天要完成什么？</value></data>
+  <data name="Main_InputWatermark" xml:space="preserve"><value>输入任务，或输入“刷新 / 设置 / 开始 / 暂停”</value></data>
+  <data name="Main_Send" xml:space="preserve"><value>发送</value></data>
+  <data name="Main_Refresh" xml:space="preserve"><value>刷新</value></data>
+  <data name="Main_Settings" xml:space="preserve"><value>设置</value></data>
+  <data name="Main_Galaxy" xml:space="preserve"><value>星图</value></data>
+  <data name="Main_CloseGalaxy" xml:space="preserve"><value>返回</value></data>
+  <data name="Main_GalaxyTitle" xml:space="preserve"><value>个人记忆星系</value></data>
+  <data name="Main_Exit" xml:space="preserve"><value>退出</value></data>
+  <data name="Main_Backup" xml:space="preserve"><value>备份</value></data>
+  <data name="Main_Restore" xml:space="preserve"><value>恢复</value></data>
+  <data name="Main_ClearData" xml:space="preserve"><value>清空数据</value></data>
+  <data name="Main_StartMonitor" xml:space="preserve"><value>开始</value></data>
+  <data name="Main_PauseMonitor" xml:space="preserve"><value>暂停</value></data>
+  <data name="Main_MonitoringOn" xml:space="preserve"><value>监控中</value></data>
+  <data name="Main_MonitoringOff" xml:space="preserve"><value>已暂停</value></data>
+  <data name="Main_CurrentApp" xml:space="preserve"><value>当前应用</value></data>
+  <data name="Main_Total" xml:space="preserve"><value>累计</value></data>
+  <data name="Main_NoTask" xml:space="preserve"><value>还没有任务</value></data>
+  <data name="Main_NoSignal" xml:space="preserve"><value>暂无信号</value></data>
+  <data name="Main_AppsCountFormat" xml:space="preserve"><value>{0} 个应用</value></data>
+  <data name="Main_FocusTaskCountFormat" xml:space="preserve"><value>已完成 {0} / 共 {1} 个任务</value></data>
+  <data name="Main_ProductiveShareFormat" xml:space="preserve"><value>{0}% 专注</value></data>
+  <data name="Main_WaitingForApp" xml:space="preserve"><value>等待前台应用</value></data>
+  <data name="Main_Unknown" xml:space="preserve"><value>未知</value></data>
+  <data name="Main_LikelyProductive" xml:space="preserve"><value>专注</value></data>
+  <data name="Main_Unclassified" xml:space="preserve"><value>未分类</value></data>
+  <data name="Main_ZeroDuration" xml:space="preserve"><value>0 秒</value></data>
+  <data name="Main_HoursMinutesFormat" xml:space="preserve"><value>{0} 时 {1} 分</value></data>
+  <data name="Main_MinutesFormat" xml:space="preserve"><value>{0} 分</value></data>
+  <data name="Main_SecondsFormat" xml:space="preserve"><value>{0} 秒</value></data>
+  <data name="Main_LastRefreshedFormat" xml:space="preserve"><value>已刷新 {0}</value></data>
+  <data name="Main_BackupSaved" xml:space="preserve"><value>已备份。</value></data>
+  <data name="Main_BackupRestored" xml:space="preserve"><value>已恢复。</value></data>
+  <data name="Main_ClearDataConfirm" xml:space="preserve"><value>确定清空所有应用使用记录吗？</value></data>
+  <data name="Main_TaskGoalUpdated" xml:space="preserve"><value>任务已更新。</value></data>
+  <data name="Main_ParsingInput" xml:space="preserve"><value>正在识别输入……</value></data>
+  <data name="Main_PresetDeepWork" xml:space="preserve"><value>深度工作</value></data>
+  <data name="Main_PresetStudy" xml:space="preserve"><value>学习</value></data>
+  <data name="Main_PresetWriting" xml:space="preserve"><value>写作</value></data>
+  <data name="Main_PresetCoding" xml:space="preserve"><value>开发</value></data>
+  <data name="Main_PresetDeepWorkPrompt" xml:space="preserve"><value>完成一段不切换上下文的深度工作</value></data>
+  <data name="Main_PresetStudyPrompt" xml:space="preserve"><value>复习课程笔记并完成学习任务</value></data>
+  <data name="Main_PresetWritingPrompt" xml:space="preserve"><value>完成一段写作、修改或整理</value></data>
+  <data name="Main_PresetCodingPrompt" xml:space="preserve"><value>实现并验证当前开发任务</value></data>
+  <data name="Main_AssistantSeed" xml:space="preserve"><value>输入任务，或输入“刷新”“设置”“开始”“暂停”。</value></data>
+  <data name="Main_AssistantCurrentTaskFormat" xml:space="preserve"><value>当前任务：{0}</value></data>
+  <data name="Main_AssistantHelp" xml:space="preserve"><value>可以直接输入任务，也可以输入开始、暂停、刷新、设置、备份、恢复或清空数据。</value></data>
+  <data name="Main_AssistantSettingsOpened" xml:space="preserve"><value>已打开设置。</value></data>
+  <data name="Main_AssistantRefreshed" xml:space="preserve"><value>已刷新。</value></data>
+  <data name="Main_AssistantMonitoringPaused" xml:space="preserve"><value>监控已暂停。</value></data>
+  <data name="Main_AssistantMonitoringOn" xml:space="preserve"><value>监控已开始。</value></data>
+  <data name="Main_AssistantBackupDone" xml:space="preserve"><value>备份完成。</value></data>
+  <data name="Main_AssistantRestoreDone" xml:space="preserve"><value>恢复完成。</value></data>
+  <data name="Main_AssistantDataActionDone" xml:space="preserve"><value>已完成。</value></data>
+  <data name="Main_AssistantGoalSetFormat" xml:space="preserve"><value>任务已设为：{0}</value></data>
+  <data name="Main_AssistantTasksSetFormat" xml:space="preserve"><value>识别到 {0} 个任务：{1}</value></data>
+  <data name="Main_AssistantNoTaskRecognized" xml:space="preserve"><value>没有识别到明确任务。</value></data>
+  <data name="Main_AssistantNoActiveTask" xml:space="preserve"><value>没有正在进行的任务。</value></data>
+  <data name="Main_FallbackQuestTitle" xml:space="preserve"><value>主线任务触发</value></data>
+  <data name="Main_FallbackQuestNarrativeFormat" xml:space="preserve"><value>【主线任务触发】：现实裂隙已打开。守护者，请完成「{0}」，把这颗星点钉入你的记忆星系。</value></data>
+  <data name="Main_FallbackRewardName" xml:space="preserve"><value>微光徽记</value></data>
+  <data name="Main_FallbackCompletionNarrativeFormat" xml:space="preserve"><value>战斗胜利！你完成了「{0}」，获得『{1}』，今日专注属性隐性 +1。</value></data>
 </root>

@@ -37,6 +37,89 @@ public class DatabaseService
             .ToListAsync();
     }
 
+    public async Task<List<FocusTask>> GetFocusTasksAsync()
+    {
+        await using var db = new PerelegansDbContext();
+        return await db.FocusTasks
+            .AsNoTracking()
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<FocusTaskLink>> GetFocusTaskLinksAsync()
+    {
+        await using var db = new PerelegansDbContext();
+        return await db.FocusTaskLinks
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<FocusTask> CreateFocusTaskAsync(
+        string title,
+        string originalInput,
+        TaskAdventureDraft? adventure)
+    {
+        var normalizedTitle = string.IsNullOrWhiteSpace(title)
+            ? originalInput.Trim()
+            : title.Trim();
+
+        await using var db = new PerelegansDbContext();
+        var taskCount = await db.FocusTasks.CountAsync();
+        var (x, y) = CreateGalaxyCoordinate(taskCount);
+
+        var task = new FocusTask
+        {
+            Title = normalizedTitle,
+            OriginalInput = originalInput.Trim(),
+            QuestTitle = string.IsNullOrWhiteSpace(adventure?.QuestTitle)
+                ? "主线任务触发"
+                : adventure.QuestTitle.Trim(),
+            QuestNarrative = string.IsNullOrWhiteSpace(adventure?.QuestNarrative)
+                ? $"【主线任务触发】：{normalizedTitle}"
+                : adventure.QuestNarrative.Trim(),
+            RewardName = string.IsNullOrWhiteSpace(adventure?.RewardName)
+                ? "微光徽记"
+                : adventure.RewardName.Trim(),
+            CreatedAt = DateTime.Now,
+            X = x,
+            Y = y,
+            NodeSize = 18 + Math.Min(12, normalizedTitle.Length / 6d)
+        };
+
+        db.FocusTasks.Add(task);
+        await db.SaveChangesAsync();
+
+        await LinkRelatedTasksAsync(task);
+        return task;
+    }
+
+    public async Task<FocusTask?> CompleteLatestActiveFocusTaskAsync(TaskCompletionDraft? completion)
+    {
+        await using var db = new PerelegansDbContext();
+        var task = await db.FocusTasks
+            .Where(t => t.Status == FocusTaskStatus.Active)
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        if (task == null)
+        {
+            return null;
+        }
+
+        task.Status = FocusTaskStatus.Completed;
+        task.CompletedAt = DateTime.Now;
+        task.CompletionNarrative = string.IsNullOrWhiteSpace(completion?.CompletionNarrative)
+            ? $"战斗胜利！你完成了「{task.Title}」。"
+            : completion.CompletionNarrative.Trim();
+        task.RewardName = string.IsNullOrWhiteSpace(completion?.RewardName)
+            ? task.RewardName
+            : completion.RewardName.Trim();
+        task.NodeSize = Math.Max(task.NodeSize, 28);
+
+        await db.SaveChangesAsync();
+        return task;
+    }
+
     public async Task<ApplicationUsage> RecordApplicationUsageSessionAsync(
         string processName,
         string executablePath,
@@ -228,8 +311,110 @@ public class DatabaseService
 
             CREATE INDEX IF NOT EXISTS "IX_ApplicationUsageSessions_StartTime"
             ON "ApplicationUsageSessions" ("StartTime");
+
+            CREATE TABLE IF NOT EXISTS "FocusTasks" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_FocusTasks" PRIMARY KEY AUTOINCREMENT,
+                "Title" TEXT NOT NULL,
+                "OriginalInput" TEXT NOT NULL DEFAULT '',
+                "QuestTitle" TEXT NOT NULL DEFAULT '',
+                "QuestNarrative" TEXT NOT NULL DEFAULT '',
+                "CompletionNarrative" TEXT NOT NULL DEFAULT '',
+                "RewardName" TEXT NOT NULL DEFAULT '',
+                "Status" INTEGER NOT NULL DEFAULT 0,
+                "CreatedAt" TEXT NOT NULL,
+                "CompletedAt" TEXT NULL,
+                "X" REAL NOT NULL DEFAULT 0,
+                "Y" REAL NOT NULL DEFAULT 0,
+                "NodeSize" REAL NOT NULL DEFAULT 18
+            );
+
+            CREATE INDEX IF NOT EXISTS "IX_FocusTasks_CreatedAt"
+            ON "FocusTasks" ("CreatedAt");
+
+            CREATE INDEX IF NOT EXISTS "IX_FocusTasks_Status"
+            ON "FocusTasks" ("Status");
+
+            CREATE TABLE IF NOT EXISTS "FocusTaskLinks" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_FocusTaskLinks" PRIMARY KEY AUTOINCREMENT,
+                "SourceTaskId" INTEGER NOT NULL,
+                "TargetTaskId" INTEGER NOT NULL,
+                "Reason" TEXT NOT NULL DEFAULT '',
+                "Strength" REAL NOT NULL DEFAULT 0.5
+            );
+
+            CREATE INDEX IF NOT EXISTS "IX_FocusTaskLinks_SourceTaskId"
+            ON "FocusTaskLinks" ("SourceTaskId");
+
+            CREATE INDEX IF NOT EXISTS "IX_FocusTaskLinks_TargetTaskId"
+            ON "FocusTaskLinks" ("TargetTaskId");
             """;
         await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task LinkRelatedTasksAsync(FocusTask newTask)
+    {
+        await using var db = new PerelegansDbContext();
+        var keywords = ExtractKeywords(newTask.Title);
+        if (keywords.Count == 0)
+        {
+            return;
+        }
+
+        var candidates = await db.FocusTasks
+            .Where(t => t.Id != newTask.Id)
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(80)
+            .ToListAsync();
+
+        foreach (var candidate in candidates)
+        {
+            var overlap = ExtractKeywords(candidate.Title)
+                .Intersect(keywords, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (overlap.Count == 0)
+            {
+                continue;
+            }
+
+            var exists = await db.FocusTaskLinks.AnyAsync(l =>
+                (l.SourceTaskId == candidate.Id && l.TargetTaskId == newTask.Id) ||
+                (l.SourceTaskId == newTask.Id && l.TargetTaskId == candidate.Id));
+            if (exists)
+            {
+                continue;
+            }
+
+            db.FocusTaskLinks.Add(new FocusTaskLink
+            {
+                SourceTaskId = candidate.Id,
+                TargetTaskId = newTask.Id,
+                Reason = string.Join(", ", overlap.Take(3)),
+                Strength = Math.Clamp(0.35 + overlap.Count * 0.15, 0.35, 0.95)
+            });
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static (double X, double Y) CreateGalaxyCoordinate(int index)
+    {
+        var angle = index * 2.399963229728653;
+        var radius = 38 + Math.Sqrt(index + 1) * 42;
+        return (420 + Math.Cos(angle) * radius, 300 + Math.Sin(angle) * radius);
+    }
+
+    private static HashSet<string> ExtractKeywords(string text)
+    {
+        var separators = new[]
+        {
+            ' ', '\t', '\r', '\n', ',', '.', ';', ':', '，', '。', '；', '：', '、',
+            '的', '把', '和', '与', '及', '第', '章'
+        };
+
+        return text.Split(separators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(token => token.Length >= 2)
+            .Select(token => token.ToLowerInvariant())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task DropLegacyGameTablesAsync()

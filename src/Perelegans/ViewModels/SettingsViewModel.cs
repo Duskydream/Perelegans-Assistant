@@ -1,17 +1,27 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Perelegans.Models;
 using Perelegans.Services;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 
 namespace Perelegans.ViewModels;
 
 public partial class SettingsViewModel : ObservableObject
 {
+    private static readonly TimeSpan AiTestTimeout = TimeSpan.FromSeconds(30);
+
     private readonly ThemeService _themeService;
     private readonly SettingsService _settingsService;
     private readonly StartupRegistrationService _startupRegistrationService;
+    private readonly DatabaseService _databaseService;
+    private readonly ProcessMonitorService? _processMonitor;
 
     [ObservableProperty]
     private ThemeMode _selectedTheme;
@@ -52,9 +62,14 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _isTestingAi;
 
+    [ObservableProperty]
+    private string _dataMaintenanceStatusText = string.Empty;
+
+    public bool HasDataMaintenanceStatus => !string.IsNullOrWhiteSpace(DataMaintenanceStatusText);
+
     public bool HasAiTestStatus => !string.IsNullOrWhiteSpace(AiTestStatusText);
 
-    public string[] LanguageOptions { get; } = ["zh-Hans", "en-US", "ja-JP"];
+    public string[] LanguageOptions { get; } = ["zh-Hans", "en-US"];
 
     public IReadOnlyList<AppCloseBehaviorOption> CloseBehaviorOptions { get; } =
     [
@@ -99,11 +114,15 @@ public partial class SettingsViewModel : ObservableObject
     public SettingsViewModel(
         ThemeService themeService,
         SettingsService settingsService,
-        StartupRegistrationService startupRegistrationService)
+        StartupRegistrationService startupRegistrationService,
+        DatabaseService databaseService,
+        ProcessMonitorService? processMonitor)
     {
         _themeService = themeService;
         _settingsService = settingsService;
         _startupRegistrationService = startupRegistrationService;
+        _databaseService = databaseService;
+        _processMonitor = processMonitor;
 
         var s = _settingsService.Settings;
         SelectedTheme = s.Theme;
@@ -132,8 +151,20 @@ public partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(HasAiTestStatus));
     }
 
-    [RelayCommand]
-    private void TestAi()
+    partial void OnDataMaintenanceStatusTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasDataMaintenanceStatus));
+    }
+
+    partial void OnIsTestingAiChanged(bool value)
+    {
+        TestAiCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanTestAi() => !IsTestingAi;
+
+    [RelayCommand(CanExecute = nameof(CanTestAi))]
+    private async Task TestAiAsync()
     {
         if (string.IsNullOrWhiteSpace(AiApiBaseUrl) ||
             string.IsNullOrWhiteSpace(AiApiKey) ||
@@ -143,15 +174,59 @@ public partial class SettingsViewModel : ObservableObject
             return;
         }
 
-        if (!Uri.TryCreate(AiApiBaseUrl.Trim(), UriKind.Absolute, out _))
+        if (!Uri.TryCreate(AiApiBaseUrl.Trim(), UriKind.Absolute, out var baseUri))
         {
             AiTestStatusText = TranslationService.Instance["Settings_AiTestInvalidUrl"];
             return;
         }
 
-        AiTestStatusText = string.Format(
-            TranslationService.Instance["Settings_AiTestSuccess"],
-            AiModel.Trim());
+        IsTestingAi = true;
+        AiTestStatusText = TranslationService.Instance["Settings_AiTestRunning"];
+
+        try
+        {
+            var testSettings = new AppSettings
+            {
+                ProxyAddress = ProxyAddress.Trim(),
+                AiProvider = SelectedAiProvider,
+                AiApiBaseUrl = AiApiBaseUrl.Trim(),
+                AiApiKey = AiApiKey.Trim(),
+                AiModel = AiModel.Trim()
+            };
+
+            using var httpClient = AppHttpClientFactory.Create(testSettings);
+            using var timeoutCts = new CancellationTokenSource(AiTestTimeout);
+            var content = await SendAiTestMessageAsync(httpClient, baseUri, testSettings, timeoutCts.Token);
+
+            if (TryExtractTestMessage(content, out var message))
+            {
+                AiTestStatusText = string.Format(
+                    TranslationService.Instance["Settings_AiTestSuccess"],
+                    $"{AiModel.Trim()} ({message})");
+            }
+            else
+            {
+                AiTestStatusText = TranslationService.Instance["Settings_AiTestInvalidResponse"];
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            AiTestStatusText = TranslationService.Instance["Settings_AiTestTimeout"];
+        }
+        catch (HttpRequestException ex)
+        {
+            AiTestStatusText = string.Format(
+                TranslationService.Instance["Settings_AiTestFailed"],
+                ex.Message);
+        }
+        catch (JsonException)
+        {
+            AiTestStatusText = TranslationService.Instance["Settings_AiTestInvalidResponse"];
+        }
+        finally
+        {
+            IsTestingAi = false;
+        }
     }
 
     [RelayCommand]
@@ -169,11 +244,171 @@ public partial class SettingsViewModel : ObservableObject
         s.AiApiBaseUrl = AiApiBaseUrl.Trim();
         s.AiApiKey = AiApiKey.Trim();
         s.AiModel = AiModel.Trim();
-
         _settingsService.Save();
         _themeService.ApplyTheme(s.Theme);
         TranslationService.Instance.ChangeLanguage(s.Language);
         _startupRegistrationService.SetEnabled(s.LaunchAtStartup);
+    }
+
+    [RelayCommand]
+    private async Task SaveBackupAsync()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "SQLite Database (*.db)|*.db",
+            FileName = "focusarchive_backup.db"
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        await _databaseService.BackupDatabaseAsync(dialog.FileName);
+        DataMaintenanceStatusText = TranslationService.Instance["Settings_DataBackupSaved"];
+    }
+
+    [RelayCommand]
+    private async Task RestoreBackupAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "SQLite Database (*.db)|*.db"
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var shouldResumeMonitor = _processMonitor?.IsRunning == true;
+        if (shouldResumeMonitor)
+        {
+            await _processMonitor!.StopAsync();
+        }
+
+        await _databaseService.RestoreDatabaseAsync(dialog.FileName);
+
+        if (shouldResumeMonitor && _settingsService.Settings.MonitorEnabled)
+        {
+            _processMonitor!.Start();
+        }
+
+        DataMaintenanceStatusText = TranslationService.Instance["Settings_DataBackupRestored"];
+    }
+
+    private static async Task<string?> SendAiTestMessageAsync(
+        HttpClient httpClient,
+        Uri baseUri,
+        AppSettings settings,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildChatCompletionsUri(baseUri));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.AiApiKey.Trim());
+
+        var payload = new
+        {
+            model = settings.AiModel.Trim(),
+            temperature = 0,
+            max_tokens = 60,
+            response_format = new { type = "json_object" },
+            messages = new[]
+            {
+                new
+                {
+                    role = "system",
+                    content = "You are an API availability probe. Return compact JSON only."
+                },
+                new
+                {
+                    role = "user",
+                    content = "Return JSON with one non-empty string field named message. Example: {\"message\":\"ok\"}"
+                }
+            }
+        };
+
+        request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        return ExtractOpenAiContent(body);
+    }
+
+    private static Uri BuildChatCompletionsUri(Uri baseUri)
+    {
+        if (baseUri.AbsolutePath.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+        {
+            return baseUri;
+        }
+
+        var baseText = baseUri.ToString().TrimEnd('/');
+        return new Uri($"{baseText}/chat/completions");
+    }
+
+    private static string? ExtractOpenAiContent(string responseBody)
+    {
+        using var document = JsonDocument.Parse(responseBody);
+        var root = document.RootElement;
+        if (!root.TryGetProperty("choices", out var choices) || choices.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var first = choices.EnumerateArray().FirstOrDefault();
+        if (first.ValueKind == JsonValueKind.Undefined ||
+            !first.TryGetProperty("message", out var message) ||
+            !message.TryGetProperty("content", out var content))
+        {
+            return null;
+        }
+
+        return content.GetString();
+    }
+
+    private static bool TryExtractTestMessage(string? content, out string message)
+    {
+        message = string.Empty;
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return false;
+        }
+
+        var json = ExtractJsonObject(content);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return false;
+        }
+
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        foreach (var propertyName in new[] { "message", "assistantMessage", "content", "text", "description", "reason" })
+        {
+            if (root.TryGetProperty(propertyName, out var property) &&
+                property.ValueKind == JsonValueKind.String &&
+                !string.IsNullOrWhiteSpace(property.GetString()))
+            {
+                message = property.GetString()!.Trim();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string? ExtractJsonObject(string text)
+    {
+        var start = text.IndexOf('{');
+        var end = text.LastIndexOf('}');
+        return start >= 0 && end > start
+            ? text[start..(end + 1)]
+            : null;
     }
 }
 

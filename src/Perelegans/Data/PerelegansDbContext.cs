@@ -9,6 +9,8 @@ public class PerelegansDbContext : DbContext
 {
     public DbSet<ApplicationUsage> ApplicationUsages => Set<ApplicationUsage>();
     public DbSet<ApplicationUsageSession> ApplicationUsageSessions => Set<ApplicationUsageSession>();
+    public DbSet<FocusTask> FocusTasks => Set<FocusTask>();
+    public DbSet<FocusTaskLink> FocusTaskLinks => Set<FocusTaskLink>();
 
     private readonly string _dbPath;
 
@@ -70,6 +72,28 @@ public class PerelegansDbContext : DbContext
                   .HasConversion(
                       v => v.Ticks,
                       v => TimeSpan.FromTicks(v));
+        });
+
+        modelBuilder.Entity<FocusTask>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.HasIndex(t => t.CreatedAt);
+            entity.HasIndex(t => t.Status);
+            entity.Property(t => t.Title).IsRequired().HasMaxLength(500);
+            entity.Property(t => t.OriginalInput).IsRequired().HasMaxLength(1000);
+            entity.Property(t => t.QuestTitle).HasMaxLength(500);
+            entity.Property(t => t.QuestNarrative).HasMaxLength(2000);
+            entity.Property(t => t.CompletionNarrative).HasMaxLength(2000);
+            entity.Property(t => t.RewardName).HasMaxLength(500);
+            entity.Property(t => t.Status).HasConversion<int>();
+        });
+
+        modelBuilder.Entity<FocusTaskLink>(entity =>
+        {
+            entity.HasKey(l => l.Id);
+            entity.HasIndex(l => l.SourceTaskId);
+            entity.HasIndex(l => l.TargetTaskId);
+            entity.Property(l => l.Reason).HasMaxLength(500);
         });
     }
 }

@@ -9,7 +9,7 @@ namespace Perelegans.Services;
 public class TranslationService : INotifyPropertyChanged
 {
     private const string DefaultCultureCode = "zh-Hans";
-    private static readonly string[] SupportedCultureCodes = ["zh-Hans", "en-US", "ja-JP"];
+    private static readonly string[] SupportedCultureCodes = ["zh-Hans", "en-US"];
     private static readonly Dictionary<string, string> CultureAliases = new(StringComparer.OrdinalIgnoreCase)
     {
         ["zh"] = "zh-Hans",
@@ -19,11 +19,7 @@ public class TranslationService : INotifyPropertyChanged
         ["Chinese (Simplified)"] = "zh-Hans",
         ["en"] = "en-US",
         ["en-US"] = "en-US",
-        ["English"] = "en-US",
-        ["ja"] = "ja-JP",
-        ["ja-JP"] = "ja-JP",
-        ["jp"] = "ja-JP",
-        ["Japanese"] = "ja-JP"
+        ["English"] = "en-US"
     };
 
     private static TranslationService? _instance;

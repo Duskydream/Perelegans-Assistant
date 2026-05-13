@@ -69,6 +69,7 @@ public partial class App : System.Windows.Application
             dbService,
             settingsService,
             _processMonitor,
+            _focusClassificationClient,
             OpenSettingsFromAgent,
             RequestShutdown);
 
@@ -279,7 +280,9 @@ public partial class App : System.Windows.Application
             DataContext = new SettingsViewModel(
                 _themeService,
                 _settingsService,
-                new StartupRegistrationService()),
+                new StartupRegistrationService(),
+                _dbService,
+                _processMonitor),
             Owner = _mainWindow?.IsVisible == true ? _mainWindow : null
         };
 
