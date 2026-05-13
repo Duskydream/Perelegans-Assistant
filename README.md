@@ -1,87 +1,88 @@
-# FocusArchive
+# re-Perelegans
 
-FocusArchive is a Windows desktop focus companion rebuilt from Perelegans.
-It records foreground application usage, shows a small floating agent, and can use an OpenAI-compatible model to classify whether the current app is likely helping or distracting.
+re-Perelegans 是一个 Windows 桌面专注辅助工具，由原 Perelegans 重构而来。
+它会记录当前前台应用的使用情况，提供一个常驻悬浮助手，并可接入 OpenAI 兼容接口来判断当前应用更偏向专注工作还是分心娱乐。
 
-This repository is currently in an active refactor. The old visual novel library, game metadata, recommendation, cover, VNDB, Bangumi, and ErogameSpace features have been removed from the main application path.
+当前项目仍处在重构阶段。旧版视觉小说库、游戏元数据、推荐、封面、VNDB、Bangumi、ErogameSpace 等功能已经从主应用路径中移除。
 
-## Current Features
+## 当前功能
 
-- Floating focus agent that starts with the app.
-- Double-click the floating agent to open the dashboard.
-- Foreground application monitoring through Windows process APIs.
-- Local SQLite storage for application usage totals and recent sessions.
-- Dashboard for current foreground app, total tracked time, focus category counts, and recent sessions.
-- Optional AI focus classification through an OpenAI-compatible chat completions endpoint.
-- Theme selection, language selection, HTTP proxy setting, monitor interval, launch-at-startup, and close behavior settings.
-- Single-instance protection with activation of the existing app window.
-- Optional minimize-to-tray behavior.
-- Database backup and restore for the focus usage database.
+- 启动后显示悬浮专注助手。
+- 双击悬浮助手可打开主面板。
+- 基于 Windows 前台窗口和进程信息记录应用使用情况。
+- 使用 SQLite 本地保存应用累计时长和最近会话。
+- 主面板展示当前前台应用、总记录时长、专注分类数量和最近使用记录。
+- 可选接入 OpenAI 兼容的 chat completions 接口进行 AI 专注判断。
+- 支持主题、语言、HTTP 代理、监控间隔、开机启动和关闭行为设置。
+- 单实例运行保护，再次启动时会激活已有实例。
+- 支持关闭主面板后最小化到托盘。
+- 支持专注使用数据库的备份和恢复。
 
-## Requirements
+## 环境要求
 
-- Windows 10 or newer.
-- .NET 8 SDK for development builds.
+- Windows 10 或更高版本。
+- 开发构建需要 .NET 8 SDK。
 
-## Build
+## 构建
 
 ```powershell
 dotnet build src\Perelegans\Perelegans.csproj
 ```
 
-## Run
+## 运行
 
 ```powershell
 dotnet run --project src\Perelegans\Perelegans.csproj
 ```
 
-The app starts as a small floating focus agent. Double-click it to open the FocusArchive dashboard.
+应用启动后会显示一个小型悬浮助手。双击悬浮助手即可打开 re-Perelegans 主面板。
 
-## AI Configuration
+## AI 配置
 
-AI classification is optional. Without it, FocusArchive still records foreground usage and uses a small built-in list of known productivity applications.
+AI 专注判断是可选功能。即使不配置 AI，re-Perelegans 仍会记录前台应用使用情况，并使用内置的常见生产力应用列表进行基础判断。
 
-To enable AI classification, open Settings and fill in:
+如需启用 AI 判断，请在设置窗口中填写：
 
-- API base URL
-- API key
-- Model name
+- API Base URL
+- API Key
+- 模型名称
 
-The current classifier expects an OpenAI-compatible chat completions API. HTTP proxy settings can be configured in the same Settings window.
+当前专注判断模块使用 OpenAI 兼容的 chat completions 接口。如果需要代理，可以在同一个设置窗口里配置 HTTP 代理。
 
-## Data
+## 数据
 
-FocusArchive stores local data under the user's local application data directory:
+re-Perelegans 会把本地数据保存在用户的本地应用数据目录下：
 
-- `settings.json` for application settings
-- `perelegans.db` for SQLite usage history
-- `error.log` for crash logs when available
+- `settings.json`：应用设置
+- `perelegans.db`：SQLite 使用记录数据库
+- `error.log`：可用时写入崩溃日志
 
-The current database schema keeps only:
+当前数据库只保留两张核心表：
 
 - `ApplicationUsages`
 - `ApplicationUsageSessions`
 
-During startup, legacy game-library tables are dropped if they exist so that older local databases do not keep obsolete structures around.
+启动时，如果检测到旧版游戏库相关表，会自动删除这些遗留表，避免旧结构继续污染新版本。
 
-## Project Layout
+## 项目结构
 
 ```text
 src/Perelegans/
-  App.xaml(.cs)              Application startup, single instance, tray, window wiring
-  Data/                      EF Core database context
-  Models/                    Focus usage, settings, and theme models
-  Services/                  Monitoring, storage, AI classification, settings, theme, translation
-  ViewModels/                Floating agent, dashboard, and settings view models
-  Views/                     Floating agent, dashboard, and settings windows
-  Themes/                    Light and dark theme resources
-  i18n/                      Localized strings
+  App.xaml(.cs)              应用启动、单实例、托盘和窗口组装
+  Data/                      EF Core 数据库上下文
+  Models/                    应用使用记录、设置、主题和 AI 判断模型
+  Services/                  监控、存储、AI 判断、设置、主题和多语言服务
+  ViewModels/                悬浮助手、主面板和设置窗口的 ViewModel
+  Views/                     悬浮助手、主面板和设置窗口
+  Themes/                    亮色和暗色主题资源
+  i18n/                      多语言资源文件
 ```
 
-## Development Notes
+## 开发说明
 
-This branch intentionally favors a smaller, cleaner surface over compatibility with the old game tracker. When adding new functionality, keep it aligned with the focus tracking direction and avoid reintroducing game-library concepts.
+这次重构有意缩小项目表面积，优先保证新方向清晰可维护，而不是兼容旧版游戏库功能。
+后续新增功能应围绕专注追踪、应用使用分析和桌面辅助体验展开，避免重新引入游戏库领域概念。
 
-## License
+## 许可证
 
 MIT
