@@ -11,7 +11,7 @@
         xmlns:i18n="clr-namespace:Perelegans.i18n"
         xmlns:services="clr-namespace:Perelegans.Services"
         mc:Ignorable="d"
-        Title="Perelegans"
+        Title="FocusArchive"
         TitleCharacterCasing="Normal"
         Height="680" Width="1100"
         MinHeight="480" MinWidth="800"
@@ -212,11 +212,11 @@
 
             <StackPanel Grid.Column="0" Orientation="Horizontal"
                         VerticalAlignment="Center" Margin="8,0,0,0">
-                <iconPacks:PackIconMaterial Kind="GamepadVariantOutline"
+                <iconPacks:PackIconMaterial Kind="ClockOutline"
                                             Width="14" Height="14"
                                             Foreground="{DynamicResource Perelegans.AccentBrush}"
                                             VerticalAlignment="Center"/>
-                <TextBlock Text="Perelegans" FontSize="12" FontWeight="SemiBold"
+                <TextBlock Text="FocusArchive" FontSize="12" FontWeight="SemiBold"
                            Foreground="{DynamicResource Perelegans.ForegroundBrush}"
                            Margin="6,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
@@ -268,12 +268,6 @@
                         <iconPacks:PackIconMaterial Kind="ApplicationCogOutline" Width="14" Height="14"/>
                     </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="{i18n:Translate Menu_AddFromWebsite}" Command="{Binding AddFromWebsiteCommand}">
-                    <MenuItem.Icon>
-                        <iconPacks:PackIconMaterial Kind="Web" Width="14" Height="14"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <Separator/>
                 <MenuItem Header="{i18n:Translate Menu_SaveBackup}" Command="{Binding SaveBackupCommand}">
                     <MenuItem.Icon>
                         <iconPacks:PackIconMaterial Kind="ContentSaveOutline" Width="14" Height="14"/>
@@ -302,11 +296,6 @@
                 <MenuItem Header="{i18n:Translate Menu_PlaytimeStats}" Command="{Binding PlaytimeStatisticsCommand}">
                     <MenuItem.Icon>
                         <iconPacks:PackIconMaterial Kind="ChartBar" Width="14" Height="14"/>
-                    </MenuItem.Icon>
-                </MenuItem>
-                <MenuItem Header="{i18n:Translate Menu_Recommendations}" Command="{Binding OpenRecommendationsCommand}">
-                    <MenuItem.Icon>
-                        <iconPacks:PackIconMaterial Kind="LightbulbOnOutline" Width="14" Height="14"/>
                     </MenuItem.Icon>
                 </MenuItem>
             </MenuItem>
@@ -380,23 +369,6 @@
                                                             VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="1"
                                            Text="{i18n:Translate Toolbar_Library}"
-                                           VerticalAlignment="Center"
-                                           Margin="8,0,0,0"/>
-                            </Grid>
-                        </Button>
-                        <Button Style="{StaticResource ShellNavigationButtonStyle}"
-                                Command="{Binding OpenRecommendationsCommand}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="20"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <iconPacks:PackIconMaterial Kind="LightbulbOnOutline"
-                                                            Width="16"
-                                                            Height="16"
-                                                            VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{i18n:Translate Toolbar_Recommendations}"
                                            VerticalAlignment="Center"
                                            Margin="8,0,0,0"/>
                             </Grid>
@@ -481,12 +453,6 @@
                                               Command="{Binding PlacementTarget.DataContext.AddFromProcessCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                         <MenuItem.Icon>
                                             <iconPacks:PackIconMaterial Kind="ApplicationCogOutline" Width="14" Height="14"/>
-                                        </MenuItem.Icon>
-                                    </MenuItem>
-                                    <MenuItem Header="{i18n:Translate Menu_AddFromWebsite}"
-                                              Command="{Binding PlacementTarget.DataContext.AddFromWebsiteCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                        <MenuItem.Icon>
-                                            <iconPacks:PackIconMaterial Kind="Web" Width="14" Height="14"/>
                                         </MenuItem.Icon>
                                     </MenuItem>
                                 </ContextMenu>
@@ -609,16 +575,6 @@
                                                     </MenuItem.Icon>
                                                     <MenuItem Header="{i18n:Translate Context_OpenFolder}"
                                                               Command="{Binding PlacementTarget.Tag.OpenGameFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                                    <MenuItem Header="{i18n:Translate Context_OpenWebsite}">
-                                                        <MenuItem Header="{i18n:Translate Context_OpenVndb}"
-                                                                  Command="{Binding PlacementTarget.Tag.OpenVndbCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                                        <MenuItem Header="{i18n:Translate Context_OpenErogameSpace}"
-                                                                  Command="{Binding PlacementTarget.Tag.OpenErogameSpaceCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                                        <MenuItem Header="{i18n:Translate Context_OpenBangumi}"
-                                                                  Command="{Binding PlacementTarget.Tag.OpenBangumiCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                                        <MenuItem Header="{i18n:Translate Context_OpenOfficialSite}"
-                                                                  Command="{Binding PlacementTarget.Tag.OpenOfficialSiteCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                                    </MenuItem>
                                                     <MenuItem Header="{i18n:Translate Context_OpenGameStats}"
                                                               Command="{Binding PlacementTarget.Tag.OpenGamePlaytimeStatsCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                                 </MenuItem>

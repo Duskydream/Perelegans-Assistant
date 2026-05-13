@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -25,7 +23,6 @@ namespace Perelegans.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private const int DefaultPageSize = 12;
-    private const int MaxVisibleCoverRefreshCount = 12;
     private readonly DatabaseService _dbService;
     private readonly SettingsService _settingsService;
     private readonly ThemeService _themeService;
@@ -36,9 +33,7 @@ public partial class MainViewModel : ObservableObject
     private int _loadedGameCount;
     private int _materializedGameCount;
     private int _visibleRefreshVersion;
-    private int _profileRefreshVersion;
     private HashSet<int>? _assistantFilterIds;
-    private bool _isBangumiSyncRunning;
 
     [ObservableProperty]
     private ObservableCollection<Game> _games = new();
@@ -57,8 +52,6 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private AiAssistantViewModel? _assistantViewModel;
-
-    private readonly DispatcherTimer _bangumiSyncTimer = new();
 
     [ObservableProperty]
     private int _currentPage = 1;
@@ -103,7 +96,6 @@ public partial class MainViewModel : ObservableObject
         // Subscribe to process monitor events
         _processMonitor.PlaytimeUpdated += OnPlaytimeUpdated;
         _processMonitor.GameDetectionChanged += OnGameDetectionChanged;
-        _bangumiSyncTimer.Tick += OnBangumiSyncTimerTick;
         TranslationService.Instance.PropertyChanged += OnTranslationChanged;
         AttachGamesCollection(Games);
     }
@@ -126,56 +118,6 @@ public partial class MainViewModel : ObservableObject
             _processMonitor.Start();
         }
 
-        ConfigureBangumiSyncTimer();
-        _ = PullBangumiCollectionsAsync();
-    }
-
-    private void OnBangumiSyncTimerTick(object? sender, EventArgs e)
-    {
-        _ = PullBangumiCollectionsAsync();
-    }
-
-    private void ConfigureBangumiSyncTimer()
-    {
-        _bangumiSyncTimer.Stop();
-
-        var settings = _settingsService.Settings;
-        if (!settings.BangumiSyncEnabled || string.IsNullOrWhiteSpace(settings.BangumiAccessToken))
-            return;
-
-        var interval = Math.Clamp(settings.BangumiSyncIntervalMinutes, 5, 1440);
-        _bangumiSyncTimer.Interval = TimeSpan.FromMinutes(interval);
-        _bangumiSyncTimer.Start();
-    }
-
-    private async Task PullBangumiCollectionsAsync()
-    {
-        if (_isBangumiSyncRunning)
-            return;
-
-        var settings = _settingsService.Settings;
-        if (!settings.BangumiSyncEnabled || string.IsNullOrWhiteSpace(settings.BangumiAccessToken))
-            return;
-
-        _isBangumiSyncRunning = true;
-        try
-        {
-            var syncService = new BangumiSyncService(_httpClient, _dbService, _settingsService);
-            var changed = await syncService.PullCollectionsAsync(Games);
-            if (changed > 0)
-            {
-                SortGamesForDisplay();
-                RefreshStats();
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Bangumi sync error: {ex.Message}");
-        }
-        finally
-        {
-            _isBangumiSyncRunning = false;
-        }
     }
 
     private void OnPlaytimeUpdated(int gameId, TimeSpan elapsed)
@@ -197,10 +139,6 @@ public partial class MainViewModel : ObservableObject
         {
             game.IsDetectedRunning = isDetectedRunning;
             SortGamesForDisplay();
-            if (!isDetectedRunning)
-            {
-                QueueRecommendationProfileRefresh();
-            }
         }
     }
 
@@ -281,7 +219,6 @@ public partial class MainViewModel : ObservableObject
         game.RefreshCoverBindings();
         RefreshStats();
         _processMonitor.UpdateMonitoredGames(Games);
-        QueueRecommendationProfileRefresh();
     }
 
     private void RebuildVisibleRows()
@@ -346,35 +283,13 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
-        var coverArtService = new CoverArtService(_httpClient);
-
-        foreach (var game in games.Where(RequiresCoverRefresh).Take(MaxVisibleCoverRefreshCount))
-        {
-            var cachedPath = await coverArtService.ResolveAndCacheCoverAsync(game);
-            if (string.IsNullOrWhiteSpace(cachedPath))
-                continue;
-
-            game.RefreshCoverBindings();
-
-            try
-            {
-                await _dbService.UpdateGameAsync(game);
-            }
-            catch
-            {
-            }
-
-            if (version != _visibleRefreshVersion)
-                return;
-        }
+        await Task.CompletedTask;
     }
 
     private async Task AddImportedGameAsync(Game game, bool insertAtTop, bool selectAfterInsert = true)
     {
         await _dbService.AddGameAsync(game);
         InsertImportedGameIntoCollection(game, insertAtTop, selectAfterInsert);
-        QueueRecommendationProfileRefresh();
-        _ = AutoFetchCoverForImportedGameAsync(game);
     }
 
     private void InsertImportedGameIntoCollection(Game game, bool insertAtTop, bool selectAfterInsert = true)
@@ -391,34 +306,6 @@ public partial class MainViewModel : ObservableObject
         {
             SelectedGame = game;
         }
-    }
-
-    private async Task AutoFetchCoverForImportedGameAsync(Game game)
-    {
-        try
-        {
-            if (!RequiresCoverRefresh(game))
-                return;
-
-            var coverArtService = new CoverArtService(_httpClient);
-            var cachedPath = await coverArtService.ResolveAndCacheCoverAsync(game);
-            if (string.IsNullOrWhiteSpace(cachedPath))
-                return;
-
-            game.RefreshCoverBindings();
-            await _dbService.UpdateGameAsync(game);
-        }
-        catch
-        {
-        }
-    }
-
-    private static bool RequiresCoverRefresh(Game game)
-    {
-        if (string.IsNullOrWhiteSpace(game.CoverDisplaySource))
-            return true;
-
-        return false;
     }
 
     public void UpdatePageSize(double viewportWidth, double viewportHeight)
@@ -485,23 +372,6 @@ public partial class MainViewModel : ObservableObject
                 ExecutablePath = vm.SelectedProcess.ExecutablePath
             };
             await AddImportedGameAsync(newGame, insertAtTop: false, selectAfterInsert: false);
-        }
-    }
-
-    [RelayCommand]
-    private async Task AddFromWebsite()
-    {
-        var newGame = new Game { Title = TranslationService.Instance["Game_DefaultTitle"] };
-        var vm = new MetadataViewModel(newGame, _httpClient, _dbService, _settingsService, isNewGame: true, isSearchEnabled: true);
-        var win = new MetadataWindow
-        {
-            DataContext = vm,
-            Owner = Application.Current.MainWindow
-        };
-
-        if (win.ShowDialog() == true)
-        {
-            await AddImportedGameAsync(newGame, insertAtTop: true);
         }
     }
 
@@ -605,29 +475,6 @@ public partial class MainViewModel : ObservableObject
         await vm.RefreshAsync();
 
         var win = new PlaytimeStatsWindow
-        {
-            DataContext = vm,
-            Owner = Application.Current.MainWindow
-        };
-
-        win.ShowDialog();
-    }
-
-    [RelayCommand]
-    private void OpenRecommendations()
-    {
-        var vm = new RecommendationViewModel(
-            _dbService,
-            _settingsService,
-            _httpClient,
-            _dialogCoordinator,
-            async importedGame =>
-            {
-                InsertImportedGameIntoCollection(importedGame, insertAtTop: true);
-                await AutoFetchCoverForImportedGameAsync(importedGame);
-            });
-
-        var win = new RecommendationWindow
         {
             DataContext = vm,
             Owner = Application.Current.MainWindow
@@ -746,8 +593,7 @@ public partial class MainViewModel : ObservableObject
                 {
                     var games = await _dbService.GetAllGamesAsync();
                     ReplaceGames(games);
-                    QueueRecommendationProfileRefresh();
-                }
+            }
                 catch (Exception ex)
                 {
                     Perelegans.App.WriteCrashLog(ex);
@@ -808,8 +654,6 @@ public partial class MainViewModel : ObservableObject
             else if (!settings.MonitorEnabled && _processMonitor.IsRunning)
                 _processMonitor.Stop();
 
-            ConfigureBangumiSyncTimer();
-            _ = PullBangumiCollectionsAsync();
         }
     }
 
@@ -843,7 +687,7 @@ public partial class MainViewModel : ObservableObject
     private void EditMetadata()
     {
         if (SelectedGame == null) return;
-        OpenMetadataForGame(SelectedGame, isSearchEnabled: true);
+        OpenMetadataForGame(SelectedGame, isSearchEnabled: false);
     }
 
     private void OpenMetadataForGame(Game targetGame, bool isSearchEnabled)
@@ -878,51 +722,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void OpenUrl(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url)) return;
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true
-            });
-        }
-        catch { }
-    }
-
-    [RelayCommand]
-    private async Task OpenVndb()
-    {
-        if (SelectedGame == null) return;
-        var url = SelectedGame.VndbId != null ? $"https://vndb.org/v{SelectedGame.VndbId.Replace("v", "")}" : null;
-        if (url != null) OpenUrl(url); else await _dialogCoordinator.ShowMessageAsync(this, TranslationService.Instance["Msg_AppTitle"], TranslationService.Instance["Msg_NoVndbId"]);
-    }
-
-    [RelayCommand]
-    private async Task OpenErogameSpace()
-    {
-        if (SelectedGame == null) return;
-        var url = SelectedGame.ErogameSpaceId != null ? $"https://erogamescape.dyndns.org/~ap2/ero/toukei_kaiseki/game.php?game={SelectedGame.ErogameSpaceId}" : null;
-        if (url != null) OpenUrl(url); else await _dialogCoordinator.ShowMessageAsync(this, TranslationService.Instance["Msg_AppTitle"], TranslationService.Instance["Msg_NoEgsId"]);
-    }
-
-    [RelayCommand]
-    private async Task OpenBangumi()
-    {
-        if (SelectedGame == null) return;
-        var url = SelectedGame.BangumiId != null ? $"https://bgm.tv/subject/{SelectedGame.BangumiId}" : null;
-        if (url != null) OpenUrl(url); else await _dialogCoordinator.ShowMessageAsync(this, TranslationService.Instance["Msg_AppTitle"], TranslationService.Instance["Msg_NoBangumiId"]);
-    }
-
-    [RelayCommand]
-    private void OpenOfficialSite()
-    {
-        if (SelectedGame == null) return;
-        OpenUrl(SelectedGame.OfficialWebsite);
-    }
-
     [RelayCommand]
     private void OpenGamePlaytimeStats()
     {
@@ -944,18 +743,12 @@ public partial class MainViewModel : ObservableObject
 
         var previousStatus = SelectedGame.Status;
         SelectedGame.Status = status;
-        SelectedGame.BangumiCollectionType = BangumiService.MapGameStatusToCollectionType(status);
 
         try
         {
             await _dbService.UpdateGameAsync(SelectedGame);
             RefreshStats();
             _processMonitor.UpdateMonitoredGames(Games);
-            QueueRecommendationProfileRefresh();
-            await TryPushBangumiCollectionAsync(SelectedGame);
-
-            if (status == GameStatus.Completed && previousStatus != GameStatus.Completed)
-                StartAiCompletionNoteInBackground(SelectedGame);
         }
         catch (Exception ex)
         {
@@ -965,97 +758,6 @@ public partial class MainViewModel : ObservableObject
                 TranslationService.Instance["Msg_ErrorTitle"],
                 ex.Message);
         }
-    }
-
-    private async Task TryPushBangumiCollectionAsync(Game game)
-    {
-        var settings = _settingsService.Settings;
-        if (!settings.BangumiPushOnMetadataSave ||
-            string.IsNullOrWhiteSpace(settings.BangumiAccessToken) ||
-            string.IsNullOrWhiteSpace(game.BangumiId))
-        {
-            return;
-        }
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        try
-        {
-            var syncService = new BangumiSyncService(_httpClient, _dbService, _settingsService);
-            if (await syncService.PushCollectionAsync(game, cts.Token))
-            {
-                game.BangumiLastSyncedAt = DateTime.Now;
-                game.BangumiCollectionUpdatedAt = DateTime.Now;
-                await _dbService.UpdateGameAsync(game);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            Debug.WriteLine("Bangumi collection push timed out");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Bangumi collection push error: {ex.GetType().Name}: {ex.Message}");
-        }
-    }
-
-    private void StartAiCompletionNoteInBackground(Game game)
-    {
-        if (game.Id <= 0)
-            return;
-
-        var snapshot = new Game
-        {
-            Id = game.Id,
-            Title = game.Title,
-            Brand = game.Brand,
-            ReleaseDate = game.ReleaseDate,
-            Status = game.Status,
-            Playtime = game.Playtime,
-            Tags = game.Tags
-        };
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var aiService = new AiRecommendationService(_httpClient, _settingsService);
-                if (!aiService.IsConfigured)
-                    return;
-
-                var cacheService = new VndbRecommendationCacheService();
-                var cache = await cacheService.LoadAsync();
-                var cacheKey = snapshot.Id.ToString(CultureInfo.InvariantCulture);
-                if (cache.CompletionNotes.TryGetValue(cacheKey, out var cached) &&
-                    !string.IsNullOrWhiteSpace(cached.Note))
-                {
-                    return;
-                }
-
-                var note = await aiService.GenerateCompletionNoteAsync(snapshot);
-                if (string.IsNullOrWhiteSpace(note))
-                    return;
-
-                cache.CompletionNotes[cacheKey] = new CachedCompletionNote
-                {
-                    GameId = snapshot.Id,
-                    Note = note,
-                    CachedAtUtc = DateTimeOffset.UtcNow
-                };
-                await cacheService.SaveAsync(cache);
-
-                await Application.Current.Dispatcher.InvokeAsync(async () =>
-                {
-                    await _dialogCoordinator.ShowMessageAsync(
-                        this,
-                        "AI Note",
-                        note);
-                });
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"AI completion note error: {ex.Message}");
-            }
-        });
     }
 
     [RelayCommand]
@@ -1085,33 +787,6 @@ public partial class MainViewModel : ObservableObject
             await _dbService.DeleteGameAsync(SelectedGame.Id);
             Games.Remove(SelectedGame);
             SelectedGame = null;
-            QueueRecommendationProfileRefresh();
-        }
-    }
-
-    private void QueueRecommendationProfileRefresh()
-    {
-        var version = Interlocked.Increment(ref _profileRefreshVersion);
-        _ = WarmRecommendationProfileAsync(version);
-    }
-
-    private async Task WarmRecommendationProfileAsync(int version)
-    {
-        try
-        {
-            await Task.Delay(1200);
-            if (version != _profileRefreshVersion)
-                return;
-
-            var recommendationService = new RecommendationService(
-                _dbService,
-                _httpClient,
-                new VndbRecommendationCacheService());
-            await recommendationService.WarmProfileCacheAsync();
-        }
-        catch (Exception ex)
-        {
-            Perelegans.App.WriteCrashLog(ex);
         }
     }
 

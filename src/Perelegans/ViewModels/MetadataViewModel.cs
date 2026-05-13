@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -15,25 +14,30 @@ namespace Perelegans.ViewModels;
 
 public partial class MetadataViewModel : ObservableObject
 {
-    private readonly VndbService _vndbService;
-    private readonly BangumiService _bangumiService;
-    private readonly ErogameSpaceService _egsService;
     private readonly DatabaseService _dbService;
-    private readonly SettingsService? _settingsService;
-    private readonly HttpClient _httpClient;
     private readonly CoverArtService _coverArtService;
-    private readonly AiRecommendationService? _aiRecommendationService;
     private readonly bool _isNewGame;
     private readonly string _coverCacheKey;
     private bool _suppressCoverFieldSync;
     private double? _editCoverAspectRatio;
-    private int _bangumiCollectionLoadVersion;
+
+    public Game TargetGame { get; }
+
+    public string[] SourceOptions { get; } = [];
+
+    public IReadOnlyList<GameStatusOption> StatusOptions { get; } =
+    [
+        new(GameStatus.Planned, TranslationService.Instance["GameStatus_Planned"]),
+        new(GameStatus.Playing, TranslationService.Instance["GameStatus_Playing"]),
+        new(GameStatus.Completed, TranslationService.Instance["GameStatus_Completed"]),
+        new(GameStatus.Dropped, TranslationService.Instance["GameStatus_Dropped"])
+    ];
 
     [ObservableProperty]
     private string _searchQuery = string.Empty;
 
     [ObservableProperty]
-    private string _selectedSource = "VNDB";
+    private string _selectedSource = string.Empty;
 
     [ObservableProperty]
     private bool _isSearching;
@@ -45,7 +49,7 @@ public partial class MetadataViewModel : ObservableObject
     private MetadataResult? _selectedResult;
 
     [ObservableProperty]
-    private bool _isSearchEnabled = true;
+    private bool _isSearchEnabled;
 
     [ObservableProperty]
     private string _editTitle = string.Empty;
@@ -58,21 +62,6 @@ public partial class MetadataViewModel : ObservableObject
 
     [ObservableProperty]
     private GameStatus _editStatus;
-
-    [ObservableProperty]
-    private string _editVndbId = string.Empty;
-
-    [ObservableProperty]
-    private string _editBangumiId = string.Empty;
-
-    [ObservableProperty]
-    private int? _editBangumiRating;
-
-    [ObservableProperty]
-    private string _editBangumiComment = string.Empty;
-
-    [ObservableProperty]
-    private string _editEgsId = string.Empty;
 
     [ObservableProperty]
     private string _editWebsite = string.Empty;
@@ -93,18 +82,6 @@ public partial class MetadataViewModel : ObservableObject
     private string _metadataStatusText = string.Empty;
 
     [ObservableProperty]
-    private string _vndbSourceStatusText = string.Empty;
-
-    [ObservableProperty]
-    private string _bangumiSourceStatusText = string.Empty;
-
-    [ObservableProperty]
-    private string _egsSourceStatusText = string.Empty;
-
-    [ObservableProperty]
-    private string _bangumiPushStatusText = string.Empty;
-
-    [ObservableProperty]
     private string _editTagsText = string.Empty;
 
     [ObservableProperty]
@@ -113,80 +90,41 @@ public partial class MetadataViewModel : ObservableObject
     [ObservableProperty]
     private string _editExecutablePath = string.Empty;
 
-    public Game TargetGame { get; }
-
-    public string[] SourceOptions { get; } = { "VNDB", "Bangumi", "ErogameSpace" };
-    public IReadOnlyList<GameStatusOption> StatusOptions { get; } =
-    [
-        new(GameStatus.Planned, TranslationService.Instance["GameStatus_Planned"]),
-        new(GameStatus.Completed, TranslationService.Instance["GameStatus_Completed"]),
-        new(GameStatus.Playing, TranslationService.Instance["GameStatus_Playing"]),
-        new(GameStatus.Dropped, TranslationService.Instance["GameStatus_Dropped"])
-    ];
-
     public MetadataViewModel(
         Game game,
         HttpClient httpClient,
         DatabaseService dbService,
         SettingsService? settingsService = null,
         bool isNewGame = false,
-        bool isSearchEnabled = true)
+        bool isSearchEnabled = false)
     {
         TargetGame = game;
         _dbService = dbService;
-        _settingsService = settingsService;
-        _httpClient = httpClient;
-        _isNewGame = isNewGame;
         _coverArtService = new CoverArtService(httpClient);
-        _aiRecommendationService = settingsService == null ? null : new AiRecommendationService(httpClient, settingsService);
-        _coverCacheKey = game.Id > 0 ? $"game-{game.Id}" : $"draft-{Guid.NewGuid():N}";
-        _vndbService = new VndbService(httpClient);
-        _bangumiService = new BangumiService(httpClient);
-        _egsService = new ErogameSpaceService(httpClient);
-        _isSearchEnabled = isSearchEnabled;
+        _isNewGame = isNewGame;
+        _coverCacheKey = game.Id > 0 ? $"entry-{game.Id}" : $"draft-{Guid.NewGuid():N}";
 
-        _searchQuery = game.Title;
-        _editTitle = game.Title;
-        _editBrand = game.Brand;
-        _editReleaseDate = game.ReleaseDate;
-        _editStatus = game.Status;
-        _editVndbId = game.VndbId ?? string.Empty;
-        _editBangumiId = game.BangumiId ?? string.Empty;
-        _editBangumiRating = game.BangumiRating;
-        _editBangumiComment = game.BangumiComment ?? string.Empty;
-        _editEgsId = game.ErogameSpaceId ?? string.Empty;
-        _editWebsite = game.OfficialWebsite ?? string.Empty;
-        _editCoverImagePath = game.CoverImagePath ?? string.Empty;
-        _editCoverImageUrl = game.CoverImageUrl ?? string.Empty;
+        IsSearchEnabled = false;
+        SearchQuery = game.Title;
+        EditTitle = game.Title;
+        EditBrand = game.Brand;
+        EditReleaseDate = game.ReleaseDate;
+        EditStatus = game.Status;
+        EditWebsite = game.OfficialWebsite ?? string.Empty;
+        EditCoverImagePath = game.CoverImagePath ?? string.Empty;
+        EditCoverImageUrl = game.CoverImageUrl ?? string.Empty;
         _editCoverAspectRatio = game.CoverAspectRatio;
-        _editTagsText = TagUtilities.ToMultilineText(TagUtilities.Deserialize(game.Tags));
-        _editProcessName = game.ProcessName ?? string.Empty;
-        _editExecutablePath = game.ExecutablePath ?? string.Empty;
+        EditTagsText = TagUtilities.ToMultilineText(TagUtilities.Deserialize(game.Tags));
+        EditProcessName = game.ProcessName ?? string.Empty;
+        EditExecutablePath = game.ExecutablePath ?? string.Empty;
 
         RefreshCoverPreview();
-        ResetSourceStatuses();
-        QueueBangumiCollectionLoad();
-    }
-
-    partial void OnEditBangumiIdChanged(string value)
-    {
-        QueueBangumiCollectionLoad();
-    }
-
-    partial void OnSelectedSourceChanged(string value)
-    {
-        MetadataStatusText = string.Format(
-            TranslationService.Instance["Meta_SourceReady"],
-            value);
     }
 
     partial void OnEditCoverImagePathChanged(string value)
     {
         if (_suppressCoverFieldSync)
-        {
-            RefreshCoverPreview();
             return;
-        }
 
         var trimmed = value?.Trim() ?? string.Empty;
         if (!string.Equals(trimmed, value, StringComparison.Ordinal))
@@ -213,10 +151,7 @@ public partial class MetadataViewModel : ObservableObject
     partial void OnEditCoverImageUrlChanged(string value)
     {
         if (_suppressCoverFieldSync)
-        {
-            RefreshCoverPreview();
             return;
-        }
 
         var trimmed = value?.Trim() ?? string.Empty;
         if (!string.Equals(trimmed, value, StringComparison.Ordinal))
@@ -234,185 +169,25 @@ public partial class MetadataViewModel : ObservableObject
             _suppressCoverFieldSync = false;
         }
 
-        if (!string.IsNullOrWhiteSpace(trimmed))
-        {
-            _editCoverAspectRatio = null;
-        }
-
+        _editCoverAspectRatio = null;
         CoverArtImageSourceConverter.InvalidateCache(trimmed);
         CoverStatusText = string.Empty;
         RefreshCoverPreview();
     }
 
     [RelayCommand]
-    private async Task Search()
+    private Task Search()
     {
-        if (string.IsNullOrWhiteSpace(SearchQuery))
-            return;
-
-        IsSearching = true;
         SearchResults.Clear();
-        SetSourceStatus(SelectedSource, TranslationService.Instance["Workflow_Running"]);
-        MetadataStatusText = string.Format(
-            TranslationService.Instance["Meta_SearchingSource"],
-            SelectedSource);
-
-        try
-        {
-            var results = SelectedSource switch
-            {
-                "VNDB" => await _vndbService.SearchAsync(SearchQuery),
-                "Bangumi" => await _bangumiService.SearchAsync(SearchQuery),
-                "ErogameSpace" => await _egsService.SearchAsync(SearchQuery),
-                _ => new List<MetadataResult>()
-            };
-
-            foreach (var alias in await GetCachedSearchAliasesAsync(SearchQuery))
-            {
-                var aliasResults = SelectedSource switch
-                {
-                    "VNDB" => await _vndbService.SearchAsync(alias),
-                    "Bangumi" => await _bangumiService.SearchAsync(alias),
-                    _ => []
-                };
-
-                foreach (var result in aliasResults)
-                {
-                    if (results.Any(existing =>
-                            string.Equals(existing.Source, result.Source, StringComparison.OrdinalIgnoreCase) &&
-                            string.Equals(existing.SourceId, result.SourceId, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        continue;
-                    }
-
-                    results.Add(result);
-                }
-            }
-
-            foreach (var result in results)
-            {
-                SearchResults.Add(result);
-            }
-
-            SetSourceStatus(
-                SelectedSource,
-                results.Count == 0
-                    ? TranslationService.Instance["Meta_SourceNoResults"]
-                    : string.Format(TranslationService.Instance["Meta_SourceResultCount"], results.Count));
-            MetadataStatusText = string.Format(
-                TranslationService.Instance["Meta_SearchComplete"],
-                SelectedSource,
-                results.Count);
-        }
-        catch (Exception ex)
-        {
-            SetSourceStatus(SelectedSource, TranslationService.Instance["Workflow_Failed"]);
-            MetadataStatusText = string.Format(
-                TranslationService.Instance["Meta_SearchFailed"],
-                SelectedSource);
-            System.Diagnostics.Debug.WriteLine($"Metadata search error: {ex.Message}");
-        }
-        finally
-        {
-            IsSearching = false;
-        }
+        SelectedResult = null;
+        IsSearching = false;
+        MetadataStatusText = string.Empty;
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
     private void ApplySelected()
     {
-        if (SelectedResult == null)
-            return;
-
-        MetadataStatusText = string.Format(
-            TranslationService.Instance["Meta_AppliedSource"],
-            SelectedResult.Source);
-
-        var selectedTitle = !string.IsNullOrWhiteSpace(SelectedResult.OriginalTitle)
-            ? SelectedResult.OriginalTitle
-            : SelectedResult.Title;
-
-        if (!string.IsNullOrEmpty(selectedTitle))
-            EditTitle = selectedTitle;
-        if (!string.IsNullOrEmpty(SelectedResult.Brand))
-            EditBrand = SelectedResult.Brand;
-        if (SelectedResult.ReleaseDate.HasValue)
-            EditReleaseDate = SelectedResult.ReleaseDate;
-
-        var mergedTags = TagUtilities.Merge(
-            TagUtilities.ParseMultilineText(EditTagsText),
-            SelectedResult.Tags);
-        EditTagsText = TagUtilities.ToMultilineText(mergedTags);
-
-        switch (SelectedResult.Source)
-        {
-            case "VNDB":
-                EditVndbId = SelectedResult.SourceId;
-                break;
-            case "Bangumi":
-                EditBangumiId = SelectedResult.SourceId;
-                break;
-            case "ErogameSpace":
-                EditEgsId = SelectedResult.SourceId;
-                break;
-        }
-
-        if (!string.IsNullOrWhiteSpace(SelectedResult.ImageUrl))
-        {
-            SetCoverFields(
-                path: null,
-                url: SelectedResult.ImageUrl,
-                aspectRatio: null,
-                statusText: TranslationService.Instance["Meta_CoverAppliedFromResult"]);
-        }
-
-        StartMetadataConflictCheckInBackground(SelectedResult);
-    }
-
-    private void StartMetadataConflictCheckInBackground(MetadataResult selectedResult)
-    {
-        if (_aiRecommendationService is not { IsConfigured: true })
-            return;
-
-        var selected = selectedResult;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                MetadataResult? paired = null;
-                if (selected.Source == "VNDB" && !string.IsNullOrWhiteSpace(EditBangumiId))
-                    paired = await _bangumiService.GetByIdAsync(EditBangumiId);
-                else if (selected.Source == "Bangumi" && !string.IsNullOrWhiteSpace(EditVndbId))
-                    paired = await _vndbService.GetByIdAsync(EditVndbId);
-
-                if (paired == null)
-                    return;
-
-                var conflict = await _aiRecommendationService.DetectMetadataConflictAsync(
-                    TargetGame,
-                    selected,
-                    paired);
-                if (conflict == null)
-                    return;
-
-                var cacheService = new VndbRecommendationCacheService();
-                var cache = await cacheService.LoadAsync();
-                cache.MetadataConflicts[conflict.Key] = conflict;
-                await cacheService.SaveAsync(cache);
-
-                if (!conflict.HasConflict)
-                    return;
-
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    MetadataStatusText = $"AI metadata warning: {conflict.Reason}";
-                });
-            }
-            catch
-            {
-                // Advisory only; never block applying metadata.
-            }
-        });
     }
 
     [RelayCommand]
@@ -451,69 +226,15 @@ public partial class MetadataViewModel : ObservableObject
             statusText: TranslationService.Instance["Meta_CoverCleared"]);
     }
 
-    public async Task<IReadOnlyList<CoverCandidate>> LoadCoverCandidatesAsync()
+    public Task<IReadOnlyList<CoverCandidate>> LoadCoverCandidatesAsync()
     {
-        var title = string.IsNullOrWhiteSpace(EditTitle) ? SearchQuery.Trim() : EditTitle.Trim();
-        var bangumiId = NullIfWhiteSpace(EditBangumiId);
-        var vndbId = NullIfWhiteSpace(EditVndbId);
-
-        if (string.IsNullOrWhiteSpace(title) && bangumiId == null && vndbId == null)
-        {
-            CoverStatusText = TranslationService.Instance["Meta_CoverFetchMissingInput"];
-            return Array.Empty<CoverCandidate>();
-        }
-
-        CoverStatusText = TranslationService.Instance["Meta_CoverPickerLoading"];
-
-        var candidates = await _coverArtService.GetCoverCandidatesAsync(
-            title,
-            bangumiId,
-            vndbId);
-
-        if (candidates.Count == 0)
-        {
-            CoverStatusText = TranslationService.Instance["Meta_CoverFetchFailed"];
-            return Array.Empty<CoverCandidate>();
-        }
-
-        await _coverArtService.PopulateCandidatePreviewSourcesAsync(candidates, $"{_coverCacheKey}-picker");
-
-        CoverStatusText = string.Empty;
-        return candidates;
+        CoverStatusText = TranslationService.Instance["Meta_CoverFetchFailed"];
+        return Task.FromResult<IReadOnlyList<CoverCandidate>>(Array.Empty<CoverCandidate>());
     }
 
-    public async Task ApplyCoverCandidateAsync(CoverCandidate candidate)
+    public Task ApplyCoverCandidateAsync(CoverCandidate candidate)
     {
-        if (string.IsNullOrWhiteSpace(candidate.ImageUrl))
-        {
-            CoverStatusText = TranslationService.Instance["Meta_CoverFetchFailed"];
-            return;
-        }
-
-        var previewSource = candidate.PreviewSource?.Trim() ?? string.Empty;
-        if (!string.IsNullOrWhiteSpace(previewSource) && File.Exists(previewSource))
-        {
-            var importedPreview = _coverArtService.ImportLocalCoverToCache(previewSource, _coverCacheKey);
-            if (!string.IsNullOrWhiteSpace(importedPreview?.CachedPath))
-            {
-                SetCoverFields(
-                    path: importedPreview.CachedPath,
-                    url: candidate.ImageUrl,
-                    aspectRatio: importedPreview.AspectRatio,
-                    statusText: TranslationService.Instance["Meta_CoverFetchSuccessCached"]);
-                return;
-            }
-        }
-
-        var result = await _coverArtService.CacheCoverFromUrlAsync(candidate.ImageUrl, _coverCacheKey);
-        var statusText = !string.IsNullOrWhiteSpace(result?.CachedPath)
-            ? TranslationService.Instance["Meta_CoverFetchSuccessCached"]
-            : TranslationService.Instance["Meta_CoverAppliedFromAutoFetch"];
-        SetCoverFields(
-            path: result?.CachedPath,
-            url: result?.CoverUrl ?? candidate.ImageUrl,
-            aspectRatio: result?.AspectRatio,
-            statusText: statusText);
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -522,16 +243,16 @@ public partial class MetadataViewModel : ObservableObject
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*",
-            Title = "Select Game Executable"
+            Title = "Select Executable"
         };
 
-        if (dialog.ShowDialog() == true)
+        if (dialog.ShowDialog() != true)
+            return;
+
+        EditExecutablePath = dialog.FileName;
+        if (string.IsNullOrWhiteSpace(EditProcessName))
         {
-            EditExecutablePath = dialog.FileName;
-            if (string.IsNullOrWhiteSpace(EditProcessName))
-            {
-                EditProcessName = Path.GetFileNameWithoutExtension(dialog.FileName);
-            }
+            EditProcessName = Path.GetFileNameWithoutExtension(dialog.FileName);
         }
     }
 
@@ -560,16 +281,7 @@ public partial class MetadataViewModel : ObservableObject
                 throw new InvalidOperationException(TranslationService.Instance["Meta_CoverInvalidUrl"]);
             }
 
-            var cachedCover = await _coverArtService.CacheCoverFromUrlAsync(coverUrl, _coverCacheKey);
-            if (cachedCover?.CachedPath is { Length: > 0 } cachedPath)
-            {
-                coverPath = cachedPath;
-                _editCoverAspectRatio = cachedCover.AspectRatio ?? CoverArtService.TryReadCoverAspectRatio(cachedPath);
-            }
-            else
-            {
-                _editCoverAspectRatio = null;
-            }
+            _editCoverAspectRatio = null;
         }
         else
         {
@@ -587,12 +299,12 @@ public partial class MetadataViewModel : ObservableObject
         TargetGame.Brand = EditBrand;
         TargetGame.ReleaseDate = EditReleaseDate;
         TargetGame.Status = EditStatus;
-        TargetGame.VndbId = NullIfWhiteSpace(EditVndbId);
-        TargetGame.BangumiId = NullIfWhiteSpace(EditBangumiId);
-        TargetGame.BangumiRating = EditBangumiRating is >= 1 and <= 10 ? EditBangumiRating : null;
-        TargetGame.BangumiComment = NullIfWhiteSpace(EditBangumiComment);
-        TargetGame.BangumiCollectionType = BangumiService.MapGameStatusToCollectionType(EditStatus);
-        TargetGame.ErogameSpaceId = NullIfWhiteSpace(EditEgsId);
+        TargetGame.VndbId = null;
+        TargetGame.BangumiId = null;
+        TargetGame.BangumiRating = null;
+        TargetGame.BangumiComment = null;
+        TargetGame.BangumiCollectionType = null;
+        TargetGame.ErogameSpaceId = null;
         TargetGame.OfficialWebsite = NullIfWhiteSpace(EditWebsite);
         TargetGame.Tags = TagUtilities.Serialize(TagUtilities.ParseMultilineText(EditTagsText));
         TargetGame.ProcessName = EditProcessName;
@@ -605,90 +317,6 @@ public partial class MetadataViewModel : ObservableObject
         if (!_isNewGame)
         {
             await _dbService.UpdateGameAsync(TargetGame);
-            await TryPushBangumiCollectionAsync();
-        }
-    }
-
-    private async Task TryPushBangumiCollectionAsync()
-    {
-        var settings = _settingsService?.Settings;
-        if (settings is null ||
-            string.IsNullOrWhiteSpace(settings.BangumiAccessToken) ||
-            string.IsNullOrWhiteSpace(TargetGame.BangumiId))
-        {
-            var hasToken = settings?.BangumiAccessToken is { Length: > 0 };
-            var hasBangumiId = !string.IsNullOrWhiteSpace(TargetGame.BangumiId);
-            BangumiPushStatusText = $"Bangumi 推送已跳过 (Token: {(hasToken ? "已设置" : "未设置")}, Bangumi ID: {(hasBangumiId ? "已设置" : "未设置")})";
-            System.Diagnostics.Debug.WriteLine($"Bangumi push skipped: Token={(hasToken ? "present" : "empty")}, BangumiId={TargetGame.BangumiId}");
-            return;
-        }
-
-        BangumiPushStatusText = "正在推送到 Bangumi...";
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        try
-        {
-            System.Diagnostics.Debug.WriteLine($"Bangumi push starting for game {TargetGame.Title} (ID: {TargetGame.BangumiId}), Status: {TargetGame.Status}, Rating: {TargetGame.BangumiRating}, Comment: {TargetGame.BangumiComment}");
-            var syncService = new BangumiSyncService(_httpClient, _dbService, _settingsService);
-            var success = await syncService.PushCollectionAsync(TargetGame, cts.Token);
-            System.Diagnostics.Debug.WriteLine($"Bangumi push result: {(success ? "success" : "failed")}");
-            if (success)
-            {
-                TargetGame.BangumiLastSyncedAt = DateTime.Now;
-                TargetGame.BangumiCollectionUpdatedAt = DateTime.Now;
-                await _dbService.UpdateGameAsync(TargetGame);
-                BangumiPushStatusText = "Bangumi 推送成功";
-            }
-            else
-            {
-                BangumiPushStatusText = "Bangumi 推送失败 (API 返回错误)，请检查输出窗口了解详情";
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            BangumiPushStatusText = "Bangumi 推送超时，请检查网络连接";
-            System.Diagnostics.Debug.WriteLine("Bangumi collection push cancelled/timed out");
-        }
-        catch (Exception ex)
-        {
-            BangumiPushStatusText = $"Bangumi 推送异常: {ex.Message}";
-            System.Diagnostics.Debug.WriteLine($"Bangumi collection push error: {ex.GetType().Name}: {ex.Message}");
-            System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-        }
-    }
-
-    private void QueueBangumiCollectionLoad()
-    {
-        var bangumiId = EditBangumiId.Trim();
-        var version = Interlocked.Increment(ref _bangumiCollectionLoadVersion);
-        if (string.IsNullOrWhiteSpace(bangumiId) ||
-            _settingsService?.Settings is not { } settings ||
-            string.IsNullOrWhiteSpace(settings.BangumiAccessToken))
-        {
-            return;
-        }
-
-        _ = LoadBangumiCollectionStateAsync(bangumiId, version);
-    }
-
-    private async Task LoadBangumiCollectionStateAsync(string bangumiId, int version)
-    {
-        try
-        {
-            var syncService = new BangumiSyncService(_httpClient, _dbService, _settingsService!);
-            var collection = await syncService.GetCollectionStateAsync(bangumiId);
-            if (collection == null || version != _bangumiCollectionLoadVersion)
-                return;
-
-            EditStatus = BangumiService.MapCollectionTypeToGameStatus(collection.Type);
-            EditBangumiRating = collection.Rating is >= 1 and <= 10 ? collection.Rating : null;
-            EditBangumiComment = collection.Comment ?? string.Empty;
-            BangumiSourceStatusText = string.Format(
-                TranslationService.Instance["Meta_AppliedSource"],
-                "Bangumi");
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Bangumi collection load error: {ex.Message}");
         }
     }
 
@@ -709,32 +337,6 @@ public partial class MetadataViewModel : ObservableObject
         _editCoverAspectRatio = aspectRatio;
         RefreshCoverPreview(forceNotify: true);
         CoverStatusText = statusText;
-    }
-
-    private void ResetSourceStatuses()
-    {
-        VndbSourceStatusText = TranslationService.Instance["Workflow_Waiting"];
-        BangumiSourceStatusText = TranslationService.Instance["Workflow_Waiting"];
-        EgsSourceStatusText = TranslationService.Instance["Workflow_Waiting"];
-        MetadataStatusText = string.Format(
-            TranslationService.Instance["Meta_SourceReady"],
-            SelectedSource);
-    }
-
-    private void SetSourceStatus(string source, string statusText)
-    {
-        switch (source)
-        {
-            case "VNDB":
-                VndbSourceStatusText = statusText;
-                break;
-            case "Bangumi":
-                BangumiSourceStatusText = statusText;
-                break;
-            case "ErogameSpace":
-                EgsSourceStatusText = statusText;
-                break;
-        }
     }
 
     private void RefreshCoverPreview(bool forceNotify = false)
@@ -771,32 +373,6 @@ public partial class MetadataViewModel : ObservableObject
         return uri.Scheme == Uri.UriSchemeHttp ||
                uri.Scheme == Uri.UriSchemeHttps ||
                uri.Scheme == Uri.UriSchemeFile;
-    }
-
-    private static async Task<IReadOnlyList<string>> GetCachedSearchAliasesAsync(string title)
-    {
-        if (string.IsNullOrWhiteSpace(title))
-            return [];
-
-        try
-        {
-            var cacheService = new VndbRecommendationCacheService();
-            var cache = await cacheService.LoadAsync();
-            if (!cache.SearchAliases.TryGetValue(RecommendationService.BuildTagWeightKey(title), out var aliases))
-                return [];
-
-            return aliases.Queries
-                .Where(query => !string.IsNullOrWhiteSpace(query))
-                .Select(query => query.Trim())
-                .Where(query => !string.Equals(query, title, StringComparison.OrdinalIgnoreCase))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(6)
-                .ToList();
-        }
-        catch
-        {
-            return [];
-        }
     }
 }
 

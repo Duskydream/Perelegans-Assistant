@@ -6,7 +6,7 @@
         xmlns:i18n="clr-namespace:Perelegans.i18n"
         Title="{i18n:Translate Meta_Title}"
         TitleCharacterCasing="Normal"
-        Height="680" Width="820"
+        Height="620" Width="620"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
         ShowTitleBar="True"
@@ -124,83 +124,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="90"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="18"/>
-                    <ColumnDefinition Width="250"/>
                 </Grid.ColumnDefinitions>
-
-                <Border Grid.Row="0" Grid.Column="3" Grid.RowSpan="14"
-                        Padding="10"
-                        Background="{DynamicResource Perelegans.PanelBackground}"
-                        BorderBrush="{DynamicResource Perelegans.BorderBrush}"
-                        BorderThickness="1">
-                    <StackPanel>
-                        <TextBlock Text="{i18n:Translate Meta_SourceStatusTitle}"
-                                   FontWeight="SemiBold"
-                                   FontSize="12"
-                                   Margin="0,0,0,8"/>
-                        <Grid Margin="0,0,0,8">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="6"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="92"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Row="0" Text="VNDB" FontWeight="SemiBold"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding VndbSourceStatusText}"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
-                            <TextBlock Grid.Row="2" Text="Bangumi" FontWeight="SemiBold"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BangumiSourceStatusText}"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
-                            <TextBlock Grid.Row="4" Text="ErogameSpace" FontWeight="SemiBold"/>
-                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding EgsSourceStatusText}"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
-                        </Grid>
-
-                        <Border Padding="8,6"
-                                Background="{DynamicResource Perelegans.WindowBackground}"
-                                BorderBrush="{DynamicResource Perelegans.BorderBrush}"
-                                BorderThickness="1"
-                                Margin="0,0,0,10">
-                            <TextBlock Text="{Binding MetadataStatusText}"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource Perelegans.AccentBrush}"
-                                       FontSize="11"/>
-                        </Border>
-
-                        <TextBlock Text="Bangumi 推送状态"
-                                   FontWeight="SemiBold"
-                                   FontSize="12"
-                                   Margin="0,0,0,6"/>
-                        <Border Padding="8,6"
-                                Background="{DynamicResource Perelegans.WindowBackground}"
-                                BorderBrush="{DynamicResource Perelegans.BorderBrush}"
-                                BorderThickness="1"
-                                Margin="0,0,0,10">
-                            <TextBlock Text="{Binding BangumiPushStatusText}"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource Perelegans.AccentBrush}"
-                                       FontSize="11"/>
-                        </Border>
-
-                        <TextBlock Text="{i18n:Translate Meta_CoverStatusTitle}"
-                                   FontWeight="SemiBold"
-                                   FontSize="12"
-                                   Margin="0,0,0,6"/>
-                        <TextBlock Text="{Binding CoverStatusText}"
-                                   TextWrapping="Wrap"
-                                   MinHeight="46"
-                                   Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
-                                   FontSize="11"/>
-                    </StackPanel>
-                </Border>
 
                 <TextBlock Grid.Row="0" Text="{i18n:Translate Meta_FieldTitle}" VerticalAlignment="Center" FontSize="12" Margin="0,2"/>
                 <TextBox Grid.Row="0" Grid.Column="1" Height="24" FontSize="12" Margin="0,2"
@@ -222,40 +146,6 @@
                           DisplayMemberPath="Label"
                           SelectedValuePath="Value"
                           SelectedValue="{Binding EditStatus, Mode=TwoWay}"/>
-
-                <TextBlock Grid.Row="4" Text="VNDB ID:" VerticalAlignment="Center" FontSize="12" Margin="0,2"/>
-                <TextBox Grid.Row="4" Grid.Column="1" Height="24" FontSize="12" Margin="0,2"
-                         VerticalContentAlignment="Center"
-                         Text="{Binding EditVndbId, Mode=TwoWay}"
-                         mah:TextBoxHelper.Watermark="v12345"/>
-
-                <TextBlock Grid.Row="5" Text="Bangumi ID:" VerticalAlignment="Center" FontSize="12" Margin="0,2"/>
-                <TextBox Grid.Row="5" Grid.Column="1" Height="24" FontSize="12" Margin="0,2"
-                         VerticalContentAlignment="Center"
-                         Text="{Binding EditBangumiId, Mode=TwoWay}"/>
-
-                <TextBlock Grid.Row="6" Text="{i18n:Translate Meta_FieldBangumiRating}" VerticalAlignment="Center" FontSize="12" Margin="0,2"/>
-                <mah:NumericUpDown Grid.Row="6" Grid.Column="1"
-                                   Value="{Binding EditBangumiRating, Mode=TwoWay}"
-                                   Minimum="0" Maximum="10" Interval="1"
-                                   Width="70"
-                                   Height="24"
-                                   FontSize="12"
-                                   HorizontalAlignment="Left"
-                                   NumericInputMode="Numbers"/>
-
-                <TextBlock Grid.Row="7" Text="{i18n:Translate Meta_FieldBangumiComment}" VerticalAlignment="Top" FontSize="12" Margin="0,6,0,2"/>
-                <TextBox Grid.Row="7" Grid.Column="1" Height="50" FontSize="12" Margin="0,2"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         VerticalContentAlignment="Top"
-                         VerticalScrollBarVisibility="Auto"
-                         Text="{Binding EditBangumiComment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-
-                <TextBlock Grid.Row="8" Text="EGS ID:" VerticalAlignment="Center" FontSize="12" Margin="0,2"/>
-                <TextBox Grid.Row="8" Grid.Column="1" Height="24" FontSize="12" Margin="0,2"
-                         VerticalContentAlignment="Center"
-                         Text="{Binding EditEgsId, Mode=TwoWay}"/>
 
                 <TextBlock Grid.Row="9" Text="{i18n:Translate Meta_FieldWebsite}" VerticalAlignment="Center" FontSize="12" Margin="0,2"/>
                 <TextBox Grid.Row="9" Grid.Column="1" Height="24" FontSize="12" Margin="0,2"
@@ -300,13 +190,7 @@
                         </Grid>
                     </Border>
 
-                    <UniformGrid Grid.Row="1" Columns="3" Margin="0,0,0,2">
-                        <Button Height="28" FontSize="11" Margin="0,0,8,0"
-                                Padding="8,0"
-                                BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
-                                Style="{DynamicResource MahApps.Styles.Button.Square.Accent}"
-                                Content="{i18n:Translate Meta_CoverFetchBtn}"
-                                Click="AutoFetchCover_Click"/>
+                    <UniformGrid Grid.Row="1" Columns="2" Margin="0,0,0,2">
                         <Button Height="28" FontSize="11" Margin="0,0,8,0"
                                 Padding="8,0"
                                 BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
@@ -340,9 +224,9 @@
 
                 <TextBlock Grid.Row="12" Text="{i18n:Translate Meta_FieldProcess}" VerticalAlignment="Center" FontSize="12" Margin="0,2"/>
                 <TextBox Grid.Row="12" Grid.Column="1" Height="24" FontSize="12" Margin="0,2"
-                         VerticalContentAlignment="Center"
-                         Text="{Binding EditProcessName, Mode=TwoWay}"
-                         mah:TextBoxHelper.Watermark="GAME_PROCESS.exe"/>
+                          VerticalContentAlignment="Center"
+                          Text="{Binding EditProcessName, Mode=TwoWay}"
+                          mah:TextBoxHelper.Watermark="process.exe"/>
 
                 <TextBlock Grid.Row="13" Text="{i18n:Translate Meta_FieldExec}" VerticalAlignment="Center" FontSize="12" Margin="0,2"/>
                 <Grid Grid.Row="13" Grid.Column="1" Margin="0,2">
@@ -353,7 +237,7 @@
                     <TextBox Grid.Column="0" Height="24" FontSize="12" Margin="0,0,4,0"
                              VerticalContentAlignment="Center"
                              Text="{Binding EditExecutablePath, Mode=TwoWay}"
-                             mah:TextBoxHelper.Watermark="C:\Games\Game.exe"/>
+                              mah:TextBoxHelper.Watermark="C:\Program Files\App\App.exe"/>
                     <Button Grid.Column="1" Content="..." Width="30" Height="24"
                             BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
                             Command="{Binding BrowseExecutableCommand}"/>
