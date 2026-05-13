@@ -51,8 +51,8 @@
   <data name="Settings_DataBackupSaved" xml:space="preserve"><value>已备份。</value></data>
   <data name="Settings_DataBackupRestored" xml:space="preserve"><value>已恢复。必要时可重新打开或刷新主面板。</value></data>
   <data name="Settings_WindowTitle" xml:space="preserve"><value>设置</value></data>
-  <data name="Main_WindowTitle" xml:space="preserve"><value>re-Perelegans</value></data>
-  <data name="Main_AppTitle" xml:space="preserve"><value>re-Perelegans</value></data>
+  <data name="Main_WindowTitle" xml:space="preserve"><value>Perelegans</value></data>
+  <data name="Main_AppTitle" xml:space="preserve"><value>Perelegans</value></data>
   <data name="Main_PrimaryPrompt" xml:space="preserve"><value>今天要完成什么？</value></data>
   <data name="Main_InputWatermark" xml:space="preserve"><value>输入任务，或输入“刷新 / 设置 / 开始 / 暂停”</value></data>
   <data name="Main_Send" xml:space="preserve"><value>发送</value></data>

@@ -51,8 +51,8 @@
   <data name="Settings_DataBackupSaved" xml:space="preserve"><value>Backup saved.</value></data>
   <data name="Settings_DataBackupRestored" xml:space="preserve"><value>Backup restored. Reopen or refresh the dashboard if needed.</value></data>
   <data name="Settings_WindowTitle" xml:space="preserve"><value>Settings</value></data>
-  <data name="Main_WindowTitle" xml:space="preserve"><value>re-Perelegans</value></data>
-  <data name="Main_AppTitle" xml:space="preserve"><value>re-Perelegans</value></data>
+  <data name="Main_WindowTitle" xml:space="preserve"><value>Perelegans</value></data>
+  <data name="Main_AppTitle" xml:space="preserve"><value>Perelegans</value></data>
   <data name="Main_PrimaryPrompt" xml:space="preserve"><value>What do you want to finish?</value></data>
   <data name="Main_InputWatermark" xml:space="preserve"><value>Type a task or command...</value></data>
   <data name="Main_Send" xml:space="preserve"><value>Send</value></data>

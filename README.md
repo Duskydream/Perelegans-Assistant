@@ -1,10 +1,9 @@
-# re-Perelegans
+# Perelegans
 
-re-Perelegans 是一个 Windows 桌面专注辅助工具，由原 Perelegans 重构而来。
+Perelegans Assistant 是一个 Windows 桌面专注辅助工具，由原 Perelegans 重构而来。
 它会记录当前前台应用的使用情况，提供一个常驻悬浮助手，并可接入 OpenAI 兼容接口来判断当前应用更偏向专注工作还是分心娱乐。
 
-当前项目仍处在重构阶段。旧版视觉小说库、游戏元数据、推荐、封面、VNDB、Bangumi、ErogameSpace 等功能已经从主应用路径中移除。
-
+当前项目仍处在重构阶段。
 ## 当前功能
 
 - 启动后显示悬浮专注助手。
@@ -35,11 +34,11 @@ dotnet build src\Perelegans\Perelegans.csproj
 dotnet run --project src\Perelegans\Perelegans.csproj
 ```
 
-应用启动后会显示一个小型悬浮助手。双击悬浮助手即可打开 re-Perelegans 主面板。
+应用启动后会显示一个小型悬浮助手。双击悬浮助手即可打开 Perelegans 主面板。
 
 ## AI 配置
 
-AI 专注判断是可选功能。即使不配置 AI，re-Perelegans 仍会记录前台应用使用情况，并使用内置的常见生产力应用列表进行基础判断。
+AI 专注判断是可选功能。即使不配置 AI，Perelegans 仍会记录前台应用使用情况，并使用内置的常见生产力应用列表进行基础判断。
 
 如需启用 AI 判断，请在设置窗口中填写：
 
@@ -53,7 +52,7 @@ AI 专注判断是可选功能。即使不配置 AI，re-Perelegans 仍会记录
 
 ## 数据
 
-re-Perelegans 会把本地数据保存在用户的本地应用数据目录下：
+Perelegans 会把本地数据保存在用户的本地应用数据目录下：
 
 - `settings.json`：应用设置
 - `perelegans.db`：SQLite 使用记录数据库
@@ -82,7 +81,7 @@ src/Perelegans/
 
 ## 开发说明
 
-这次重构有意缩小项目表面积，优先保证新方向清晰可维护，而不是兼容旧版游戏库功能。
+这次重构有意缩小项目表面积，优先保证新方向清晰可维护。
 后续新增功能应围绕专注追踪、应用使用分析和桌面辅助体验展开，避免重新引入游戏库领域概念。
 
 ## 许可证
