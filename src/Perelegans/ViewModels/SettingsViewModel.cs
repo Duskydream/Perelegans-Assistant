@@ -27,15 +27,6 @@ public partial class SettingsViewModel : ObservableObject
     private ThemeMode _selectedTheme;
 
     [ObservableProperty]
-    private int _monitorIntervalSeconds;
-
-    [ObservableProperty]
-    private string _proxyAddress = string.Empty;
-
-    [ObservableProperty]
-    private bool _monitorEnabled;
-
-    [ObservableProperty]
     private string _selectedLanguage = "zh-Hans";
 
     [ObservableProperty]
@@ -126,9 +117,6 @@ public partial class SettingsViewModel : ObservableObject
 
         var s = _settingsService.Settings;
         SelectedTheme = s.Theme;
-        MonitorIntervalSeconds = Math.Clamp(s.MonitorIntervalSeconds, 1, 60);
-        ProxyAddress = s.ProxyAddress;
-        MonitorEnabled = s.MonitorEnabled;
         SelectedLanguage = TranslationService.NormalizeLanguageCode(s.Language);
         LaunchAtStartup = s.LaunchAtStartup;
         SelectedCloseBehavior = s.CloseBehavior;
@@ -187,7 +175,6 @@ public partial class SettingsViewModel : ObservableObject
         {
             var testSettings = new AppSettings
             {
-                ProxyAddress = ProxyAddress.Trim(),
                 AiProvider = SelectedAiProvider,
                 AiApiBaseUrl = AiApiBaseUrl.Trim(),
                 AiApiKey = AiApiKey.Trim(),
@@ -234,9 +221,6 @@ public partial class SettingsViewModel : ObservableObject
     {
         var s = _settingsService.Settings;
         s.Theme = SelectedTheme;
-        s.MonitorIntervalSeconds = Math.Clamp(MonitorIntervalSeconds, 1, 60);
-        s.ProxyAddress = ProxyAddress.Trim();
-        s.MonitorEnabled = MonitorEnabled;
         s.Language = TranslationService.NormalizeLanguageCode(SelectedLanguage);
         s.LaunchAtStartup = LaunchAtStartup;
         s.CloseBehavior = SelectedCloseBehavior;

@@ -6,15 +6,18 @@
         xmlns:i18n="clr-namespace:Perelegans.i18n"
         Title="{i18n:Translate Settings_WindowTitle}"
         TitleCharacterCasing="Normal"
-        Height="680" Width="520"
+        Height="680"
+        Width="860"
+        MinHeight="620"
+        MinWidth="760"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
+        ResizeMode="CanResize"
         ShowTitleBar="True"
-        TitleBarHeight="28"
+        TitleBarHeight="32"
         BorderThickness="1"
         WindowTitleBrush="{DynamicResource Perelegans.PanelBackground}"
         NonActiveWindowTitleBrush="{DynamicResource Perelegans.PanelBackground}"
-        GlowBrush="{DynamicResource MahApps.Brushes.Accent}"
+        GlowBrush="{DynamicResource Perelegans.BorderBrush}"
         Background="{DynamicResource Perelegans.WindowBackground}"
         Foreground="{DynamicResource Perelegans.ForegroundBrush}">
 
@@ -25,258 +28,360 @@
                 <x:Type TypeName="models:ThemeMode"/>
             </ObjectDataProvider.MethodParameters>
         </ObjectDataProvider>
+
+        <Style x:Key="QuietTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource Perelegans.ForegroundBrush}"/>
+        </Style>
+
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource Perelegans.ForegroundBrush}"/>
+        </Style>
+
+        <Style x:Key="SettingsInputStyle" TargetType="Control">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <DataTemplate x:Key="OptionLabelTemplate">
+            <TextBlock Text="{Binding Label}"
+                       Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
+        </DataTemplate>
+
+        <Style x:Key="SettingsComboBoxItemStyle" TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource Perelegans.ForegroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource Perelegans.PanelBackground}"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Perelegans.MenuHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Perelegans.StatsChartHighlightBackground}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SettingsComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource Perelegans.ForegroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource Perelegans.PanelBackground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Perelegans.BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SettingsComboBoxItemStyle}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="{TemplateBinding BorderThickness}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="Chrome"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="34"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                                  VerticalAlignment="Center"
+                                                                  HorizontalAlignment="Stretch"/>
+                                                <Path Grid.Column="1"
+                                                      Width="9"
+                                                      Height="5"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"
+                                                      Stretch="Fill"
+                                                      Fill="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                      Data="M0,0 L9,0 L4.5,5 Z"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Perelegans.AccentBrush}"/>
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Perelegans.AccentBrush}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite"
+                                              Margin="10,0,34,0"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                              VerticalAlignment="Center"/>
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Fade">
+                                <Border MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                        Background="{DynamicResource Perelegans.PanelBackground}"
+                                        BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                        BorderThickness="1">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="LineButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource Perelegans.ForegroundBrush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Perelegans.MenuHoverBrush}"/>
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Perelegans.BorderBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Perelegans.StatsChartMetricBackground}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AccentLineButtonStyle" TargetType="Button" BasedOn="{StaticResource LineButtonStyle}">
+            <Setter Property="BorderBrush" Value="{DynamicResource Perelegans.AccentBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Perelegans.AccentBrush}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="LineIconPathStyle" TargetType="Path">
+            <Setter Property="Fill" Value="Transparent"/>
+            <Setter Property="StrokeThickness" Value="1.2"/>
+            <Setter Property="StrokeStartLineCap" Value="Round"/>
+            <Setter Property="StrokeEndLineCap" Value="Round"/>
+            <Setter Property="StrokeLineJoin" Value="Round"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+        </Style>
+
+        <Style x:Key="SectionShellStyle" TargetType="Border">
+            <Setter Property="Padding" Value="0,0,0,26"/>
+            <Setter Property="Margin" Value="0,0,0,26"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Perelegans.BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
     </mah:MetroWindow.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled"
-                  Padding="16,12">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+    <Grid Opacity="0">
+        <Grid.Triggers>
+            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.18"/>
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Grid.Triggers>
 
-            <GroupBox Grid.Row="0" Header="{i18n:Translate Settings_Appearance}" Margin="0,0,0,8"
-                      Padding="8,6" FontSize="12"
-                      BorderBrush="{DynamicResource Perelegans.BorderBrush}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="110"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="{i18n:Translate Settings_ThemeMode}" VerticalAlignment="Center" FontSize="12"/>
-                    <ComboBox Grid.Row="0" Grid.Column="1" Height="26" FontSize="12"
-                              ItemsSource="{Binding Source={StaticResource ThemeModes}}"
-                              SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"/>
+        <Border Grid.Column="0"
+                Padding="16"
+                Background="{DynamicResource Perelegans.PanelBackground}"
+                BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="24"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="2" Text="{i18n:Translate Settings_Language}" VerticalAlignment="Center" FontSize="12"/>
-                    <ComboBox Grid.Row="2" Grid.Column="1" Height="26" FontSize="12"
-                              ItemsSource="{Binding LanguageOptions}"
-                              SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}"/>
-                </Grid>
-            </GroupBox>
+                <StackPanel Grid.Row="0">
+                    <TextBlock Text="{i18n:Translate Settings_WindowTitle}" FontSize="19" FontWeight="SemiBold"/>
+                    <TextBlock Text="Perelegans" Margin="0,6,0,0" Style="{StaticResource QuietTextStyle}"/>
+                </StackPanel>
 
-            <GroupBox Grid.Row="1" Header="{i18n:Translate Settings_Monitor}" Margin="0,0,0,8"
-                      Padding="8,6" FontSize="12"
-                      BorderBrush="{DynamicResource Perelegans.BorderBrush}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="110"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+                <StackPanel Grid.Row="2">
+                    <Button Style="{StaticResource LineButtonStyle}" Margin="0,0,0,6">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M4,6 L20,6 M4,12 L20,12 M4,18 L20,18 M8,4 L8,8 M16,10 L16,14 M11,16 L11,20"/>
+                            </Viewbox>
+                            <TextBlock Text="{i18n:Translate Settings_Appearance}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource LineButtonStyle}" Margin="0,0,0,6">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M12,3 L13.8,8.2 L19,10 L13.8,11.8 L12,17 L10.2,11.8 L5,10 L10.2,8.2 Z M18,4 L18.7,6.3 L21,7 L18.7,7.7 L18,10 L17.3,7.7 L15,7 L17.3,6.3 Z"/>
+                            </Viewbox>
+                            <TextBlock Text="{i18n:Translate Settings_Ai}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource LineButtonStyle}" Margin="0,0,0,6">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M12,8.5 A3.5,3.5 0 1 0 12,15.5 A3.5,3.5 0 1 0 12,8.5 M19.4,15 A8.4,8.4 0 0 0 19.4,9 L21,7.8 L19.2,4.7 L17.3,5.5 A8.2,8.2 0 0 0 14.7,4 L14.5,2 L10.9,2 L10.6,4 A8.2,8.2 0 0 0 8,5.5 L6.2,4.7 L4.4,7.8 L6,9 A8.4,8.4 0 0 0 6,15 L4.4,16.2 L6.2,19.3 L8,18.5 A8.2,8.2 0 0 0 10.6,20 L10.9,22 L14.5,22 L14.7,20 A8.2,8.2 0 0 0 17.3,18.5 L19.2,19.3 L21,16.2 Z"/>
+                            </Viewbox>
+                            <TextBlock Text="{i18n:Translate Settings_System}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource LineButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M5,6 C5,4.9 8.1,4 12,4 C15.9,4 19,4.9 19,6 C19,7.1 15.9,8 12,8 C8.1,8 5,7.1 5,6 Z M5,6 L5,18 C5,19.1 8.1,20 12,20 C15.9,20 19,19.1 19,18 L19,6 M5,12 C5,13.1 8.1,14 12,14 C15.9,14 19,13.1 19,12"/>
+                            </Viewbox>
+                            <TextBlock Text="{i18n:Translate Settings_Data}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
 
-                    <TextBlock Grid.Row="0" Text="{i18n:Translate Settings_Enabled}" VerticalAlignment="Center" FontSize="12"/>
-                    <CheckBox Grid.Row="0" Grid.Column="1"
-                              IsChecked="{Binding MonitorEnabled, Mode=TwoWay}"
-                              VerticalAlignment="Center"/>
+                <StackPanel Grid.Row="3">
+                    <Button Content="{i18n:Translate Btn_Save}" Height="36" Margin="0,0,0,8" Style="{StaticResource AccentLineButtonStyle}" Click="BtnSave_Click"/>
+                    <Button Content="{i18n:Translate Btn_Cancel}" Height="36" Style="{StaticResource LineButtonStyle}" HorizontalContentAlignment="Center" BorderBrush="{DynamicResource Perelegans.BorderBrush}" Click="BtnCancel_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-                    <TextBlock Grid.Row="2" Text="{i18n:Translate Settings_Interval}" VerticalAlignment="Center" FontSize="12"/>
-                    <mah:NumericUpDown Grid.Row="2" Grid.Column="1"
-                                       Value="{Binding MonitorIntervalSeconds, Mode=TwoWay}"
-                                       Minimum="1" Maximum="60" Interval="1"
-                                       Width="70"
-                                       Height="26" FontSize="12"
-                                       HorizontalAlignment="Left"
-                                       NumericInputMode="Numbers"/>
-                </Grid>
-            </GroupBox>
-
-            <GroupBox Grid.Row="2" Header="{i18n:Translate Settings_Network}" Margin="0,0,0,8"
-                      Padding="8,6" FontSize="12"
-                      BorderBrush="{DynamicResource Perelegans.BorderBrush}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="110"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Text="{i18n:Translate Settings_Proxy}" VerticalAlignment="Center" FontSize="12"/>
-                    <TextBox Grid.Column="1" Height="26" FontSize="12"
-                             VerticalContentAlignment="Center"
-                             Text="{Binding ProxyAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             mah:TextBoxHelper.Watermark="http://127.0.0.1:7890"/>
-                </Grid>
-            </GroupBox>
-
-            <GroupBox Grid.Row="3" Header="{i18n:Translate Settings_Ai}" Margin="0,0,0,8"
-                      Padding="8,6" FontSize="12"
-                      BorderBrush="{DynamicResource Perelegans.BorderBrush}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="8"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="10"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="110"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Row="0" Text="{i18n:Translate Settings_AiProvider}" VerticalAlignment="Center" FontSize="12"/>
-                    <ComboBox Grid.Row="0" Grid.Column="1" Height="26" FontSize="12"
-                              ItemsSource="{Binding AiProviderOptions}"
-                              DisplayMemberPath="Label"
-                              SelectedValuePath="Value"
-                              SelectedValue="{Binding SelectedAiProvider, Mode=TwoWay}"/>
-
-                    <Border Grid.Row="2" Grid.Column="1"
-                            Padding="8,6"
-                            Background="{DynamicResource Perelegans.PanelBackground}"
-                            BorderBrush="{DynamicResource Perelegans.BorderBrush}"
-                            BorderThickness="1">
-                        <TextBlock Text="{Binding AiProviderHint}"
-                                   TextWrapping="Wrap"
-                                   Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
-                                   FontSize="11"/>
-                    </Border>
-
-                    <TextBlock Grid.Row="4" Text="{i18n:Translate Settings_AiBaseUrl}" VerticalAlignment="Center" FontSize="12"/>
-                    <TextBox Grid.Row="4" Grid.Column="1" Height="26" FontSize="12"
-                             VerticalContentAlignment="Center"
-                             Text="{Binding AiApiBaseUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             mah:TextBoxHelper.Watermark="{Binding AiBaseUrlPlaceholder}"/>
-
-                    <TextBlock Grid.Row="6" Text="{i18n:Translate Settings_AiApiKey}" VerticalAlignment="Center" FontSize="12"/>
-                    <TextBox Grid.Row="6" Grid.Column="1" Height="26" FontSize="12"
-                             VerticalContentAlignment="Center"
-                             Text="{Binding AiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             mah:TextBoxHelper.Watermark="{Binding AiApiKeyPlaceholder}"/>
-
-                    <TextBlock Grid.Row="8" Text="{i18n:Translate Settings_AiModel}" VerticalAlignment="Center" FontSize="12"/>
-                    <TextBox Grid.Row="8" Grid.Column="1" Height="26" FontSize="12"
-                             VerticalContentAlignment="Center"
-                             Text="{Binding AiModel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             mah:TextBoxHelper.Watermark="{Binding AiModelPlaceholder}"/>
-
-                    <DockPanel Grid.Row="10" Grid.Column="1" LastChildFill="True">
-                        <Button DockPanel.Dock="Left"
-                                Width="96" Height="28"
-                                Margin="0,0,8,0"
-                                BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
-                                Style="{DynamicResource MahApps.Styles.Button.Square.Accent}"
-                                Content="{i18n:Translate Settings_AiTestButton}"
-                                Command="{Binding TestAiCommand}"/>
-                        <Border Padding="8,5"
-                                Background="{DynamicResource Perelegans.PanelBackground}"
-                                BorderBrush="{DynamicResource Perelegans.BorderBrush}"
-                                BorderThickness="1"
-                                Visibility="{Binding HasAiTestStatus, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <TextBlock Text="{Binding AiTestStatusText}"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
-                                       FontSize="11"/>
-                        </Border>
-                    </DockPanel>
-                </Grid>
-            </GroupBox>
-
-            <GroupBox Grid.Row="4" Header="{i18n:Translate Settings_System}" Margin="0,0,0,8"
-                      Padding="8,6" FontSize="12"
-                      BorderBrush="{DynamicResource Perelegans.BorderBrush}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="110"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Row="0" Text="{i18n:Translate Settings_LaunchAtStartup}" VerticalAlignment="Center" FontSize="12"/>
-                    <CheckBox Grid.Row="0" Grid.Column="1"
-                              IsChecked="{Binding LaunchAtStartup, Mode=TwoWay}"
-                              VerticalAlignment="Center"/>
-
-                    <TextBlock Grid.Row="2" Text="{i18n:Translate Settings_CloseBehavior}" VerticalAlignment="Center" FontSize="12"/>
-                    <ComboBox Grid.Row="2" Grid.Column="1" Height="26" FontSize="12"
-                              ItemsSource="{Binding CloseBehaviorOptions}"
-                              DisplayMemberPath="Label"
-                              SelectedValuePath="Value"
-                              SelectedValue="{Binding SelectedCloseBehavior, Mode=TwoWay}"/>
-                </Grid>
-            </GroupBox>
-
-            <GroupBox Grid.Row="5" Header="{i18n:Translate Settings_Data}" Margin="0,0,0,8"
-                      Padding="8,6" FontSize="12"
-                      BorderBrush="{DynamicResource Perelegans.BorderBrush}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="8"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="110"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Row="0" Text="{i18n:Translate Settings_DataActions}" VerticalAlignment="Center" FontSize="12"/>
-                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
-                        <Button Width="96" Height="28"
-                                Margin="0,0,8,0"
-                                BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
-                                Style="{DynamicResource MahApps.Styles.Button.Square}"
-                                Content="{i18n:Translate Main_Backup}"
-                                Command="{Binding SaveBackupCommand}"/>
-                        <Button Width="96" Height="28"
-                                BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
-                                Style="{DynamicResource MahApps.Styles.Button.Square}"
-                                Content="{i18n:Translate Main_Restore}"
-                                Command="{Binding RestoreBackupCommand}"/>
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="34,28,38,28">
+                <Border Style="{StaticResource SectionShellStyle}">
+                    <StackPanel>
+                        <TextBlock Text="{i18n:Translate Settings_Appearance}" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="{i18n:Translate Settings_ThemeMode}" Margin="0,20,0,8" Style="{StaticResource FieldLabelStyle}"/>
+                        <ComboBox Style="{StaticResource SettingsComboBoxStyle}" ItemsSource="{Binding Source={StaticResource ThemeModes}}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"/>
+                        <TextBlock Text="{i18n:Translate Settings_Language}" Margin="0,16,0,8" Style="{StaticResource FieldLabelStyle}"/>
+                        <ComboBox Style="{StaticResource SettingsComboBoxStyle}" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}"/>
                     </StackPanel>
+                </Border>
 
-                    <Border Grid.Row="2" Grid.Column="1"
-                            Padding="8,5"
-                            Background="{DynamicResource Perelegans.PanelBackground}"
-                            BorderBrush="{DynamicResource Perelegans.BorderBrush}"
-                            BorderThickness="1"
-                            Visibility="{Binding HasDataMaintenanceStatus, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <TextBlock Text="{Binding DataMaintenanceStatusText}"
-                                   TextWrapping="Wrap"
-                                   Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
-                                   FontSize="11"/>
-                    </Border>
-                </Grid>
-            </GroupBox>
+                <Border Style="{StaticResource SectionShellStyle}">
+                    <StackPanel>
+                        <TextBlock Text="{i18n:Translate Settings_Ai}" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="{i18n:Translate Settings_AiProvider}" Margin="0,20,0,8" Style="{StaticResource FieldLabelStyle}"/>
+                        <ComboBox Style="{StaticResource SettingsComboBoxStyle}" ItemsSource="{Binding AiProviderOptions}" ItemTemplate="{StaticResource OptionLabelTemplate}" SelectedValuePath="Value" SelectedValue="{Binding SelectedAiProvider, Mode=TwoWay}"/>
+                        <Border Margin="0,10,0,18" Padding="12,9" Background="{DynamicResource Perelegans.PanelBackground}" BorderBrush="{DynamicResource Perelegans.BorderBrush}" BorderThickness="1">
+                            <TextBlock Text="{Binding AiProviderHint}" TextWrapping="Wrap" Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}" FontSize="12" LineHeight="18"/>
+                        </Border>
+                        <TextBlock Text="{i18n:Translate Settings_AiBaseUrl}" Margin="0,0,0,8" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBox Height="34" FontSize="13" VerticalContentAlignment="Center" Text="{Binding AiApiBaseUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="{Binding AiBaseUrlPlaceholder}"/>
+                        <TextBlock Text="{i18n:Translate Settings_AiApiKey}" Margin="0,16,0,8" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBox Height="34" FontSize="13" VerticalContentAlignment="Center" Text="{Binding AiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="{Binding AiApiKeyPlaceholder}"/>
+                        <TextBlock Text="{i18n:Translate Settings_AiModel}" Margin="0,16,0,8" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBox Height="34" FontSize="13" VerticalContentAlignment="Center" Text="{Binding AiModel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="{Binding AiModelPlaceholder}"/>
+                        <DockPanel Margin="0,18,0,0" LastChildFill="True">
+                            <Button DockPanel.Dock="Left" Width="112" Height="34" Margin="0,0,10,0" Style="{StaticResource AccentLineButtonStyle}" Content="{i18n:Translate Settings_AiTestButton}" Command="{Binding TestAiCommand}"/>
+                            <Border Padding="12,9" Background="{DynamicResource Perelegans.PanelBackground}" BorderBrush="{DynamicResource Perelegans.BorderBrush}" BorderThickness="1" Visibility="{Binding HasAiTestStatus, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{Binding AiTestStatusText}" TextWrapping="Wrap" Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}" FontSize="12"/>
+                            </Border>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
 
-            <StackPanel Grid.Row="6" Orientation="Horizontal"
-                        HorizontalAlignment="Right" Margin="0,4,0,0">
-                <Button Content="{i18n:Translate Btn_Save}" Width="80" Height="28" FontSize="12"
-                        Margin="0,0,8,0"
-                        BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
-                        Style="{DynamicResource MahApps.Styles.Button.Square.Accent}"
-                        Click="BtnSave_Click"/>
-                <Button Content="{i18n:Translate Btn_Cancel}" Width="80" Height="28" FontSize="12"
-                        BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
-                        Style="{DynamicResource MahApps.Styles.Button.Square}"
-                        Click="BtnCancel_Click"/>
+                <Border Style="{StaticResource SectionShellStyle}">
+                    <StackPanel>
+                        <TextBlock Text="{i18n:Translate Settings_System}" Style="{StaticResource SectionTitleStyle}"/>
+                        <Grid Margin="0,20,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="14"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="{i18n:Translate Settings_LaunchAtStartup}" Style="{StaticResource FieldLabelStyle}"/>
+                            <CheckBox Grid.Row="0" Grid.Column="1" IsChecked="{Binding LaunchAtStartup, Mode=TwoWay}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="2" Text="{i18n:Translate Settings_CloseBehavior}" Style="{StaticResource FieldLabelStyle}"/>
+                            <ComboBox Grid.Row="2" Grid.Column="1" Style="{StaticResource SettingsComboBoxStyle}" ItemsSource="{Binding CloseBehaviorOptions}" ItemTemplate="{StaticResource OptionLabelTemplate}" SelectedValuePath="Value" SelectedValue="{Binding SelectedCloseBehavior, Mode=TwoWay}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Padding="0">
+                    <StackPanel>
+                        <TextBlock Text="{i18n:Translate Settings_Data}" Style="{StaticResource SectionTitleStyle}"/>
+                        <TextBlock Text="{i18n:Translate Settings_DataActions}" Margin="0,20,0,10" Style="{StaticResource FieldLabelStyle}"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Width="112" Height="34" Margin="0,0,10,0" Style="{StaticResource LineButtonStyle}" HorizontalContentAlignment="Center" BorderBrush="{DynamicResource Perelegans.BorderBrush}" Content="{i18n:Translate Main_Backup}" Command="{Binding SaveBackupCommand}"/>
+                            <Button Width="112" Height="34" Style="{StaticResource LineButtonStyle}" HorizontalContentAlignment="Center" BorderBrush="{DynamicResource Perelegans.BorderBrush}" Content="{i18n:Translate Main_Restore}" Command="{Binding RestoreBackupCommand}"/>
+                        </StackPanel>
+                        <Border Margin="0,12,0,0" Padding="12,9" Background="{DynamicResource Perelegans.PanelBackground}" BorderBrush="{DynamicResource Perelegans.BorderBrush}" BorderThickness="1" Visibility="{Binding HasDataMaintenanceStatus, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{Binding DataMaintenanceStatusText}" TextWrapping="Wrap" Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}" FontSize="12"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
             </StackPanel>
-        </Grid>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </mah:MetroWindow>

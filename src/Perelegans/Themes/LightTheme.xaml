@@ -5,42 +5,42 @@
     <!-- Perelegans Light Theme: Off-white (米白) + Pink -->
 
     <!-- Window & Panel Backgrounds -->
-    <SolidColorBrush x:Key="Perelegans.WindowBackground" Color="#FAFAFA"/>
-    <SolidColorBrush x:Key="Perelegans.PanelBackground" Color="#F3F3F3"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBackground" Color="#FAFAFA"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBorderBrush" Color="#DADADA"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartMetricBackground" Color="#ECECEC"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartSliceBorderBrush" Color="#FAFAFA"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBackground" Color="#FFF1F4"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBorderBrush" Color="#C98796"/>
+    <SolidColorBrush x:Key="Perelegans.WindowBackground" Color="#F8F7F3"/>
+    <SolidColorBrush x:Key="Perelegans.PanelBackground" Color="#EFEEE9"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBackground" Color="#F8F7F3"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBorderBrush" Color="#CFCBC1"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartMetricBackground" Color="#E7E4DC"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartSliceBorderBrush" Color="#F8F7F3"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBackground" Color="#FBE3EA"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBorderBrush" Color="#B84F73"/>
     
     <!-- Accent -->
-    <Color x:Key="Perelegans.AccentColor">#E7B4BF</Color>
-    <SolidColorBrush x:Key="Perelegans.AccentBrush" Color="#E7B4BF"/>
-    <SolidColorBrush x:Key="Perelegans.AccentHoverBrush" Color="#F0C5CE"/>
-    <SolidColorBrush x:Key="MahApps.Brushes.Accent" Color="#E7B4BF"/>
+    <Color x:Key="Perelegans.AccentColor">#C94D78</Color>
+    <SolidColorBrush x:Key="Perelegans.AccentBrush" Color="#C94D78"/>
+    <SolidColorBrush x:Key="Perelegans.AccentHoverBrush" Color="#AD3E65"/>
+    <SolidColorBrush x:Key="MahApps.Brushes.Accent" Color="#C94D78"/>
     
     <!-- Typography -->
-    <SolidColorBrush x:Key="Perelegans.ForegroundBrush" Color="#1E1E1E"/>
-    <SolidColorBrush x:Key="Perelegans.SubtleForegroundBrush" Color="#6F6F6F"/>
-    <SolidColorBrush x:Key="Perelegans.StatusBarValueForegroundBrush" Color="#1E1E1E"/>
-    <SolidColorBrush x:Key="Perelegans.DataGridSelectedPrimaryForegroundBrush" Color="#5D1135"/>
-    <SolidColorBrush x:Key="Perelegans.StatusIconBrush" Color="#C98796"/>
+    <SolidColorBrush x:Key="Perelegans.ForegroundBrush" Color="#14161B"/>
+    <SolidColorBrush x:Key="Perelegans.SubtleForegroundBrush" Color="#525A66"/>
+    <SolidColorBrush x:Key="Perelegans.StatusBarValueForegroundBrush" Color="#14161B"/>
+    <SolidColorBrush x:Key="Perelegans.DataGridSelectedPrimaryForegroundBrush" Color="#3A0F22"/>
+    <SolidColorBrush x:Key="Perelegans.StatusIconBrush" Color="#B84F73"/>
     
     <!-- Borders -->
-    <SolidColorBrush x:Key="Perelegans.BorderBrush" Color="#DDDDDD"/>
-    <SolidColorBrush x:Key="Perelegans.ButtonBorderBrush" Color="#DDDDDD"/>
+    <SolidColorBrush x:Key="Perelegans.BorderBrush" Color="#D2CEC4"/>
+    <SolidColorBrush x:Key="Perelegans.ButtonBorderBrush" Color="#C8C3B8"/>
     
     <!-- DataGrid -->
-    <SolidColorBrush x:Key="Perelegans.DataGridAltRowBrush" Color="#F5F5F5"/>
-    <SolidColorBrush x:Key="Perelegans.DataGridHeaderBackground" Color="#EEEEEE"/>
-    <SolidColorBrush x:Key="Perelegans.DataGridSelectedRowBrush" Color="#FFE9EE"/>
+    <SolidColorBrush x:Key="Perelegans.DataGridAltRowBrush" Color="#F1EFE8"/>
+    <SolidColorBrush x:Key="Perelegans.DataGridHeaderBackground" Color="#E7E4DC"/>
+    <SolidColorBrush x:Key="Perelegans.DataGridSelectedRowBrush" Color="#F9D7E1"/>
     
     <!-- StatusBar -->
-    <SolidColorBrush x:Key="Perelegans.StatusBarBackground" Color="#EEEEEE"/>
+    <SolidColorBrush x:Key="Perelegans.StatusBarBackground" Color="#E7E4DC"/>
     
     <!-- Menu -->
-    <SolidColorBrush x:Key="Perelegans.MenuBackground" Color="#FAFAFA"/>
-    <SolidColorBrush x:Key="Perelegans.MenuHoverBrush" Color="#EDEDED"/>
+    <SolidColorBrush x:Key="Perelegans.MenuBackground" Color="#F8F7F3"/>
+    <SolidColorBrush x:Key="Perelegans.MenuHoverBrush" Color="#E4E1D8"/>
 
 </ResourceDictionary>

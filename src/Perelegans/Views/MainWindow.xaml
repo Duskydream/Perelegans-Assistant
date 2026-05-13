@@ -27,12 +27,13 @@
             <Setter Property="FontSize" Value="12"/>
         </Style>
 
-        <Style x:Key="IconGlyphStyle" TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Width" Value="22"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Foreground" Value="{DynamicResource Perelegans.ForegroundBrush}"/>
+        <Style x:Key="LineIconPathStyle" TargetType="Path">
+            <Setter Property="Fill" Value="Transparent"/>
+            <Setter Property="StrokeThickness" Value="1.2"/>
+            <Setter Property="StrokeStartLineCap" Value="Round"/>
+            <Setter Property="StrokeEndLineCap" Value="Round"/>
+            <Setter Property="StrokeLineJoin" Value="Round"/>
+            <Setter Property="Stretch" Value="Uniform"/>
         </Style>
 
         <Style x:Key="LineButtonStyle" TargetType="Button">
@@ -251,28 +252,44 @@
                     <Button Command="{Binding ToggleMonitorCommand}"
                             Style="{StaticResource AccentLineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE769;" Style="{StaticResource IconGlyphStyle}"/>
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M8,5 L8,19 M16,5 L16,19"/>
+                            </Viewbox>
                             <TextBlock Text="{Binding MonitorButtonText}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button Command="{Binding RefreshCommand}"
                             Style="{StaticResource LineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE72C;" Style="{StaticResource IconGlyphStyle}"/>
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M19,12 A7,7 0 1 1 16.9,7 M19,4 L19,10 L13,10"/>
+                            </Viewbox>
                             <TextBlock Text="{i18n:Translate Main_Refresh}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button Command="{Binding ToggleGalaxyCommand}"
                             Style="{StaticResource LineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE735;" Style="{StaticResource IconGlyphStyle}"/>
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M12,3 L14.7,8.5 L20.8,9.4 L16.4,13.7 L17.5,19.8 L12,16.9 L6.5,19.8 L7.6,13.7 L3.2,9.4 L9.3,8.5 Z"/>
+                            </Viewbox>
                             <TextBlock Text="{i18n:Translate Main_Galaxy}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button Command="{Binding ClearUsageDataCommand}"
                             Style="{StaticResource LineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE74D;" Style="{StaticResource IconGlyphStyle}"/>
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M4,7 L20,7 M10,11 L10,17 M14,11 L14,17 M6,7 L7,20 L17,20 L18,7 M9,7 L9.5,4 L14.5,4 L15,7"/>
+                            </Viewbox>
                             <TextBlock Text="{i18n:Translate Main_ClearData}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -280,7 +297,11 @@
                             Style="{StaticResource LineButtonStyle}"
                             Margin="0">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE8BB;" Style="{StaticResource IconGlyphStyle}"/>
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="M5,5 L19,19 M19,5 L5,19"/>
+                            </Viewbox>
                             <TextBlock Text="{i18n:Translate Main_Exit}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -300,10 +321,11 @@
                 <Button DockPanel.Dock="Right"
                         Command="{Binding OpenSettingsCommand}"
                         Style="{StaticResource IconButtonStyle}">
-                    <TextBlock Text="&#xE713;"
-                               FontFamily="Segoe MDL2 Assets"
-                               FontSize="15"
-                               Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
+                    <Viewbox Width="17" Height="17">
+                        <Path Style="{StaticResource LineIconPathStyle}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              Data="M12,8.5 A3.5,3.5 0 1 0 12,15.5 A3.5,3.5 0 1 0 12,8.5 M19.4,15 A8.4,8.4 0 0 0 19.4,9 L21,7.8 L19.2,4.7 L17.3,5.5 A8.2,8.2 0 0 0 14.7,4 L14.5,2 L10.9,2 L10.6,4 A8.2,8.2 0 0 0 8,5.5 L6.2,4.7 L4.4,7.8 L6,9 A8.4,8.4 0 0 0 6,15 L4.4,16.2 L6.2,19.3 L8,18.5 A8.2,8.2 0 0 0 10.6,20 L10.9,22 L14.5,22 L14.7,20 A8.2,8.2 0 0 0 17.3,18.5 L19.2,19.3 L21,16.2 Z"/>
+                    </Viewbox>
                 </Button>
                 <TextBlock DockPanel.Dock="Right"
                            Margin="0,9,0,0"
