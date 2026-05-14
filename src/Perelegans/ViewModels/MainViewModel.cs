@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -25,6 +26,8 @@ public partial class MainViewModel : ObservableObject
     private readonly MemoryExtractionService _memoryExtractionService;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
+    private readonly DispatcherTimer _assistantThinkingTimer;
+    private int _assistantThinkingIndex;
 
     [ObservableProperty]
     private ObservableCollection<ApplicationUsage> _applications = new();
@@ -46,6 +49,12 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private string _statusText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isAssistantThinking;
+
+    [ObservableProperty]
+    private string _assistantThinkingText = TranslationService.Instance["Main_AssistantThinking1"];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendConversationMessageCommand))]
@@ -134,6 +143,12 @@ public partial class MainViewModel : ObservableObject
         _memoryExtractionService = memoryExtractionService;
         _openSettings = openSettings;
         _exitApplication = exitApplication;
+
+        _assistantThinkingTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2.4)
+        };
+        _assistantThinkingTimer.Tick += (_, _) => AdvanceAssistantThinkingText();
 
         _processMonitor.ForegroundFocusUpdated += OnForegroundFocusUpdated;
         TranslationService.Instance.PropertyChanged += (_, e) =>
@@ -340,30 +355,38 @@ public partial class MainViewModel : ObservableObject
     private async Task GenerateDailyReview()
     {
         HasConversationStarted = true;
+        StartAssistantThinking();
         StatusText = T("Main_DailyReviewGenerating");
-        var snapshot = _processMonitor.SampleForegroundWindowFocus();
-        var memories = await _contextRetrievalService.RetrieveAsync("today local memory context recap", snapshot, 10);
-        PersonalizedReplyResult? reply = null;
-        if (_focusClient?.IsConfigured == true)
+        try
         {
-            try
+            var snapshot = _processMonitor.SampleForegroundWindowFocus();
+            var memories = await _contextRetrievalService.RetrieveAsync("today local memory context recap", snapshot, 10);
+            PersonalizedReplyResult? reply = null;
+            if (_focusClient?.IsConfigured == true)
             {
-                reply = await _focusClient.CreatePersonalizedReplyAsync(
-                    "请根据本地记忆、当前桌面上下文和最近应用使用情况，生成一段简短的上下文复盘。不要评价专注程度，只总结最近推进了什么、偏好有什么变化、下次回来可以从哪里继续。",
-                    ContextRetrievalService.BuildContextPack(memories),
-                    snapshot);
+                try
+                {
+                    reply = await _focusClient.CreatePersonalizedReplyAsync(
+                        "请根据本地记忆、当前桌面上下文和最近应用使用情况，生成一段简短的上下文复盘。不要评价专注程度，只总结最近推进了什么、偏好有什么变化、下次回来可以从哪里继续。",
+                        ContextRetrievalService.BuildContextPack(memories),
+                        snapshot);
+                }
+                catch (Exception ex)
+                {
+                    App.WriteCrashLog(ex);
+                }
             }
-            catch (Exception ex)
-            {
-                App.WriteCrashLog(ex);
-            }
-        }
 
-        ConversationMessages.Add(ConversationMessage.Assistant(
-            !string.IsNullOrWhiteSpace(reply?.Reply)
-                ? reply.Reply.Trim()
-                : CreateLocalContextReply(memories, snapshot)));
-        StatusText = T("Main_DailyReviewReady");
+            ConversationMessages.Add(ConversationMessage.Assistant(
+                !string.IsNullOrWhiteSpace(reply?.Reply)
+                    ? reply.Reply.Trim()
+                    : CreateLocalContextReply(memories, snapshot)));
+            StatusText = T("Main_DailyReviewReady");
+        }
+        finally
+        {
+            StopAssistantThinking();
+        }
     }
 
     [RelayCommand]
@@ -525,10 +548,13 @@ public partial class MainViewModel : ObservableObject
 
     private async Task DispatchContextAssistantAsync(string text)
     {
+        StartAssistantThinking();
         StatusText = T("Main_ContextRetrieving");
-        var snapshot = _processMonitor.SampleForegroundWindowFocus();
-        var memories = await _contextRetrievalService.RetrieveAsync(text, snapshot);
-        var contextPack = ContextRetrievalService.BuildContextPack(memories);
+        try
+        {
+            var snapshot = _processMonitor.SampleForegroundWindowFocus();
+            var memories = await _contextRetrievalService.RetrieveAsync(text, snapshot);
+            var contextPack = ContextRetrievalService.BuildContextPack(memories);
 
         if (LooksLikeExplicitMemory(text))
         {
@@ -592,7 +618,12 @@ public partial class MainViewModel : ObservableObject
             !string.IsNullOrWhiteSpace(reply?.Reply)
                 ? reply.Reply.Trim()
                 : CreateLocalContextReply(memories, snapshot)));
-        StatusText = T("Main_ContextReady");
+            StatusText = T("Main_ContextReady");
+        }
+        finally
+        {
+            StopAssistantThinking();
+        }
     }
 
     private async Task<TaskInstructionResult?> TryParseWithAiAsync(string text)
@@ -1094,6 +1125,26 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(MonitoringStateText));
     }
 
+    private void StartAssistantThinking()
+    {
+        _assistantThinkingIndex = Random.Shared.Next(0, 4);
+        AssistantThinkingText = T($"Main_AssistantThinking{_assistantThinkingIndex + 1}");
+        IsAssistantThinking = true;
+        _assistantThinkingTimer.Start();
+    }
+
+    private void StopAssistantThinking()
+    {
+        _assistantThinkingTimer.Stop();
+        IsAssistantThinking = false;
+    }
+
+    private void AdvanceAssistantThinkingText()
+    {
+        _assistantThinkingIndex = (_assistantThinkingIndex + 1) % 4;
+        AssistantThinkingText = T($"Main_AssistantThinking{_assistantThinkingIndex + 1}");
+    }
+
     private void SeedConversation()
     {
         ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantSeed")));
@@ -1148,6 +1199,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ApplicationCountText));
         OnPropertyChanged(nameof(FocusTaskCountText));
         OnPropertyChanged(nameof(MemoryCountText));
+        AssistantThinkingText = T($"Main_AssistantThinking{_assistantThinkingIndex + 1}");
     }
 
     private void RefreshUiTextProperties()

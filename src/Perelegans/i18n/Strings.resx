@@ -53,8 +53,8 @@
   <data name="Settings_WindowTitle" xml:space="preserve"><value>Settings</value></data>
   <data name="Main_WindowTitle" xml:space="preserve"><value>Perelegans</value></data>
   <data name="Main_AppTitle" xml:space="preserve"><value>Perelegans</value></data>
-  <data name="Main_PrimaryPrompt" xml:space="preserve"><value>Ask with your local context</value></data>
-  <data name="Main_InputWatermark" xml:space="preserve"><value>Ask anything, or type “remember that...”</value></data>
+  <data name="Main_PrimaryPrompt" xml:space="preserve"><value>What should we work through?</value></data>
+  <data name="Main_InputWatermark" xml:space="preserve"><value>Ask anything, or jot down something to keep...</value></data>
   <data name="Main_Send" xml:space="preserve"><value>Send</value></data>
   <data name="Main_Refresh" xml:space="preserve"><value>Refresh</value></data>
   <data name="Main_Settings" xml:space="preserve"><value>Settings</value></data>
@@ -84,13 +84,13 @@
   <data name="Main_Backup" xml:space="preserve"><value>Backup</value></data>
   <data name="Main_Restore" xml:space="preserve"><value>Restore</value></data>
   <data name="Main_ClearData" xml:space="preserve"><value>Clear data</value></data>
-  <data name="Main_StartMonitor" xml:space="preserve"><value>Start capture</value></data>
-  <data name="Main_PauseMonitor" xml:space="preserve"><value>Pause capture</value></data>
-  <data name="Main_MonitoringOn" xml:space="preserve"><value>Context capture on</value></data>
-  <data name="Main_MonitoringOff" xml:space="preserve"><value>Context capture paused</value></data>
+  <data name="Main_StartMonitor" xml:space="preserve"><value>Start listening</value></data>
+  <data name="Main_PauseMonitor" xml:space="preserve"><value>Take a break</value></data>
+  <data name="Main_MonitoringOn" xml:space="preserve"><value>Quietly keeping up with your day</value></data>
+  <data name="Main_MonitoringOff" xml:space="preserve"><value>Paused for now</value></data>
   <data name="Main_CurrentApp" xml:space="preserve"><value>Current app</value></data>
   <data name="Main_Total" xml:space="preserve"><value>Total</value></data>
-  <data name="Main_NoTask" xml:space="preserve"><value>No pinned context</value></data>
+  <data name="Main_NoTask" xml:space="preserve"><value>No focus note yet</value></data>
   <data name="Main_NoSignal" xml:space="preserve"><value>No signal</value></data>
   <data name="Main_AppsCountFormat" xml:space="preserve"><value>{0} apps</value></data>
   <data name="Main_FocusTaskCountFormat" xml:space="preserve"><value>{1} context nodes</value></data>
@@ -117,7 +117,7 @@
   <data name="Main_PresetStudyPrompt" xml:space="preserve"><value>Study and review notes for the current course</value></data>
   <data name="Main_PresetWritingPrompt" xml:space="preserve"><value>Draft and revise a focused writing task</value></data>
   <data name="Main_PresetCodingPrompt" xml:space="preserve"><value>Implement and verify the current development task</value></data>
-  <data name="Main_AssistantSeed" xml:space="preserve"><value>Ask normally, or say “remember that...” to save local context.</value></data>
+  <data name="Main_AssistantSeed" xml:space="preserve"><value>Ask naturally, or leave me a note to remember for later.</value></data>
   <data name="Main_AssistantCurrentTaskFormat" xml:space="preserve"><value>Pinned context: {0}</value></data>
   <data name="Main_AssistantHelp" xml:space="preserve"><value>Ask with local context, or use settings, refresh, backup, restore, clear memories, or clear records.</value></data>
   <data name="Main_AssistantSettingsOpened" xml:space="preserve"><value>Settings opened.</value></data>
@@ -162,10 +162,14 @@
   <data name="Settings_MemorySaved" xml:space="preserve"><value>Local memory saved.</value></data>
   <data name="Settings_MemoryDeleted" xml:space="preserve"><value>Local memory deleted.</value></data>
   <data name="Settings_MemoryCleared" xml:space="preserve"><value>All local memories cleared.</value></data>
-  <data name="Main_MemoryCountFormat" xml:space="preserve"><value>{0} memories</value></data>
-  <data name="Main_ContextRetrieving" xml:space="preserve"><value>Retrieving local context...</value></data>
-  <data name="Main_ContextThinking" xml:space="preserve"><value>Thinking with local context...</value></data>
-  <data name="Main_ContextReady" xml:space="preserve"><value>Context answer ready.</value></data>
+  <data name="Main_MemoryCountFormat" xml:space="preserve"><value>{0} notes kept</value></data>
+  <data name="Main_ContextRetrieving" xml:space="preserve"><value>Gathering the useful bits...</value></data>
+  <data name="Main_ContextThinking" xml:space="preserve"><value>Thinking it through...</value></data>
+  <data name="Main_ContextReady" xml:space="preserve"><value>Reply ready.</value></data>
+  <data name="Main_AssistantThinking1" xml:space="preserve"><value>Thinking it through...</value></data>
+  <data name="Main_AssistantThinking2" xml:space="preserve"><value>Connecting the dots...</value></data>
+  <data name="Main_AssistantThinking3" xml:space="preserve"><value>Shaping a useful answer...</value></data>
+  <data name="Main_AssistantThinking4" xml:space="preserve"><value>Almost there...</value></data>
   <data name="Main_MemorySaved" xml:space="preserve"><value>Local memory saved.</value></data>
   <data name="Main_ClearMemoryConfirm" xml:space="preserve"><value>Clear all local memories?</value></data>
   <data name="Main_AssistantMemoryCleared" xml:space="preserve"><value>Local memories cleared.</value></data>

@@ -3,6 +3,7 @@
 
     <!-- Lucide-style 24px line icons: thin strokes, rounded joins, consistent optical size. -->
     <Geometry x:Key="Icon.Pause">M6,4 L6,20 M18,4 L18,20</Geometry>
+    <Geometry x:Key="Icon.Play">M8,5 L19,12 L8,19 Z</Geometry>
     <Geometry x:Key="Icon.RefreshCw">M21,12 A9,9 0 1 1 18.4,5.6 M21,3 L21,9 L15,9</Geometry>
     <Geometry x:Key="Icon.Sparkles">M12,3 L14.1,8.9 L20,11 L14.1,13.1 L12,19 L9.9,13.1 L4,11 L9.9,8.9 Z M19,3 L19.8,5.2 L22,6 L19.8,6.8 L19,9 L18.2,6.8 L16,6 L18.2,5.2 Z</Geometry>
     <Geometry x:Key="Icon.ListChecks">M9,6 L20,6 M9,12 L20,12 M9,18 L20,18 M4,6 L5,7 L7,5 M4,12 L5,13 L7,11 M4,18 L5,19 L7,17</Geometry>

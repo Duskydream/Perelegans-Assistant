@@ -253,10 +253,19 @@
                     <Button Command="{Binding ToggleMonitorCommand}"
                             Style="{StaticResource AccentLineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
-                                <Path Style="{StaticResource LineIconPathStyle}"
-                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Data="{StaticResource Icon.Pause}"/>
+                            <Viewbox Width="21" Height="16" Margin="0,0,10,0">
+                                <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}">
+                                    <Path.Style>
+                                        <Style TargetType="Path" BasedOn="{StaticResource LineIconPathStyle}">
+                                            <Setter Property="Data" Value="{StaticResource Icon.Pause}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMonitorEnabled}" Value="False">
+                                                    <Setter Property="Data" Value="{StaticResource Icon.Play}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Path.Style>
+                                </Path>
                             </Viewbox>
                             <TextBlock Text="{Binding MonitorButtonText}" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -264,7 +273,7 @@
                     <Button Command="{Binding RefreshCommand}"
                             Style="{StaticResource LineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                            <Viewbox Width="21" Height="16" Margin="0,0,10,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                       Data="{StaticResource Icon.RefreshCw}"/>
@@ -275,7 +284,7 @@
                     <Button Command="{Binding ToggleGalaxyCommand}"
                             Style="{StaticResource LineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                            <Viewbox Width="21" Height="16" Margin="0,0,10,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                       Data="{StaticResource Icon.Sparkles}"/>
@@ -286,7 +295,7 @@
                     <Button Command="{Binding GenerateDailyReviewCommand}"
                             Style="{StaticResource LineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                            <Viewbox Width="21" Height="16" Margin="0,0,10,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                       Data="{StaticResource Icon.ListChecks}"/>
@@ -297,7 +306,7 @@
                     <Button Command="{Binding ClearUsageDataCommand}"
                             Style="{StaticResource LineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                            <Viewbox Width="21" Height="16" Margin="0,0,10,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                       Data="{StaticResource Icon.Trash2}"/>
@@ -309,7 +318,7 @@
                             Style="{StaticResource LineButtonStyle}"
                             Margin="0">
                         <StackPanel Orientation="Horizontal">
-                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                            <Viewbox Width="21" Height="16" Margin="0,0,10,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                                       Data="{StaticResource Icon.X}"/>
@@ -361,37 +370,91 @@
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Style="{StaticResource ConversationScrollStyle}">
-                <ItemsControl ItemsSource="{Binding ConversationMessages}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="0,0,0,12">
-                                <Border x:Name="Bubble"
-                                        MaxWidth="560"
-                                        Padding="13,10"
-                                        CornerRadius="0"
-                                        HorizontalAlignment="{Binding Alignment}"
-                                        Background="{DynamicResource Perelegans.PanelBackground}"
-                                        BorderBrush="{DynamicResource Perelegans.BorderBrush}"
-                                        BorderThickness="1">
-                                    <TextBlock x:Name="BubbleText"
-                                               MinHeight="18"
-                                               Text="{Binding Text}"
-                                               FontSize="14"
-                                               LineHeight="22"
-                                               TextWrapping="Wrap"
-                                               Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
-                                </Border>
+                <StackPanel>
+                    <ItemsControl ItemsSource="{Binding ConversationMessages}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,12">
+                                    <Border x:Name="Bubble"
+                                            MaxWidth="560"
+                                            Padding="13,10"
+                                            CornerRadius="0"
+                                            HorizontalAlignment="{Binding Alignment}"
+                                            Background="{DynamicResource Perelegans.PanelBackground}"
+                                            BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                            BorderThickness="1">
+                                        <TextBlock x:Name="BubbleText"
+                                                   MinHeight="18"
+                                                   Text="{Binding Text}"
+                                                   FontSize="14"
+                                                   LineHeight="22"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
+                                    </Border>
+                                </Grid>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                        <Setter TargetName="Bubble" Property="Background" Value="{DynamicResource Perelegans.StatsChartHighlightBackground}"/>
+                                        <Setter TargetName="Bubble" Property="BorderBrush" Value="{DynamicResource Perelegans.AccentBrush}"/>
+                                        <Setter TargetName="BubbleText" Property="Foreground" Value="{DynamicResource Perelegans.ForegroundBrush}"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Border Margin="0,0,0,12"
+                            Padding="13,9"
+                            MaxWidth="560"
+                            HorizontalAlignment="Left"
+                            Background="{DynamicResource Perelegans.PanelBackground}"
+                            BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                            BorderThickness="1"
+                            Visibility="{Binding IsAssistantThinking, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid Width="18" Height="18" Margin="0,0,9,0">
+                                <Ellipse Fill="#FFF28AB7"
+                                         Opacity="0.32"
+                                         RenderTransformOrigin="0.5,0.5">
+                                    <Ellipse.RenderTransform>
+                                        <ScaleTransform ScaleX="0.78" ScaleY="0.78"/>
+                                    </Ellipse.RenderTransform>
+                                    <Ellipse.Effect>
+                                        <DropShadowEffect BlurRadius="18"
+                                                          ShadowDepth="0"
+                                                          Opacity="0.75"
+                                                          Color="#FFF28AB7"/>
+                                    </Ellipse.Effect>
+                                    <Ellipse.Triggers>
+                                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                     To="0.72"
+                                                                     Duration="0:0:1.15"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                     To="1.25"
+                                                                     Duration="0:0:1.15"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                     To="1.25"
+                                                                     Duration="0:0:1.15"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </Ellipse.Triggers>
+                                </Ellipse>
+                                <Ellipse Width="8"
+                                         Height="8"
+                                         Fill="#FFFF8FC3"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"/>
                             </Grid>
-                            <DataTemplate.Triggers>
-                                <DataTrigger Binding="{Binding IsUser}" Value="True">
-                                    <Setter TargetName="Bubble" Property="Background" Value="{DynamicResource Perelegans.StatsChartHighlightBackground}"/>
-                                    <Setter TargetName="Bubble" Property="BorderBrush" Value="{DynamicResource Perelegans.AccentBrush}"/>
-                                    <Setter TargetName="BubbleText" Property="Foreground" Value="{DynamicResource Perelegans.ForegroundBrush}"/>
-                                </DataTrigger>
-                            </DataTemplate.Triggers>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                            <TextBlock Text="{Binding AssistantThinkingText}"
+                                       FontSize="13"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
             </ScrollViewer>
 
             <Border Grid.Row="2"
