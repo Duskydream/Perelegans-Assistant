@@ -11,6 +11,7 @@ public class PerelegansDbContext : DbContext
     public DbSet<ApplicationUsageSession> ApplicationUsageSessions => Set<ApplicationUsageSession>();
     public DbSet<FocusTask> FocusTasks => Set<FocusTask>();
     public DbSet<FocusTaskLink> FocusTaskLinks => Set<FocusTaskLink>();
+    public DbSet<ContextMemory> ContextMemories => Set<ContextMemory>();
 
     private readonly string _dbPath;
 
@@ -85,6 +86,10 @@ public class PerelegansDbContext : DbContext
             entity.Property(t => t.QuestNarrative).HasMaxLength(2000);
             entity.Property(t => t.CompletionNarrative).HasMaxLength(2000);
             entity.Property(t => t.RewardName).HasMaxLength(500);
+            entity.Property(t => t.AiSummary).HasMaxLength(1200);
+            entity.Property(t => t.NextAction).HasMaxLength(800);
+            entity.Property(t => t.Tags).HasMaxLength(800);
+            entity.Property(t => t.ConstellationName).HasMaxLength(240);
             entity.Property(t => t.Status).HasConversion<int>();
         });
 
@@ -94,6 +99,19 @@ public class PerelegansDbContext : DbContext
             entity.HasIndex(l => l.SourceTaskId);
             entity.HasIndex(l => l.TargetTaskId);
             entity.Property(l => l.Reason).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<ContextMemory>(entity =>
+        {
+            entity.HasKey(m => m.Id);
+            entity.HasIndex(m => m.Type);
+            entity.HasIndex(m => m.UpdatedAt);
+            entity.Property(m => m.Type).HasConversion<int>();
+            entity.Property(m => m.Title).IsRequired().HasMaxLength(240);
+            entity.Property(m => m.Content).IsRequired().HasMaxLength(4000);
+            entity.Property(m => m.Source).HasMaxLength(240);
+            entity.Property(m => m.Tags).HasMaxLength(800);
+            entity.Property(m => m.ConstellationName).HasMaxLength(240);
         });
     }
 }

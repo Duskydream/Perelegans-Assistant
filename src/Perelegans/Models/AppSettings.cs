@@ -64,12 +64,17 @@ public class AppSettings
     public string AiApiKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Model identifier for focus classification.
+    /// Model identifier for local-context assistant features.
     /// </summary>
     public string AiModel { get; set; } = string.Empty;
 
     /// <summary>
-    /// Optional user-defined focus goal used by AI classification.
+    /// Optional user-defined context goal retained for compatibility with older settings.
     /// </summary>
     public string FocusGoal { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether the assistant may save high-confidence local memories automatically.
+    /// </summary>
+    public bool AutoSaveMemories { get; set; } = true;
 }

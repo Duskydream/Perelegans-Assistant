@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -56,11 +57,51 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _dataMaintenanceStatusText = string.Empty;
 
+    [ObservableProperty]
+    private ObservableCollection<ContextMemory> _memories = new();
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveMemoryCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteMemoryCommand))]
+    private ContextMemory? _selectedMemory;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveMemoryCommand))]
+    private string _memoryTitle = string.Empty;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveMemoryCommand))]
+    private string _memoryContent = string.Empty;
+
+    [ObservableProperty]
+    private string _memoryTags = string.Empty;
+
+    [ObservableProperty]
+    private ContextMemoryType _selectedMemoryType = ContextMemoryType.Note;
+
+    [ObservableProperty]
+    private bool _autoSaveMemories;
+
+    [ObservableProperty]
+    private string _memoryStatusText = string.Empty;
+
     public bool HasDataMaintenanceStatus => !string.IsNullOrWhiteSpace(DataMaintenanceStatusText);
 
     public bool HasAiTestStatus => !string.IsNullOrWhiteSpace(AiTestStatusText);
 
+    public bool HasMemoryStatus => !string.IsNullOrWhiteSpace(MemoryStatusText);
+
     public string[] LanguageOptions { get; } = ["zh-Hans", "en-US"];
+
+    public IReadOnlyList<ContextMemoryType> MemoryTypeOptions { get; } =
+    [
+        ContextMemoryType.Preference,
+        ContextMemoryType.Project,
+        ContextMemoryType.Decision,
+        ContextMemoryType.Workflow,
+        ContextMemoryType.Application,
+        ContextMemoryType.Note
+    ];
 
     public IReadOnlyList<AppCloseBehaviorOption> CloseBehaviorOptions { get; } =
     [
@@ -124,6 +165,8 @@ public partial class SettingsViewModel : ObservableObject
         AiApiBaseUrl = s.AiApiBaseUrl;
         AiApiKey = s.AiApiKey;
         AiModel = s.AiModel;
+        AutoSaveMemories = s.AutoSaveMemories;
+        _ = RefreshMemoriesAsync();
     }
 
     partial void OnSelectedAiProviderChanged(AiProvider value)
@@ -142,6 +185,28 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnDataMaintenanceStatusTextChanged(string value)
     {
         OnPropertyChanged(nameof(HasDataMaintenanceStatus));
+    }
+
+    partial void OnMemoryStatusTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasMemoryStatus));
+    }
+
+    partial void OnSelectedMemoryChanged(ContextMemory? value)
+    {
+        if (value == null)
+        {
+            MemoryTitle = string.Empty;
+            MemoryContent = string.Empty;
+            MemoryTags = string.Empty;
+            SelectedMemoryType = ContextMemoryType.Note;
+            return;
+        }
+
+        MemoryTitle = value.Title;
+        MemoryContent = value.Content;
+        MemoryTags = value.Tags;
+        SelectedMemoryType = value.Type;
     }
 
     partial void OnIsTestingAiChanged(bool value)
@@ -228,6 +293,7 @@ public partial class SettingsViewModel : ObservableObject
         s.AiApiBaseUrl = AiApiBaseUrl.Trim();
         s.AiApiKey = AiApiKey.Trim();
         s.AiModel = AiModel.Trim();
+        s.AutoSaveMemories = AutoSaveMemories;
         _settingsService.Save();
         _themeService.ApplyTheme(s.Theme);
         TranslationService.Instance.ChangeLanguage(s.Language);
@@ -279,6 +345,74 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         DataMaintenanceStatusText = TranslationService.Instance["Settings_DataBackupRestored"];
+        await RefreshMemoriesAsync();
+    }
+
+    [RelayCommand]
+    private async Task RefreshMemoriesAsync()
+    {
+        Memories = new ObservableCollection<ContextMemory>(await _databaseService.GetContextMemoriesAsync());
+    }
+
+    [RelayCommand]
+    private void NewMemory()
+    {
+        SelectedMemory = null;
+        MemoryTitle = string.Empty;
+        MemoryContent = string.Empty;
+        MemoryTags = string.Empty;
+        SelectedMemoryType = ContextMemoryType.Note;
+        MemoryStatusText = TranslationService.Instance["Settings_MemoryNewReady"];
+    }
+
+    private bool CanSaveMemory()
+    {
+        return !string.IsNullOrWhiteSpace(MemoryContent);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSaveMemory))]
+    private async Task SaveMemoryAsync()
+    {
+        var saved = await _databaseService.UpsertContextMemoryAsync(
+            MemoryTitle,
+            MemoryContent,
+            SelectedMemoryType,
+            "settings",
+            MemoryTags,
+            0.85,
+            SelectedMemory?.Id);
+
+        await RefreshMemoriesAsync();
+        SelectedMemory = Memories.FirstOrDefault(memory => memory.Id == saved.Id);
+        MemoryStatusText = TranslationService.Instance["Settings_MemorySaved"];
+    }
+
+    private bool CanDeleteMemory()
+    {
+        return SelectedMemory != null;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDeleteMemory))]
+    private async Task DeleteMemoryAsync()
+    {
+        if (SelectedMemory == null)
+        {
+            return;
+        }
+
+        await _databaseService.DeleteContextMemoryAsync(SelectedMemory.Id);
+        SelectedMemory = null;
+        await RefreshMemoriesAsync();
+        MemoryStatusText = TranslationService.Instance["Settings_MemoryDeleted"];
+    }
+
+    [RelayCommand]
+    private async Task ClearMemoriesAsync()
+    {
+        await _databaseService.ClearContextMemoriesAsync();
+        SelectedMemory = null;
+        await RefreshMemoriesAsync();
+        MemoryStatusText = TranslationService.Instance["Settings_MemoryCleared"];
     }
 
     private static async Task<string?> SendAiTestMessageAsync(

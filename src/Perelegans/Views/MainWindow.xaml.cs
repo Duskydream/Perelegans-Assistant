@@ -1,8 +1,11 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using MahApps.Metro.Controls;
+using Perelegans.Models;
 using Perelegans.ViewModels;
 
 namespace Perelegans.Views;
@@ -10,6 +13,12 @@ namespace Perelegans.Views;
 public partial class MainWindow : MetroWindow
 {
     private MainViewModel? _viewModel;
+    private ContextMemory? _draggedGalaxyTask;
+    private ContentPresenter? _draggedGalaxyPresenter;
+    private UIElement? _dragCaptureElement;
+    private System.Windows.Point _dragStartPoint;
+    private System.Windows.Point _dragStartOffset;
+    private bool _isDraggingGalaxyTask;
 
     public MainWindow()
     {
@@ -117,5 +126,100 @@ public partial class MainWindow : MetroWindow
         GalaxyScaleTransform.ScaleX = nextScale;
         GalaxyScaleTransform.ScaleY = nextScale;
         e.Handled = true;
+    }
+
+    private void GalaxyTask_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element ||
+            element.DataContext is not ContextMemory task ||
+            _viewModel == null)
+        {
+            return;
+        }
+
+        if (_viewModel.SelectGalaxyTaskCommand.CanExecute(task))
+        {
+            _viewModel.SelectGalaxyTaskCommand.Execute(task);
+        }
+
+        _draggedGalaxyTask = task;
+        _draggedGalaxyPresenter = FindAncestor<ContentPresenter>(element);
+        if (_draggedGalaxyPresenter == null)
+        {
+            _draggedGalaxyTask = null;
+            return;
+        }
+
+        _dragCaptureElement = element;
+        _dragStartPoint = e.GetPosition(GalaxyMapSurface);
+        _dragStartOffset = new System.Windows.Point(
+            Canvas.GetLeft(_draggedGalaxyPresenter),
+            Canvas.GetTop(_draggedGalaxyPresenter));
+        _isDraggingGalaxyTask = false;
+
+        element.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void GalaxyTask_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_draggedGalaxyTask == null ||
+            _draggedGalaxyPresenter == null ||
+            e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        var current = e.GetPosition(GalaxyMapSurface);
+        var delta = current - _dragStartPoint;
+        if (!_isDraggingGalaxyTask &&
+            Math.Abs(delta.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(delta.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        _isDraggingGalaxyTask = true;
+        var nextX = Math.Clamp(_dragStartOffset.X + delta.X, 0, 820);
+        var nextY = Math.Clamp(_dragStartOffset.Y + delta.Y, 0, 560);
+        Canvas.SetLeft(_draggedGalaxyPresenter, nextX);
+        Canvas.SetTop(_draggedGalaxyPresenter, nextY);
+        e.Handled = true;
+    }
+
+    private async void GalaxyTask_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        _dragCaptureElement?.ReleaseMouseCapture();
+
+        if (_isDraggingGalaxyTask &&
+            _draggedGalaxyTask != null &&
+            _draggedGalaxyPresenter != null &&
+            _viewModel != null)
+        {
+            var x = Canvas.GetLeft(_draggedGalaxyPresenter);
+            var y = Canvas.GetTop(_draggedGalaxyPresenter);
+            await _viewModel.MoveGalaxyTaskAsync(_draggedGalaxyTask, x, y);
+        }
+
+        _draggedGalaxyTask = null;
+        _draggedGalaxyPresenter = null;
+        _dragCaptureElement = null;
+        _isDraggingGalaxyTask = false;
+        e.Handled = true;
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current != null)
+        {
+            if (current is T match)
+            {
+                return match;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
     }
 }

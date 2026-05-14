@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
         xmlns:i18n="clr-namespace:Perelegans.i18n"
+        xmlns:models="clr-namespace:Perelegans.Models"
         Title="{i18n:Translate Main_WindowTitle}"
         TitleCharacterCasing="Normal"
         Width="1040"
@@ -29,7 +30,7 @@
 
         <Style x:Key="LineIconPathStyle" TargetType="Path">
             <Setter Property="Fill" Value="Transparent"/>
-            <Setter Property="StrokeThickness" Value="1.2"/>
+            <Setter Property="StrokeThickness" Value="1.45"/>
             <Setter Property="StrokeStartLineCap" Value="Round"/>
             <Setter Property="StrokeEndLineCap" Value="Round"/>
             <Setter Property="StrokeLineJoin" Value="Round"/>
@@ -255,7 +256,7 @@
                             <Viewbox Width="28" Height="18" Margin="0,0,8,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Data="M8,5 L8,19 M16,5 L16,19"/>
+                                      Data="{StaticResource Icon.Pause}"/>
                             </Viewbox>
                             <TextBlock Text="{Binding MonitorButtonText}" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -266,7 +267,7 @@
                             <Viewbox Width="28" Height="18" Margin="0,0,8,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Data="M19,12 A7,7 0 1 1 16.9,7 M19,4 L19,10 L13,10"/>
+                                      Data="{StaticResource Icon.RefreshCw}"/>
                             </Viewbox>
                             <TextBlock Text="{i18n:Translate Main_Refresh}" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -277,9 +278,20 @@
                             <Viewbox Width="28" Height="18" Margin="0,0,8,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Data="M12,3 L14.7,8.5 L20.8,9.4 L16.4,13.7 L17.5,19.8 L12,16.9 L6.5,19.8 L7.6,13.7 L3.2,9.4 L9.3,8.5 Z"/>
+                                      Data="{StaticResource Icon.Sparkles}"/>
                             </Viewbox>
                             <TextBlock Text="{i18n:Translate Main_Galaxy}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding GenerateDailyReviewCommand}"
+                            Style="{StaticResource LineButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="{StaticResource Icon.ListChecks}"/>
+                            </Viewbox>
+                            <TextBlock Text="{i18n:Translate Main_DailyReview}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button Command="{Binding ClearUsageDataCommand}"
@@ -288,7 +300,7 @@
                             <Viewbox Width="28" Height="18" Margin="0,0,8,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Data="M4,7 L20,7 M10,11 L10,17 M14,11 L14,17 M6,7 L7,20 L17,20 L18,7 M9,7 L9.5,4 L14.5,4 L15,7"/>
+                                      Data="{StaticResource Icon.Trash2}"/>
                             </Viewbox>
                             <TextBlock Text="{i18n:Translate Main_ClearData}" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -300,7 +312,7 @@
                             <Viewbox Width="28" Height="18" Margin="0,0,8,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Data="M5,5 L19,19 M19,5 L5,19"/>
+                                      Data="{StaticResource Icon.X}"/>
                             </Viewbox>
                             <TextBlock Text="{i18n:Translate Main_Exit}" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -324,7 +336,7 @@
                     <Viewbox Width="17" Height="17">
                         <Path Style="{StaticResource LineIconPathStyle}"
                               Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              Data="M12,8.5 A3.5,3.5 0 1 0 12,15.5 A3.5,3.5 0 1 0 12,8.5 M19.4,15 A8.4,8.4 0 0 0 19.4,9 L21,7.8 L19.2,4.7 L17.3,5.5 A8.2,8.2 0 0 0 14.7,4 L14.5,2 L10.9,2 L10.6,4 A8.2,8.2 0 0 0 8,5.5 L6.2,4.7 L4.4,7.8 L6,9 A8.4,8.4 0 0 0 6,15 L4.4,16.2 L6.2,19.3 L8,18.5 A8.2,8.2 0 0 0 10.6,20 L10.9,22 L14.5,22 L14.7,20 A8.2,8.2 0 0 0 17.3,18.5 L19.2,19.3 L21,16.2 Z"/>
+                              Data="{StaticResource Icon.Settings}"/>
                     </Viewbox>
                 </Button>
                 <TextBlock DockPanel.Dock="Right"
@@ -336,7 +348,7 @@
                                FontSize="13"
                                FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding FocusTaskCountText}"
+                    <TextBlock Text="{Binding MemoryCountText}"
                                Margin="0,4,0,0"
                                Style="{StaticResource QuietTextStyle}"/>
                 </StackPanel>
@@ -532,17 +544,23 @@
                             <TextBlock Text="{i18n:Translate Main_GalaxyTitle}"
                                        FontSize="22"
                                        FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding FocusTaskCountText}"
+                            <TextBlock Text="{Binding MemoryCountText}"
                                        Margin="0,4,0,0"
                                        Style="{StaticResource QuietTextStyle}"/>
                         </StackPanel>
                     </DockPanel>
 
-                    <ScrollViewer Grid.Row="1"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto"
-                                  PreviewMouseWheel="GalaxyScrollViewer_PreviewMouseWheel">
-                        <Grid Width="920" Height="640" ClipToBounds="True">
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="280"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ScrollViewer Grid.Column="0"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto"
+                                      PreviewMouseWheel="GalaxyScrollViewer_PreviewMouseWheel">
+                        <Grid x:Name="GalaxyMapSurface" Width="920" Height="640" ClipToBounds="True">
                             <Grid.RenderTransform>
                                 <ScaleTransform x:Name="GalaxyScaleTransform" ScaleX="1" ScaleY="1"/>
                             </Grid.RenderTransform>
@@ -566,7 +584,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <ItemsControl ItemsSource="{Binding FocusTasks}">
+                            <ItemsControl ItemsSource="{Binding ContextMemories}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <Canvas Width="920" Height="640"/>
@@ -580,18 +598,106 @@
                                 </ItemsControl.ItemContainerStyle>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
+                                        <Border Width="168"
+                                                Padding="4"
+                                                Background="Transparent"
+                                                Cursor="Hand"
+                                                MouseLeftButtonDown="GalaxyTask_MouseLeftButtonDown"
+                                                MouseMove="GalaxyTask_MouseMove"
+                                                MouseLeftButtonUp="GalaxyTask_MouseLeftButtonUp">
+                                            <Border.RenderTransform>
+                                                <TransformGroup>
+                                                    <ScaleTransform x:Name="NodeScale" ScaleX="1" ScaleY="1"/>
+                                                    <TranslateTransform x:Name="NodeFloat" Y="0"/>
+                                                </TransformGroup>
+                                            </Border.RenderTransform>
+                                            <Border.Triggers>
+                                                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                             From="0"
+                                                                             To="1"
+                                                                             Duration="0:0:0.24"/>
+                                                            <DoubleAnimation Storyboard.TargetName="NodeScale"
+                                                                             Storyboard.TargetProperty="ScaleX"
+                                                                             From="0.82"
+                                                                             To="1"
+                                                                             Duration="0:0:0.24">
+                                                                <DoubleAnimation.EasingFunction>
+                                                                    <CubicEase EasingMode="EaseOut"/>
+                                                                </DoubleAnimation.EasingFunction>
+                                                            </DoubleAnimation>
+                                                            <DoubleAnimation Storyboard.TargetName="NodeScale"
+                                                                             Storyboard.TargetProperty="ScaleY"
+                                                                             From="0.82"
+                                                                             To="1"
+                                                                             Duration="0:0:0.24">
+                                                                <DoubleAnimation.EasingFunction>
+                                                                    <CubicEase EasingMode="EaseOut"/>
+                                                                </DoubleAnimation.EasingFunction>
+                                                            </DoubleAnimation>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                                <EventTrigger RoutedEvent="MouseEnter">
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="NodeScale"
+                                                                             Storyboard.TargetProperty="ScaleX"
+                                                                             To="1.06"
+                                                                             Duration="0:0:0.12"/>
+                                                            <DoubleAnimation Storyboard.TargetName="NodeScale"
+                                                                             Storyboard.TargetProperty="ScaleY"
+                                                                             To="1.06"
+                                                                             Duration="0:0:0.12"/>
+                                                            <DoubleAnimation Storyboard.TargetName="NodeFloat"
+                                                                             Storyboard.TargetProperty="Y"
+                                                                             To="-3"
+                                                                             Duration="0:0:0.12"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                                <EventTrigger RoutedEvent="MouseLeave">
+                                                    <BeginStoryboard>
+                                                        <Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="NodeScale"
+                                                                             Storyboard.TargetProperty="ScaleX"
+                                                                             To="1"
+                                                                             Duration="0:0:0.12"/>
+                                                            <DoubleAnimation Storyboard.TargetName="NodeScale"
+                                                                             Storyboard.TargetProperty="ScaleY"
+                                                                             To="1"
+                                                                             Duration="0:0:0.12"/>
+                                                            <DoubleAnimation Storyboard.TargetName="NodeFloat"
+                                                                             Storyboard.TargetProperty="Y"
+                                                                             To="0"
+                                                                             Duration="0:0:0.12"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                            </Border.Triggers>
                                         <StackPanel Width="160">
-                                            <Ellipse Width="{Binding NodeSize}"
-                                                     Height="{Binding NodeSize}"
-                                                     Fill="{DynamicResource Perelegans.AccentBrush}">
-                                                <Ellipse.Effect>
-                                                    <DropShadowEffect BlurRadius="14"
-                                                                      ShadowDepth="0"
-                                                                      Opacity="0.45"
-                                                                      Color="#DFA8B5"/>
-                                                </Ellipse.Effect>
-                                            </Ellipse>
-                                            <TextBlock Text="{Binding QuestTitle}"
+                                            <Grid Width="{Binding NodeSize}"
+                                                  Height="{Binding NodeSize}"
+                                                  HorizontalAlignment="Left">
+                                                <Ellipse x:Name="NodeRing"
+                                                         Fill="Transparent"
+                                                         Stroke="{DynamicResource Perelegans.AccentBrush}"
+                                                         StrokeThickness="1"
+                                                         Opacity="0.5"/>
+                                                <Ellipse x:Name="NodeCore"
+                                                         Margin="4"
+                                                         Fill="{DynamicResource Perelegans.AccentBrush}">
+                                                    <Ellipse.Effect>
+                                                        <DropShadowEffect BlurRadius="14"
+                                                                          ShadowDepth="0"
+                                                                          Opacity="0.45"
+                                                                          Color="#DFA8B5"/>
+                                                    </Ellipse.Effect>
+                                                </Ellipse>
+                                            </Grid>
+                                            <TextBlock Text="{Binding TypeText}"
                                                        Margin="0,6,0,0"
                                                        FontSize="12"
                                                        FontWeight="SemiBold"
@@ -601,12 +707,130 @@
                                                        FontSize="11"
                                                        TextWrapping="Wrap"
                                                        Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                            <TextBlock Text="{Binding ConstellationName}"
+                                                       Margin="0,3,0,0"
+                                                       FontSize="10"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"/>
+                                            <TextBlock Text="{Binding InsightMetaText}"
+                                                       Margin="0,2,0,0"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                            <TextBlock Text="{Binding Preview}"
+                                                       Margin="0,2,0,0"
+                                                       FontSize="10"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                            <TextBlock x:Name="RewardText"
+                                                       Text="{Binding Tags}"
+                                                       Margin="0,3,0,0"
+                                                       FontSize="10"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"/>
                                         </StackPanel>
+                                        </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+
+                            <TextBlock Text="{i18n:Translate Main_GalaxyEmpty}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="15"
+                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ContextMemories.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </Grid>
-                    </ScrollViewer>
+                        </ScrollViewer>
+
+                        <Border Grid.Column="1"
+                                Margin="16,0,0,0"
+                                Padding="14"
+                                Background="{DynamicResource Perelegans.PanelBackground}"
+                                BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="{i18n:Translate Main_GalaxyEditTitle}"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{i18n:Translate Main_GalaxyEditHint}"
+                                           Margin="0,4,0,14"
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource QuietTextStyle}"/>
+
+                                <TextBlock Text="{i18n:Translate Main_GalaxyTaskTitle}"
+                                           Style="{StaticResource QuietTextStyle}"/>
+                                <TextBox Margin="0,5,0,12"
+                                         Height="32"
+                                         Padding="8,0"
+                                         VerticalContentAlignment="Center"
+                                         IsEnabled="{Binding HasSelectedGalaxyTask}"
+                                         Text="{Binding GalaxyEditTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <TextBlock Text="{i18n:Translate Main_GalaxyTaskTime}"
+                                           Style="{StaticResource QuietTextStyle}"/>
+                                <TextBox Margin="0,5,0,12"
+                                         Height="32"
+                                         Padding="8,0"
+                                         VerticalContentAlignment="Center"
+                                         IsEnabled="{Binding HasSelectedGalaxyTask}"
+                                         Text="{Binding GalaxyEditCreatedAtText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <CheckBox Content="{i18n:Translate Main_GalaxyTaskCompleted}"
+                                          Margin="0,2,0,16"
+                                          IsEnabled="{Binding HasSelectedGalaxyTask}"
+                                          IsChecked="{Binding GalaxyEditIsCompleted, Mode=TwoWay}"/>
+
+                                <TextBlock Text="{i18n:Translate Main_GalaxyTaskInsight}"
+                                           Margin="0,0,0,5"
+                                           Style="{StaticResource QuietTextStyle}"/>
+                                <TextBlock Text="{Binding SelectedGalaxyMemory.Content}"
+                                           Margin="0,0,0,10"
+                                           TextWrapping="Wrap"
+                                           FontSize="12"/>
+
+                                <TextBlock Text="{i18n:Translate Main_GalaxyTaskNextAction}"
+                                           Style="{StaticResource QuietTextStyle}"/>
+                                <TextBlock Text="{Binding SelectedGalaxyMemory.Preview}"
+                                           Margin="0,5,0,10"
+                                           TextWrapping="Wrap"
+                                           FontSize="12"/>
+
+                                <TextBlock Text="{Binding SelectedGalaxyMemory.Tags, StringFormat={}{0}}"
+                                           Margin="0,0,0,4"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                <TextBlock Text="{Binding SelectedGalaxyMemory.ConstellationName}"
+                                           Margin="0,0,0,16"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource Perelegans.AccentBrush}"/>
+                                <TextBlock Text="{Binding SelectedGalaxyMemory.InsightMetaText}"
+                                           Margin="0,0,0,16"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+
+                                <Button Content="{i18n:Translate Main_GalaxyTaskSave}"
+                                        Command="{Binding SaveGalaxyTaskCommand}"
+                                        HorizontalContentAlignment="Center"
+                                        Style="{StaticResource AccentLineButtonStyle}"
+                                        Margin="0,0,0,8"/>
+                                <Button Content="{i18n:Translate Main_GalaxyTaskDelete}"
+                                        Command="{Binding DeleteGalaxyTaskCommand}"
+                                        HorizontalContentAlignment="Center"
+                                        Style="{StaticResource LineButtonStyle}"
+                                        Margin="0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>

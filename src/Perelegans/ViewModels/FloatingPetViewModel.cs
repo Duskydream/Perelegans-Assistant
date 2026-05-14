@@ -7,7 +7,6 @@ namespace Perelegans.ViewModels;
 
 public partial class FloatingPetViewModel : ObservableObject, IDisposable
 {
-    private static readonly TimeSpan AiClassificationCooldown = TimeSpan.FromSeconds(45);
     private readonly ProcessMonitorService _processMonitor;
     private readonly FocusClassificationClient _focusClassificationClient;
     private readonly DatabaseService _databaseService;
@@ -15,12 +14,9 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _timer;
-    private DateTime _lastAiClassificationAt = DateTime.MinValue;
-    private string _lastClassifiedProcess = string.Empty;
-    private bool _isClassifying;
 
     [ObservableProperty]
-    private string _bubbleText = "专注模式已待命";
+    private string _bubbleText = "上下文采集已待命";
 
     [ObservableProperty]
     private string _currentProcessName = string.Empty;
@@ -74,62 +70,15 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _exitApplication();
     }
 
-    private async void OnTimerTick(object? sender, EventArgs e)
+    private void OnTimerTick(object? sender, EventArgs e)
     {
-        await SampleNowAsync();
+        SampleNow();
     }
 
     private void SampleNow()
     {
         var snapshot = _processMonitor.SampleForegroundWindowFocus();
         ApplySnapshot(snapshot);
-    }
-
-    private async Task SampleNowAsync()
-    {
-        var snapshot = _processMonitor.SampleForegroundWindowFocus();
-        ApplySnapshot(snapshot);
-
-        if (snapshot == null ||
-            _isClassifying ||
-            snapshot.Duration < TimeSpan.FromSeconds(20) ||
-            DateTime.Now - _lastAiClassificationAt < AiClassificationCooldown ||
-            string.Equals(_lastClassifiedProcess, snapshot.ProcessName, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        _isClassifying = true;
-        try
-        {
-            var result = await _focusClassificationClient.ClassifyAsync(snapshot.ProcessName, snapshot.Duration);
-            _lastAiClassificationAt = DateTime.Now;
-            _lastClassifiedProcess = snapshot.ProcessName;
-
-            if (result == null)
-            {
-                return;
-            }
-
-            IsProductive = result.IsProductive;
-            BubbleText = string.IsNullOrWhiteSpace(result.Message)
-                ? result.Description
-                : result.Message;
-
-            await _databaseService.UpdateApplicationAssessmentAsync(
-                snapshot.ProcessName,
-                result.IsProductive,
-                result.Description,
-                BubbleText);
-        }
-        catch (Exception ex)
-        {
-            App.WriteCrashLog(ex);
-        }
-        finally
-        {
-            _isClassifying = false;
-        }
     }
 
     private void ApplySnapshot(ForegroundFocusSnapshot? snapshot)
@@ -144,13 +93,10 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         CurrentDuration = snapshot.Duration;
         IsProductive = snapshot.IsKnownProductivityApp;
 
-        if (!_focusClassificationClient.IsConfigured)
-        {
-            var minutes = Math.Max(1, (int)Math.Round(snapshot.Duration.TotalMinutes));
-            BubbleText = snapshot.IsKnownProductivityApp
-                ? $"{snapshot.ProcessName} 已专注 {minutes} 分钟"
-                : $"{snapshot.ProcessName} 已停留 {minutes} 分钟";
-        }
+        var minutes = Math.Max(1, (int)Math.Round(snapshot.Duration.TotalMinutes));
+        BubbleText = snapshot.IsKnownProductivityApp
+            ? $"{snapshot.ProcessName} 已采集 {minutes} 分钟"
+            : $"{snapshot.ProcessName} 停留 {minutes} 分钟";
     }
 
     public void Dispose()

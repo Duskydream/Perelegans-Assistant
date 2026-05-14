@@ -33,6 +33,8 @@ public partial class App : System.Windows.Application
     private volatile bool _pendingActivationRequest;
     private System.Net.Http.HttpClient? _appHttpClient;
     private FocusClassificationClient? _focusClassificationClient;
+    private ContextRetrievalService? _contextRetrievalService;
+    private MemoryExtractionService? _memoryExtractionService;
 
     private async void App_OnStartup(object sender, StartupEventArgs e)
     {
@@ -64,12 +66,16 @@ public partial class App : System.Windows.Application
         _processMonitor = new ProcessMonitorService(dbService);
         _appHttpClient = AppHttpClientFactory.Create(settingsService.Settings);
         _focusClassificationClient = new FocusClassificationClient(_appHttpClient, settingsService);
+        _contextRetrievalService = new ContextRetrievalService(dbService);
+        _memoryExtractionService = new MemoryExtractionService(dbService, _focusClassificationClient);
 
         var mainVm = new MainViewModel(
             dbService,
             settingsService,
             _processMonitor,
             _focusClassificationClient,
+            _contextRetrievalService,
+            _memoryExtractionService,
             OpenSettingsFromAgent,
             RequestShutdown);
 

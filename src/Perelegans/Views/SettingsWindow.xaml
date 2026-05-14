@@ -213,7 +213,7 @@
 
         <Style x:Key="LineIconPathStyle" TargetType="Path">
             <Setter Property="Fill" Value="Transparent"/>
-            <Setter Property="StrokeThickness" Value="1.2"/>
+            <Setter Property="StrokeThickness" Value="1.45"/>
             <Setter Property="StrokeStartLineCap" Value="Round"/>
             <Setter Property="StrokeEndLineCap" Value="Round"/>
             <Setter Property="StrokeLineJoin" Value="Round"/>
@@ -263,42 +263,52 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="2">
-                    <Button Style="{StaticResource LineButtonStyle}" Margin="0,0,0,6">
+                    <Button Style="{StaticResource LineButtonStyle}" Margin="0,0,0,6" Click="AppearanceNav_Click">
                         <StackPanel Orientation="Horizontal">
                             <Viewbox Width="28" Height="18" Margin="0,0,8,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Data="M4,6 L20,6 M4,12 L20,12 M4,18 L20,18 M8,4 L8,8 M16,10 L16,14 M11,16 L11,20"/>
+                                      Data="{StaticResource Icon.SlidersHorizontal}"/>
                             </Viewbox>
                             <TextBlock Text="{i18n:Translate Settings_Appearance}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource LineButtonStyle}" Margin="0,0,0,6">
+                    <Button Style="{StaticResource LineButtonStyle}" Margin="0,0,0,6" Click="AiNav_Click">
                         <StackPanel Orientation="Horizontal">
                             <Viewbox Width="28" Height="18" Margin="0,0,8,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Data="M12,3 L13.8,8.2 L19,10 L13.8,11.8 L12,17 L10.2,11.8 L5,10 L10.2,8.2 Z M18,4 L18.7,6.3 L21,7 L18.7,7.7 L18,10 L17.3,7.7 L15,7 L17.3,6.3 Z"/>
+                                      Data="{StaticResource Icon.Sparkles}"/>
                             </Viewbox>
                             <TextBlock Text="{i18n:Translate Settings_Ai}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource LineButtonStyle}" Margin="0,0,0,6">
+                    <Button Style="{StaticResource LineButtonStyle}" Margin="0,0,0,6" Click="MemoryNav_Click">
                         <StackPanel Orientation="Horizontal">
                             <Viewbox Width="28" Height="18" Margin="0,0,8,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Data="M12,8.5 A3.5,3.5 0 1 0 12,15.5 A3.5,3.5 0 1 0 12,8.5 M19.4,15 A8.4,8.4 0 0 0 19.4,9 L21,7.8 L19.2,4.7 L17.3,5.5 A8.2,8.2 0 0 0 14.7,4 L14.5,2 L10.9,2 L10.6,4 A8.2,8.2 0 0 0 8,5.5 L6.2,4.7 L4.4,7.8 L6,9 A8.4,8.4 0 0 0 6,15 L4.4,16.2 L6.2,19.3 L8,18.5 A8.2,8.2 0 0 0 10.6,20 L10.9,22 L14.5,22 L14.7,20 A8.2,8.2 0 0 0 17.3,18.5 L19.2,19.3 L21,16.2 Z"/>
+                                      Data="{StaticResource Icon.BrainCircuit}"/>
+                            </Viewbox>
+                            <TextBlock Text="{i18n:Translate Settings_Memory}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource LineButtonStyle}" Margin="0,0,0,6" Click="SystemNav_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="28" Height="18" Margin="0,0,8,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="{StaticResource Icon.Settings}"/>
                             </Viewbox>
                             <TextBlock Text="{i18n:Translate Settings_System}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource LineButtonStyle}">
+                    <Button Style="{StaticResource LineButtonStyle}" Click="DataNav_Click">
                         <StackPanel Orientation="Horizontal">
                             <Viewbox Width="28" Height="18" Margin="0,0,8,0">
                                 <Path Style="{StaticResource LineIconPathStyle}"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                      Data="M5,6 C5,4.9 8.1,4 12,4 C15.9,4 19,4.9 19,6 C19,7.1 15.9,8 12,8 C8.1,8 5,7.1 5,6 Z M5,6 L5,18 C5,19.1 8.1,20 12,20 C15.9,20 19,19.1 19,18 L19,6 M5,12 C5,13.1 8.1,14 12,14 C15.9,14 19,13.1 19,12"/>
+                                      Data="{StaticResource Icon.Database}"/>
                             </Viewbox>
                             <TextBlock Text="{i18n:Translate Settings_Data}" VerticalAlignment="Center"/>
                         </StackPanel>
@@ -312,9 +322,9 @@
             </Grid>
         </Border>
 
-        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer x:Name="SettingsScrollViewer" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="34,28,38,28">
-                <Border Style="{StaticResource SectionShellStyle}">
+                <Border x:Name="AppearanceSection" Style="{StaticResource SectionShellStyle}">
                     <StackPanel>
                         <TextBlock Text="{i18n:Translate Settings_Appearance}" Style="{StaticResource SectionTitleStyle}"/>
                         <TextBlock Text="{i18n:Translate Settings_ThemeMode}" Margin="0,20,0,8" Style="{StaticResource FieldLabelStyle}"/>
@@ -324,7 +334,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource SectionShellStyle}">
+                <Border x:Name="AiSection" Style="{StaticResource SectionShellStyle}">
                     <StackPanel>
                         <TextBlock Text="{i18n:Translate Settings_Ai}" Style="{StaticResource SectionTitleStyle}"/>
                         <TextBlock Text="{i18n:Translate Settings_AiProvider}" Margin="0,20,0,8" Style="{StaticResource FieldLabelStyle}"/>
@@ -347,7 +357,70 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource SectionShellStyle}">
+                <Border x:Name="MemorySection" Style="{StaticResource SectionShellStyle}">
+                    <StackPanel>
+                        <TextBlock Text="{i18n:Translate Settings_Memory}" Style="{StaticResource SectionTitleStyle}"/>
+                        <CheckBox Content="{i18n:Translate Settings_MemoryAutoSave}"
+                                  Margin="0,18,0,12"
+                                  IsChecked="{Binding AutoSaveMemories, Mode=TwoWay}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="18"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0"
+                                    Height="260"
+                                    BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                    BorderThickness="1"
+                                    Background="{DynamicResource Perelegans.PanelBackground}">
+                                <ListBox ItemsSource="{Binding Memories}"
+                                         SelectedItem="{Binding SelectedMemory, Mode=TwoWay}"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Foreground="{DynamicResource Perelegans.ForegroundBrush}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="4,6">
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding TypeText}" Margin="0,2,0,0" FontSize="11" Foreground="{DynamicResource Perelegans.AccentBrush}"/>
+                                                <TextBlock Text="{Binding Preview}" Margin="0,3,0,0" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Border>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{i18n:Translate Settings_MemoryTitle}" Style="{StaticResource FieldLabelStyle}"/>
+                                <TextBox Height="34" Margin="0,7,0,12" Padding="8,0" VerticalContentAlignment="Center" Text="{Binding MemoryTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <TextBlock Text="{i18n:Translate Settings_MemoryType}" Style="{StaticResource FieldLabelStyle}"/>
+                                <ComboBox Margin="0,7,0,12" Style="{StaticResource SettingsComboBoxStyle}" ItemsSource="{Binding MemoryTypeOptions}" SelectedItem="{Binding SelectedMemoryType, Mode=TwoWay}"/>
+
+                                <TextBlock Text="{i18n:Translate Settings_MemoryContent}" Style="{StaticResource FieldLabelStyle}"/>
+                                <TextBox Height="92" Margin="0,7,0,12" Padding="8" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Text="{Binding MemoryContent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <TextBlock Text="{i18n:Translate Settings_MemoryTags}" Style="{StaticResource FieldLabelStyle}"/>
+                                <TextBox Height="34" Margin="0,7,0,14" Padding="8,0" VerticalContentAlignment="Center" Text="{Binding MemoryTags, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Width="82" Height="34" Margin="0,0,8,0" Style="{StaticResource LineButtonStyle}" HorizontalContentAlignment="Center" BorderBrush="{DynamicResource Perelegans.BorderBrush}" Content="{i18n:Translate Settings_MemoryNew}" Command="{Binding NewMemoryCommand}"/>
+                                    <Button Width="82" Height="34" Margin="0,0,8,0" Style="{StaticResource AccentLineButtonStyle}" Content="{i18n:Translate Settings_MemorySave}" Command="{Binding SaveMemoryCommand}"/>
+                                    <Button Width="82" Height="34" Margin="0,0,8,0" Style="{StaticResource LineButtonStyle}" HorizontalContentAlignment="Center" BorderBrush="{DynamicResource Perelegans.BorderBrush}" Content="{i18n:Translate Settings_MemoryDelete}" Command="{Binding DeleteMemoryCommand}"/>
+                                    <Button Width="82" Height="34" Style="{StaticResource LineButtonStyle}" HorizontalContentAlignment="Center" BorderBrush="{DynamicResource Perelegans.BorderBrush}" Content="{i18n:Translate Settings_MemoryClear}" Command="{Binding ClearMemoriesCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                        <Border Margin="0,12,0,0" Padding="12,9" Background="{DynamicResource Perelegans.PanelBackground}" BorderBrush="{DynamicResource Perelegans.BorderBrush}" BorderThickness="1" Visibility="{Binding HasMemoryStatus, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{Binding MemoryStatusText}" TextWrapping="Wrap" Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}" FontSize="12"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="SystemSection" Style="{StaticResource SectionShellStyle}">
                     <StackPanel>
                         <TextBlock Text="{i18n:Translate Settings_System}" Style="{StaticResource SectionTitleStyle}"/>
                         <Grid Margin="0,20,0,0">
@@ -368,7 +441,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Padding="0">
+                <Border x:Name="DataSection" Padding="0">
                     <StackPanel>
                         <TextBlock Text="{i18n:Translate Settings_Data}" Style="{StaticResource SectionTitleStyle}"/>
                         <TextBlock Text="{i18n:Translate Settings_DataActions}" Margin="0,20,0,10" Style="{StaticResource FieldLabelStyle}"/>

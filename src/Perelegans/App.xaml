@@ -13,6 +13,7 @@
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Pink.xaml"/>
 
                 <!-- Perelegans Custom Themes (default to Light) -->
+                <ResourceDictionary Source="Themes/Icons.xaml"/>
                 <ResourceDictionary Source="Themes/LightTheme.xaml"/>
 
                 <!-- Compact global styles -->

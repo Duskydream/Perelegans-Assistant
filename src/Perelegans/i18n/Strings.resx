@@ -17,19 +17,19 @@
   <data name="Settings_Interval" xml:space="preserve"><value>Interval:</value></data>
   <data name="Settings_Network" xml:space="preserve"><value>Network</value></data>
   <data name="Settings_Proxy" xml:space="preserve"><value>Proxy:</value></data>
-  <data name="Settings_Ai" xml:space="preserve"><value>AI Focus Classifier</value></data>
+  <data name="Settings_Ai" xml:space="preserve"><value>AI Context Assistant</value></data>
   <data name="Settings_AiProvider" xml:space="preserve"><value>Provider:</value></data>
   <data name="Settings_AiProvider_Auto" xml:space="preserve"><value>Auto Detect</value></data>
   <data name="Settings_AiProvider_OpenAI" xml:space="preserve"><value>OpenAI Compatible</value></data>
   <data name="Settings_AiProvider_OpenRouter" xml:space="preserve"><value>OpenRouter</value></data>
   <data name="Settings_AiProvider_Anthropic" xml:space="preserve"><value>Anthropic Claude</value></data>
-  <data name="Settings_AiProviderHint_Auto" xml:space="preserve"><value>Detect protocol from the base URL. The focus classifier currently uses OpenAI-compatible chat completions.</value></data>
+  <data name="Settings_AiProviderHint_Auto" xml:space="preserve"><value>Detect protocol from the base URL. Local context features use OpenAI-compatible chat completions.</value></data>
   <data name="Settings_AiProviderHint_OpenAI" xml:space="preserve"><value>Use this for OpenAI or any OpenAI-compatible API. Base URL example: https://api.openai.com/v1</value></data>
   <data name="Settings_AiProviderHint_OpenRouter" xml:space="preserve"><value>Use OpenRouter's OpenAI-compatible API. Base URL example: https://openrouter.ai/api/v1</value></data>
-  <data name="Settings_AiProviderHint_Anthropic" xml:space="preserve"><value>Configured for future support. The current classifier expects an OpenAI-compatible endpoint.</value></data>
-  <data name="Settings_FocusGoal" xml:space="preserve"><value>Focus goal:</value></data>
-  <data name="Settings_FocusGoalWatermark" xml:space="preserve"><value>General focus, exam prep, writing, coding...</value></data>
-  <data name="Settings_FocusGoalHint" xml:space="preserve"><value>Leave empty for general focus. When filled, AI classification judges apps against this goal.</value></data>
+  <data name="Settings_AiProviderHint_Anthropic" xml:space="preserve"><value>Configured for future support. Current context features expect an OpenAI-compatible endpoint.</value></data>
+  <data name="Settings_FocusGoal" xml:space="preserve"><value>Pinned context:</value></data>
+  <data name="Settings_FocusGoalWatermark" xml:space="preserve"><value>Current project, long-term preference, workflow note...</value></data>
+  <data name="Settings_FocusGoalHint" xml:space="preserve"><value>Kept for compatibility with older settings. Put durable information in Local Memory.</value></data>
   <data name="Settings_AiBaseUrl" xml:space="preserve"><value>Base URL:</value></data>
   <data name="Settings_AiApiKey" xml:space="preserve"><value>API Key:</value></data>
   <data name="Settings_AiModel" xml:space="preserve"><value>Model:</value></data>
@@ -53,32 +53,51 @@
   <data name="Settings_WindowTitle" xml:space="preserve"><value>Settings</value></data>
   <data name="Main_WindowTitle" xml:space="preserve"><value>Perelegans</value></data>
   <data name="Main_AppTitle" xml:space="preserve"><value>Perelegans</value></data>
-  <data name="Main_PrimaryPrompt" xml:space="preserve"><value>What do you want to finish?</value></data>
-  <data name="Main_InputWatermark" xml:space="preserve"><value>Type a task or command...</value></data>
+  <data name="Main_PrimaryPrompt" xml:space="preserve"><value>Ask with your local context</value></data>
+  <data name="Main_InputWatermark" xml:space="preserve"><value>Ask anything, or type “remember that...”</value></data>
   <data name="Main_Send" xml:space="preserve"><value>Send</value></data>
   <data name="Main_Refresh" xml:space="preserve"><value>Refresh</value></data>
   <data name="Main_Settings" xml:space="preserve"><value>Settings</value></data>
   <data name="Main_Galaxy" xml:space="preserve"><value>Galaxy</value></data>
+  <data name="Main_DailyReview" xml:space="preserve"><value>Daily review</value></data>
   <data name="Main_CloseGalaxy" xml:space="preserve"><value>Back</value></data>
   <data name="Main_GalaxyTitle" xml:space="preserve"><value>Personal Memory Galaxy</value></data>
+  <data name="Main_GalaxyEmpty" xml:space="preserve"><value>No memory nodes yet.</value></data>
+  <data name="Main_GalaxyEditTitle" xml:space="preserve"><value>Memory Node</value></data>
+  <data name="Main_GalaxyEditHint" xml:space="preserve"><value>Select a star to edit it. Drag a star to reshape the map.</value></data>
+  <data name="Main_GalaxyTaskTitle" xml:space="preserve"><value>Title</value></data>
+  <data name="Main_GalaxyTaskTime" xml:space="preserve"><value>Updated</value></data>
+  <data name="Main_GalaxyTaskCompleted" xml:space="preserve"><value>Important memory</value></data>
+  <data name="Main_GalaxyTaskInsight" xml:space="preserve"><value>AI insight</value></data>
+  <data name="Main_GalaxyTaskNextAction" xml:space="preserve"><value>Next action</value></data>
+  <data name="Main_GalaxyTaskSave" xml:space="preserve"><value>Save memory</value></data>
+  <data name="Main_GalaxyTaskDelete" xml:space="preserve"><value>Delete memory</value></data>
+  <data name="Main_GalaxyTaskSaved" xml:space="preserve"><value>Memory node saved.</value></data>
+  <data name="Main_GalaxyTaskMoved" xml:space="preserve"><value>Memory node moved.</value></data>
+  <data name="Main_GalaxyTaskDeleted" xml:space="preserve"><value>Memory node deleted.</value></data>
+  <data name="Main_GalaxyTaskTitleRequired" xml:space="preserve"><value>Task title is required.</value></data>
+  <data name="Main_GalaxyTaskTimeInvalid" xml:space="preserve"><value>Use a valid time, for example 2026-05-13 14:30.</value></data>
+  <data name="Main_GalaxyTaskSaveFailed" xml:space="preserve"><value>Could not save this memory.</value></data>
+  <data name="Main_GalaxyTaskDeleteFailed" xml:space="preserve"><value>Could not delete this memory.</value></data>
+  <data name="Main_GalaxyTaskDeleteConfirmFormat" xml:space="preserve"><value>Delete “{0}” from the local memory galaxy?</value></data>
   <data name="Main_Exit" xml:space="preserve"><value>Exit</value></data>
   <data name="Main_Backup" xml:space="preserve"><value>Backup</value></data>
   <data name="Main_Restore" xml:space="preserve"><value>Restore</value></data>
   <data name="Main_ClearData" xml:space="preserve"><value>Clear data</value></data>
-  <data name="Main_StartMonitor" xml:space="preserve"><value>Start</value></data>
-  <data name="Main_PauseMonitor" xml:space="preserve"><value>Pause</value></data>
-  <data name="Main_MonitoringOn" xml:space="preserve"><value>Monitoring</value></data>
-  <data name="Main_MonitoringOff" xml:space="preserve"><value>Paused</value></data>
+  <data name="Main_StartMonitor" xml:space="preserve"><value>Start capture</value></data>
+  <data name="Main_PauseMonitor" xml:space="preserve"><value>Pause capture</value></data>
+  <data name="Main_MonitoringOn" xml:space="preserve"><value>Context capture on</value></data>
+  <data name="Main_MonitoringOff" xml:space="preserve"><value>Context capture paused</value></data>
   <data name="Main_CurrentApp" xml:space="preserve"><value>Current app</value></data>
   <data name="Main_Total" xml:space="preserve"><value>Total</value></data>
-  <data name="Main_NoTask" xml:space="preserve"><value>No task set</value></data>
+  <data name="Main_NoTask" xml:space="preserve"><value>No pinned context</value></data>
   <data name="Main_NoSignal" xml:space="preserve"><value>No signal</value></data>
   <data name="Main_AppsCountFormat" xml:space="preserve"><value>{0} apps</value></data>
-  <data name="Main_FocusTaskCountFormat" xml:space="preserve"><value>{0} / {1} tasks complete</value></data>
-  <data name="Main_ProductiveShareFormat" xml:space="preserve"><value>{0}% productive</value></data>
+  <data name="Main_FocusTaskCountFormat" xml:space="preserve"><value>{1} context nodes</value></data>
+  <data name="Main_ProductiveShareFormat" xml:space="preserve"><value>{0}% understood</value></data>
   <data name="Main_WaitingForApp" xml:space="preserve"><value>Waiting</value></data>
   <data name="Main_Unknown" xml:space="preserve"><value>Unknown</value></data>
-  <data name="Main_LikelyProductive" xml:space="preserve"><value>Productive</value></data>
+  <data name="Main_LikelyProductive" xml:space="preserve"><value>Known context</value></data>
   <data name="Main_Unclassified" xml:space="preserve"><value>Unclassified</value></data>
   <data name="Main_ZeroDuration" xml:space="preserve"><value>0s</value></data>
   <data name="Main_HoursMinutesFormat" xml:space="preserve"><value>{0}h {1}m</value></data>
@@ -88,7 +107,7 @@
   <data name="Main_BackupSaved" xml:space="preserve"><value>Backup saved.</value></data>
   <data name="Main_BackupRestored" xml:space="preserve"><value>Backup restored.</value></data>
   <data name="Main_ClearDataConfirm" xml:space="preserve"><value>Clear all recorded application usage data?</value></data>
-  <data name="Main_TaskGoalUpdated" xml:space="preserve"><value>Task updated.</value></data>
+  <data name="Main_TaskGoalUpdated" xml:space="preserve"><value>Context updated.</value></data>
   <data name="Main_ParsingInput" xml:space="preserve"><value>Parsing input...</value></data>
   <data name="Main_PresetDeepWork" xml:space="preserve"><value>Deep work</value></data>
   <data name="Main_PresetStudy" xml:space="preserve"><value>Study</value></data>
@@ -98,9 +117,9 @@
   <data name="Main_PresetStudyPrompt" xml:space="preserve"><value>Study and review notes for the current course</value></data>
   <data name="Main_PresetWritingPrompt" xml:space="preserve"><value>Draft and revise a focused writing task</value></data>
   <data name="Main_PresetCodingPrompt" xml:space="preserve"><value>Implement and verify the current development task</value></data>
-  <data name="Main_AssistantSeed" xml:space="preserve"><value>Enter a task, or type a command like refresh or settings.</value></data>
-  <data name="Main_AssistantCurrentTaskFormat" xml:space="preserve"><value>Current task: {0}</value></data>
-  <data name="Main_AssistantHelp" xml:space="preserve"><value>Tell me the task, or ask for start, pause, refresh, settings, backup, restore, or clear data.</value></data>
+  <data name="Main_AssistantSeed" xml:space="preserve"><value>Ask normally, or say “remember that...” to save local context.</value></data>
+  <data name="Main_AssistantCurrentTaskFormat" xml:space="preserve"><value>Pinned context: {0}</value></data>
+  <data name="Main_AssistantHelp" xml:space="preserve"><value>Ask with local context, or use settings, refresh, backup, restore, clear memories, or clear records.</value></data>
   <data name="Main_AssistantSettingsOpened" xml:space="preserve"><value>Settings opened.</value></data>
   <data name="Main_AssistantRefreshed" xml:space="preserve"><value>Refreshed.</value></data>
   <data name="Main_AssistantMonitoringPaused" xml:space="preserve"><value>Monitoring paused.</value></data>
@@ -112,8 +131,46 @@
   <data name="Main_AssistantTasksSetFormat" xml:space="preserve"><value>{0} tasks set: {1}</value></data>
   <data name="Main_AssistantNoTaskRecognized" xml:space="preserve"><value>I did not find a task.</value></data>
   <data name="Main_AssistantNoActiveTask" xml:space="preserve"><value>No active task.</value></data>
-  <data name="Main_FallbackQuestTitle" xml:space="preserve"><value>Main Quest</value></data>
-  <data name="Main_FallbackQuestNarrativeFormat" xml:space="preserve"><value>[Main Quest]: A reality rift opens. Guardian, complete “{0}” and pin this star into your memory galaxy.</value></data>
-  <data name="Main_FallbackRewardName" xml:space="preserve"><value>Glimmer Badge</value></data>
-  <data name="Main_FallbackCompletionNarrativeFormat" xml:space="preserve"><value>Victory! You completed “{0}” and obtained “{1}”. Hidden focus +1 today.</value></data>
+  <data name="Main_DailyReviewGenerating" xml:space="preserve"><value>Generating daily review...</value></data>
+  <data name="Main_DailyReviewReady" xml:space="preserve"><value>Daily review ready.</value></data>
+  <data name="Main_DailyReviewHighlights" xml:space="preserve"><value>Highlights</value></data>
+  <data name="Main_DailyReviewRisks" xml:space="preserve"><value>Watch points</value></data>
+  <data name="Main_DailyReviewNextAction" xml:space="preserve"><value>Next smallest action</value></data>
+  <data name="Main_DailyReviewNoCompletedTasks" xml:space="preserve"><value>No completed task stars yet.</value></data>
+  <data name="Main_DailyReviewNoRisk" xml:space="preserve"><value>No obvious risk from today's task stars.</value></data>
+  <data name="Main_DailyReviewActiveTaskFormat" xml:space="preserve"><value>Still active: {0}</value></data>
+  <data name="Main_DailyReviewFallbackNextAction" xml:space="preserve"><value>Create one small task star for tomorrow.</value></data>
+  <data name="Main_FallbackQuestTitle" xml:space="preserve"><value>Context Note</value></data>
+  <data name="Main_FallbackQuestNarrativeFormat" xml:space="preserve"><value>Recorded task: “{0}”. Start from one small, verifiable step.</value></data>
+  <data name="Main_FallbackTaskSummaryFormat" xml:space="preserve"><value>Focus on completing “{0}”.</value></data>
+  <data name="Main_FallbackNextActionFormat" xml:space="preserve"><value>Open the relevant material and do the first visible step for “{0}”.</value></data>
+  <data name="Main_FallbackConstellationName" xml:space="preserve"><value>Action Constellation</value></data>
+  <data name="Main_FallbackRewardName" xml:space="preserve"><value>Finished output</value></data>
+  <data name="Main_FallbackCompletionNarrativeFormat" xml:space="preserve"><value>Completed “{0}” and produced “{1}”.</value></data>
+  <data name="Main_FallbackDailyReviewFormat" xml:space="preserve"><value>Today completed {0} task stars, with {1} still active.</value></data>
+  <data name="Settings_Memory" xml:space="preserve"><value>Local Memory</value></data>
+  <data name="Settings_MemoryAutoSave" xml:space="preserve"><value>Allow AI to save high-confidence memories automatically</value></data>
+  <data name="Settings_MemoryTitle" xml:space="preserve"><value>Title</value></data>
+  <data name="Settings_MemoryType" xml:space="preserve"><value>Type</value></data>
+  <data name="Settings_MemoryContent" xml:space="preserve"><value>Content</value></data>
+  <data name="Settings_MemoryTags" xml:space="preserve"><value>Tags</value></data>
+  <data name="Settings_MemoryNew" xml:space="preserve"><value>New</value></data>
+  <data name="Settings_MemorySave" xml:space="preserve"><value>Save</value></data>
+  <data name="Settings_MemoryDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Settings_MemoryClear" xml:space="preserve"><value>Clear</value></data>
+  <data name="Settings_MemoryNewReady" xml:space="preserve"><value>New local memory is ready.</value></data>
+  <data name="Settings_MemorySaved" xml:space="preserve"><value>Local memory saved.</value></data>
+  <data name="Settings_MemoryDeleted" xml:space="preserve"><value>Local memory deleted.</value></data>
+  <data name="Settings_MemoryCleared" xml:space="preserve"><value>All local memories cleared.</value></data>
+  <data name="Main_MemoryCountFormat" xml:space="preserve"><value>{0} memories</value></data>
+  <data name="Main_ContextRetrieving" xml:space="preserve"><value>Retrieving local context...</value></data>
+  <data name="Main_ContextThinking" xml:space="preserve"><value>Thinking with local context...</value></data>
+  <data name="Main_ContextReady" xml:space="preserve"><value>Context answer ready.</value></data>
+  <data name="Main_MemorySaved" xml:space="preserve"><value>Local memory saved.</value></data>
+  <data name="Main_ClearMemoryConfirm" xml:space="preserve"><value>Clear all local memories?</value></data>
+  <data name="Main_AssistantMemoryCleared" xml:space="preserve"><value>Local memories cleared.</value></data>
+  <data name="Main_AssistantMemorySaved" xml:space="preserve"><value>Saved to local memory: {0}</value></data>
+  <data name="Main_AssistantNoMemoryMatched" xml:space="preserve"><value>I do not have matching local memory yet. You can say "remember that..." to save one.</value></data>
+  <data name="Main_AssistantMemoryMatched" xml:space="preserve"><value>I found these local memories:</value></data>
+  <data name="Main_CurrentContext" xml:space="preserve"><value>Current context</value></data>
 </root>

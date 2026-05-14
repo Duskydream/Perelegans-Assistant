@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using System.Windows.Media;
 using MahApps.Metro.Controls;
 using MahApps.Metro.Controls.Dialogs;
 using Perelegans.Services;
@@ -37,5 +38,38 @@ public partial class SettingsWindow : MetroWindow
     {
         DialogResult = false;
         Close();
+    }
+
+    private void AppearanceNav_Click(object sender, RoutedEventArgs e)
+    {
+        ScrollToSection(AppearanceSection);
+    }
+
+    private void AiNav_Click(object sender, RoutedEventArgs e)
+    {
+        ScrollToSection(AiSection);
+    }
+
+    private void MemoryNav_Click(object sender, RoutedEventArgs e)
+    {
+        ScrollToSection(MemorySection);
+    }
+
+    private void SystemNav_Click(object sender, RoutedEventArgs e)
+    {
+        ScrollToSection(SystemSection);
+    }
+
+    private void DataNav_Click(object sender, RoutedEventArgs e)
+    {
+        ScrollToSection(DataSection);
+    }
+
+    private void ScrollToSection(FrameworkElement section)
+    {
+        var position = section.TransformToAncestor(SettingsScrollViewer)
+            .Transform(new System.Windows.Point(0, 0));
+
+        SettingsScrollViewer.ScrollToVerticalOffset(SettingsScrollViewer.VerticalOffset + position.Y);
     }
 }

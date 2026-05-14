@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -20,6 +21,8 @@ public partial class MainViewModel : ObservableObject
     private readonly SettingsService _settingsService;
     private readonly ProcessMonitorService _processMonitor;
     private readonly FocusClassificationClient? _focusClient;
+    private readonly ContextRetrievalService _contextRetrievalService;
+    private readonly MemoryExtractionService _memoryExtractionService;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
 
@@ -55,7 +58,24 @@ public partial class MainViewModel : ObservableObject
     private ObservableCollection<FocusTask> _focusTasks = new();
 
     [ObservableProperty]
+    private ObservableCollection<ContextMemory> _contextMemories = new();
+
+    [ObservableProperty]
     private ObservableCollection<GalaxyLinkViewModel> _galaxyLinks = new();
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveGalaxyTaskCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteGalaxyTaskCommand))]
+    private ContextMemory? _selectedGalaxyMemory;
+
+    [ObservableProperty]
+    private string _galaxyEditTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _galaxyEditCreatedAtText = string.Empty;
+
+    [ObservableProperty]
+    private bool _galaxyEditIsCompleted;
 
     [ObservableProperty]
     private string _currentFocusGoal = string.Empty;
@@ -80,6 +100,8 @@ public partial class MainViewModel : ObservableObject
         : CurrentFocusGoal;
     public string ApplicationCountText => string.Format(T("Main_AppsCountFormat"), ApplicationCount);
     public string FocusTaskCountText => string.Format(T("Main_FocusTaskCountFormat"), FocusTasks.Count(t => t.Status == FocusTaskStatus.Completed), FocusTasks.Count);
+    public string MemoryCountText => string.Format(T("Main_MemoryCountFormat"), ContextMemories.Count);
+    public bool HasSelectedGalaxyTask => SelectedGalaxyMemory != null;
     public string ProductiveShareText
     {
         get
@@ -99,6 +121,8 @@ public partial class MainViewModel : ObservableObject
         SettingsService settingsService,
         ProcessMonitorService processMonitor,
         FocusClassificationClient? focusClient,
+        ContextRetrievalService contextRetrievalService,
+        MemoryExtractionService memoryExtractionService,
         Action openSettings,
         Action exitApplication)
     {
@@ -106,6 +130,8 @@ public partial class MainViewModel : ObservableObject
         _settingsService = settingsService;
         _processMonitor = processMonitor;
         _focusClient = focusClient;
+        _contextRetrievalService = contextRetrievalService;
+        _memoryExtractionService = memoryExtractionService;
         _openSettings = openSettings;
         _exitApplication = exitApplication;
 
@@ -138,6 +164,7 @@ public partial class MainViewModel : ObservableObject
         await _dbService.EnsureDatabaseCreatedAsync();
         await RefreshAsync();
         await RefreshFocusTasksAsync();
+        await RefreshContextMemoriesAsync();
 
         _processMonitor.SetInterval(_settingsService.Settings.MonitorIntervalSeconds);
         if (_settingsService.Settings.MonitorEnabled)
@@ -261,6 +288,7 @@ public partial class MainViewModel : ObservableObject
     {
         _openSettings();
         SyncFocusGoalFromSettings();
+        _ = RefreshContextMemoriesAsync();
     }
 
     [RelayCommand]
@@ -308,6 +336,112 @@ public partial class MainViewModel : ObservableObject
         IsGalaxyVisible = !IsGalaxyVisible;
     }
 
+    [RelayCommand]
+    private async Task GenerateDailyReview()
+    {
+        HasConversationStarted = true;
+        StatusText = T("Main_DailyReviewGenerating");
+        var snapshot = _processMonitor.SampleForegroundWindowFocus();
+        var memories = await _contextRetrievalService.RetrieveAsync("today local memory context recap", snapshot, 10);
+        PersonalizedReplyResult? reply = null;
+        if (_focusClient?.IsConfigured == true)
+        {
+            try
+            {
+                reply = await _focusClient.CreatePersonalizedReplyAsync(
+                    "请根据本地记忆、当前桌面上下文和最近应用使用情况，生成一段简短的上下文复盘。不要评价专注程度，只总结最近推进了什么、偏好有什么变化、下次回来可以从哪里继续。",
+                    ContextRetrievalService.BuildContextPack(memories),
+                    snapshot);
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+        }
+
+        ConversationMessages.Add(ConversationMessage.Assistant(
+            !string.IsNullOrWhiteSpace(reply?.Reply)
+                ? reply.Reply.Trim()
+                : CreateLocalContextReply(memories, snapshot)));
+        StatusText = T("Main_DailyReviewReady");
+    }
+
+    [RelayCommand]
+    private void SelectGalaxyTask(ContextMemory? memory)
+    {
+        SelectedGalaxyMemory = memory;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEditGalaxyTask))]
+    private async Task SaveGalaxyTask()
+    {
+        if (SelectedGalaxyMemory == null)
+        {
+            return;
+        }
+
+        var title = GalaxyEditTitle.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            StatusText = T("Main_GalaxyTaskTitleRequired");
+            return;
+        }
+
+        var updated = await _dbService.UpsertContextMemoryAsync(
+            title,
+            SelectedGalaxyMemory.Content,
+            SelectedGalaxyMemory.Type,
+            SelectedGalaxyMemory.Source,
+            SelectedGalaxyMemory.Tags,
+            GalaxyEditIsCompleted ? Math.Max(SelectedGalaxyMemory.Weight, 0.85) : Math.Min(SelectedGalaxyMemory.Weight, 0.75),
+            SelectedGalaxyMemory.Id);
+
+        StatusText = T("Main_GalaxyTaskSaved");
+        await RefreshContextMemoriesAsync(updated.Id);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEditGalaxyTask))]
+    private async Task DeleteGalaxyTask()
+    {
+        if (SelectedGalaxyMemory == null)
+        {
+            return;
+        }
+
+        var result = MessageBox.Show(
+            string.Format(T("Main_GalaxyTaskDeleteConfirmFormat"), SelectedGalaxyMemory.Title),
+            T("Main_GalaxyTitle"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var deleted = await _dbService.DeleteContextMemoryAsync(SelectedGalaxyMemory.Id);
+        if (!deleted)
+        {
+            StatusText = T("Main_GalaxyTaskDeleteFailed");
+            return;
+        }
+
+        SelectedGalaxyMemory = null;
+        StatusText = T("Main_GalaxyTaskDeleted");
+        await RefreshContextMemoriesAsync();
+    }
+
+    public async Task MoveGalaxyTaskAsync(ContextMemory memory, double x, double y)
+    {
+        await _dbService.UpdateContextMemoryPositionAsync(memory.Id, x, y);
+        await RefreshContextMemoriesAsync(memory.Id);
+        StatusText = T("Main_GalaxyTaskMoved");
+    }
+
+    private bool CanEditGalaxyTask()
+    {
+        return SelectedGalaxyMemory != null;
+    }
+
     private bool CanSendConversationMessage()
     {
         return !string.IsNullOrWhiteSpace(ConversationInput);
@@ -315,14 +449,150 @@ public partial class MainViewModel : ObservableObject
 
     private async Task DispatchConversationAsync(string text)
     {
-        var aiResult = await TryParseWithAiAsync(text);
-        if (aiResult != null && aiResult.Confidence >= 0.45)
+        if (await TryHandleLocalCommandAsync(text))
         {
-            await DispatchParsedInstructionAsync(aiResult);
             return;
         }
 
-        await DispatchLocalFallbackAsync(text);
+        await DispatchContextAssistantAsync(text);
+    }
+
+    private async Task<bool> TryHandleLocalCommandAsync(string text)
+    {
+        var normalized = text.Trim().ToLowerInvariant();
+
+        if (ContainsAny(normalized, "help", "commands", "帮助", "怎么用"))
+        {
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantHelp")));
+            return true;
+        }
+
+        if (ContainsAny(normalized, "settings", "configure", "设置", "配置"))
+        {
+            OpenSettings();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantSettingsOpened")));
+            return true;
+        }
+
+        if (ContainsAny(normalized, "refresh", "reload", "刷新", "更新"))
+        {
+            await RefreshAsync();
+            await RefreshContextMemoriesAsync();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantRefreshed")));
+            return true;
+        }
+
+        if (ContainsAny(normalized, "backup", "备份"))
+        {
+            await SaveBackup();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantBackupDone")));
+            return true;
+        }
+
+        if (ContainsAny(normalized, "restore", "恢复"))
+        {
+            await RestoreBackup();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantRestoreDone")));
+            return true;
+        }
+
+        if (ContainsAny(normalized, "clear memories", "clear memory", "清空记忆", "删除记忆"))
+        {
+            var result = MessageBox.Show(
+                T("Main_ClearMemoryConfirm"),
+                T("Main_WindowTitle"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (result == MessageBoxResult.Yes)
+            {
+                await _dbService.ClearContextMemoriesAsync();
+                await RefreshContextMemoriesAsync();
+                ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantMemoryCleared")));
+            }
+
+            return true;
+        }
+
+        if (ContainsAny(normalized, "clear usage", "clear data", "清空记录", "清除记录"))
+        {
+            await ClearUsageData();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantDataActionDone")));
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task DispatchContextAssistantAsync(string text)
+    {
+        StatusText = T("Main_ContextRetrieving");
+        var snapshot = _processMonitor.SampleForegroundWindowFocus();
+        var memories = await _contextRetrievalService.RetrieveAsync(text, snapshot);
+        var contextPack = ContextRetrievalService.BuildContextPack(memories);
+
+        if (LooksLikeExplicitMemory(text))
+        {
+            var saved = await _memoryExtractionService.SaveExplicitMemoryAsync(text);
+            if (saved != null)
+            {
+                await RefreshContextMemoriesAsync(saved.Id);
+                ConversationMessages.Add(ConversationMessage.Assistant(
+                    string.Format(T("Main_AssistantMemorySaved"), saved.Title)));
+                StatusText = T("Main_MemorySaved");
+                return;
+            }
+        }
+
+        PersonalizedReplyResult? reply = null;
+        if (_focusClient?.IsConfigured == true)
+        {
+            try
+            {
+                StatusText = T("Main_ContextThinking");
+                reply = await _focusClient.CreatePersonalizedReplyAsync(text, contextPack, snapshot);
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+                StatusText = ex.Message;
+            }
+        }
+
+        if (reply != null && reply.UsedMemoryIds.Count > 0)
+        {
+            await _dbService.MarkContextMemoriesUsedAsync(reply.UsedMemoryIds);
+        }
+
+        if (reply?.SuggestedMemory is { ShouldRemember: true, Confidence: >= 0.72 } candidate &&
+            _settingsService.Settings.AutoSaveMemories &&
+            !string.IsNullOrWhiteSpace(candidate.Content))
+        {
+            await _dbService.UpsertContextMemoryAsync(
+                candidate.Title,
+                candidate.Content,
+                MemoryExtractionService.ParseType(candidate.Type),
+                "ai-candidate",
+                string.Join(", ", candidate.Tags.Take(8)),
+                candidate.Weight);
+            await RefreshContextMemoriesAsync();
+        }
+        else
+        {
+            var autoMemory = await _memoryExtractionService.TryExtractAndSaveAsync(
+                text,
+                memories,
+                _settingsService.Settings.AutoSaveMemories);
+            if (autoMemory != null)
+            {
+                await RefreshContextMemoriesAsync(autoMemory.Id);
+            }
+        }
+
+        ConversationMessages.Add(ConversationMessage.Assistant(
+            !string.IsNullOrWhiteSpace(reply?.Reply)
+                ? reply.Reply.Trim()
+                : CreateLocalContextReply(memories, snapshot)));
+        StatusText = T("Main_ContextReady");
     }
 
     private async Task<TaskInstructionResult?> TryParseWithAiAsync(string text)
@@ -397,6 +667,12 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        if (ContainsAny(normalized, "review", "daily", "recap", "复盘", "日报", "总结今天"))
+        {
+            await GenerateDailyReview();
+            return;
+        }
+
         if (ContainsAny(normalized, "pause", "stop monitor", "disable monitor", "停止监控", "暂停监控"))
         {
             SetMonitorEnabled(false);
@@ -459,6 +735,9 @@ public partial class MainViewModel : ObservableObject
                 await RefreshAsync();
                 ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantRefreshed")));
                 break;
+            case "daily_review":
+                await GenerateDailyReview();
+                break;
             case "pause_monitor":
                 SetMonitorEnabled(false);
                 ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantMonitoringPaused")));
@@ -493,6 +772,7 @@ public partial class MainViewModel : ObservableObject
             "pause" or "stop" or "pause_monitor" or "stop_monitor" => "pause_monitor",
             "complete" or "complete_task" or "done" or "finish" => "complete_task",
             "reload" or "refresh" => "refresh",
+            "review" or "daily_review" or "recap" => "daily_review",
             "config" or "configure" or "settings" => "settings",
             "backup" => "backup",
             "restore" => "restore",
@@ -580,9 +860,15 @@ public partial class MainViewModel : ObservableObject
 
         return new TaskAdventureDraft
         {
-            QuestTitle = T("Main_FallbackQuestTitle"),
+            QuestTitle = task.Length <= 12 ? task : task[..12],
             QuestNarrative = string.Format(T("Main_FallbackQuestNarrativeFormat"), task),
-            RewardName = T("Main_FallbackRewardName")
+            RewardName = T("Main_FallbackRewardName"),
+            Summary = string.Format(T("Main_FallbackTaskSummaryFormat"), task),
+            NextAction = string.Format(T("Main_FallbackNextActionFormat"), task),
+            Difficulty = 2,
+            EstimatedMinutes = 25,
+            Tags = ["focus", "task"],
+            ConstellationName = T("Main_FallbackConstellationName")
         };
     }
 
@@ -625,17 +911,85 @@ public partial class MainViewModel : ObservableObject
         }
 
         ConversationMessages.Add(ConversationMessage.Assistant(completed.CompletionNarrative));
-        await RefreshFocusTasksAsync();
+        await RefreshFocusTasksAsync(completed.Id);
         IsGalaxyVisible = true;
     }
 
-    private async Task RefreshFocusTasksAsync()
+    private async Task RefreshFocusTasksAsync(int? selectedTaskId = null)
     {
+        selectedTaskId ??= null;
         var tasks = await _dbService.GetFocusTasksAsync();
         var links = await _dbService.GetFocusTaskLinksAsync();
         FocusTasks = new ObservableCollection<FocusTask>(tasks.OrderBy(t => t.CreatedAt));
         GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateGalaxyLinks(tasks, links));
         OnPropertyChanged(nameof(FocusTaskCountText));
+    }
+
+    private async Task RefreshContextMemoriesAsync(int? highlightId = null)
+    {
+        ContextMemories = new ObservableCollection<ContextMemory>(await _dbService.GetContextMemoriesAsync());
+        GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(ContextMemories));
+        SelectedGalaxyMemory = highlightId.HasValue
+            ? ContextMemories.FirstOrDefault(memory => memory.Id == highlightId.Value)
+            : SelectedGalaxyMemory == null
+                ? null
+                : ContextMemories.FirstOrDefault(memory => memory.Id == SelectedGalaxyMemory.Id);
+        OnPropertyChanged(nameof(MemoryCountText));
+
+        if (highlightId.HasValue)
+        {
+            StatusText = string.Format(T("Main_MemorySaved"), highlightId.Value);
+        }
+    }
+
+    private static IEnumerable<GalaxyLinkViewModel> CreateMemoryGalaxyLinks(IReadOnlyCollection<ContextMemory> memories)
+    {
+        var ordered = memories.OrderBy(memory => memory.CreatedAt).ToList();
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            for (var j = i + 1; j < ordered.Count; j++)
+            {
+                var source = ordered[i];
+                var target = ordered[j];
+                var strength = CalculateMemoryLinkStrength(source, target);
+                if (strength <= 0)
+                {
+                    continue;
+                }
+
+                yield return new GalaxyLinkViewModel(
+                    source.X + source.NodeSize / 2,
+                    source.Y + source.NodeSize / 2,
+                    target.X + target.NodeSize / 2,
+                    target.Y + target.NodeSize / 2,
+                    strength);
+            }
+        }
+    }
+
+    private static double CalculateMemoryLinkStrength(ContextMemory source, ContextMemory target)
+    {
+        var sameConstellation = !string.IsNullOrWhiteSpace(source.ConstellationName) &&
+            string.Equals(source.ConstellationName, target.ConstellationName, StringComparison.OrdinalIgnoreCase);
+        var sameType = source.Type == target.Type;
+        var sourceTags = SplitTags(source.Tags);
+        var targetTags = SplitTags(target.Tags);
+        var overlap = sourceTags.Intersect(targetTags, StringComparer.OrdinalIgnoreCase).Count();
+
+        if (!sameConstellation && !sameType && overlap == 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp((sameConstellation ? 0.36 : 0) + (sameType ? 0.18 : 0) + overlap * 0.16, 0.22, 0.92);
+    }
+
+    private static HashSet<string> SplitTags(string tags)
+    {
+        return tags
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(tag => tag.Length >= 2)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private static IEnumerable<GalaxyLinkViewModel> CreateGalaxyLinks(
@@ -658,6 +1012,51 @@ public partial class MainViewModel : ObservableObject
                 target.Y + target.NodeSize / 2,
                 link.Strength);
         }
+    }
+
+    private DailyReviewDraft CreateFallbackDailyReview()
+    {
+        var todayTasks = FocusTasks
+            .Where(task => task.CreatedAt.Date == DateTime.Today || task.CompletedAt?.Date == DateTime.Today)
+            .ToList();
+        var completed = todayTasks.Count(task => task.Status == FocusTaskStatus.Completed);
+        var active = todayTasks.Count(task => task.Status == FocusTaskStatus.Active);
+
+        return new DailyReviewDraft
+        {
+            Review = string.Format(T("Main_FallbackDailyReviewFormat"), completed, active),
+            Highlights = todayTasks
+                .Where(task => task.Status == FocusTaskStatus.Completed)
+                .Select(task => task.Title)
+                .Take(3)
+                .DefaultIfEmpty(T("Main_DailyReviewNoCompletedTasks"))
+                .ToList(),
+            Risks = todayTasks
+                .Where(task => task.Status == FocusTaskStatus.Active)
+                .Select(task => string.Format(T("Main_DailyReviewActiveTaskFormat"), task.Title))
+                .Take(3)
+                .DefaultIfEmpty(T("Main_DailyReviewNoRisk"))
+                .ToList(),
+            SuggestedNextAction = todayTasks
+                .Where(task => task.Status == FocusTaskStatus.Active && !string.IsNullOrWhiteSpace(task.NextAction))
+                .Select(task => task.NextAction)
+                .FirstOrDefault() ?? T("Main_DailyReviewFallbackNextAction")
+        };
+    }
+
+    private static string FormatDailyReview(DailyReviewDraft review)
+    {
+        var highlights = review.Highlights.Count == 0
+            ? string.Empty
+            : "\n" + T("Main_DailyReviewHighlights") + "\n" + string.Join("\n", review.Highlights.Select(item => $"• {item}"));
+        var risks = review.Risks.Count == 0
+            ? string.Empty
+            : "\n" + T("Main_DailyReviewRisks") + "\n" + string.Join("\n", review.Risks.Select(item => $"• {item}"));
+        var next = string.IsNullOrWhiteSpace(review.SuggestedNextAction)
+            ? string.Empty
+            : "\n" + T("Main_DailyReviewNextAction") + "\n" + review.SuggestedNextAction.Trim();
+
+        return $"{review.Review.Trim()}{highlights}{risks}{next}";
     }
 
     private void SetMonitorEnabled(bool enabled)
@@ -711,6 +1110,32 @@ public partial class MainViewModel : ObservableObject
         return candidates.Any(text.Contains);
     }
 
+    private static bool LooksLikeExplicitMemory(string text)
+    {
+        var normalized = text.Trim().ToLowerInvariant();
+        return normalized.StartsWith("remember that", StringComparison.OrdinalIgnoreCase) ||
+            normalized.StartsWith("remember:", StringComparison.OrdinalIgnoreCase) ||
+            normalized.StartsWith("记住", StringComparison.OrdinalIgnoreCase) ||
+            normalized.StartsWith("请记住", StringComparison.OrdinalIgnoreCase) ||
+            normalized.StartsWith("帮我记住", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string CreateLocalContextReply(
+        IReadOnlyList<ContextMemory> memories,
+        ForegroundFocusSnapshot? snapshot)
+    {
+        var appLine = snapshot == null
+            ? string.Empty
+            : $"\n{T("Main_CurrentContext")}: {snapshot.ProcessName}";
+        if (memories.Count == 0)
+        {
+            return T("Main_AssistantNoMemoryMatched") + appLine;
+        }
+
+        var top = memories.Take(3).Select(memory => $"• {memory.Title}: {memory.Preview}");
+        return T("Main_AssistantMemoryMatched") + "\n" + string.Join("\n", top) + appLine;
+    }
+
     private void RefreshComputedStats()
     {
         OnPropertyChanged(nameof(ApplicationCount));
@@ -722,6 +1147,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ProductiveShareText));
         OnPropertyChanged(nameof(ApplicationCountText));
         OnPropertyChanged(nameof(FocusTaskCountText));
+        OnPropertyChanged(nameof(MemoryCountText));
     }
 
     private void RefreshUiTextProperties()
@@ -732,6 +1158,29 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ProductiveShareText));
         OnPropertyChanged(nameof(ApplicationCountText));
         OnPropertyChanged(nameof(FocusTaskCountText));
+        OnPropertyChanged(nameof(MemoryCountText));
+    }
+
+    partial void OnContextMemoriesChanged(ObservableCollection<ContextMemory> value)
+    {
+        OnPropertyChanged(nameof(MemoryCountText));
+    }
+
+    partial void OnSelectedGalaxyMemoryChanged(ContextMemory? value)
+    {
+        OnPropertyChanged(nameof(HasSelectedGalaxyTask));
+
+        if (value == null)
+        {
+            GalaxyEditTitle = string.Empty;
+            GalaxyEditCreatedAtText = string.Empty;
+            GalaxyEditIsCompleted = false;
+            return;
+        }
+
+        GalaxyEditTitle = value.Title;
+        GalaxyEditCreatedAtText = value.UpdatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
+        GalaxyEditIsCompleted = value.Weight >= 0.8;
     }
 
     private static string T(string key) => TranslationService.Instance[key];

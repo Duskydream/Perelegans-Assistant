@@ -23,6 +23,68 @@ public sealed class FocusClassificationClient
         !string.IsNullOrWhiteSpace(_settingsService.Settings.AiApiKey) &&
         !string.IsNullOrWhiteSpace(_settingsService.Settings.AiModel);
 
+    public async Task<MemoryCandidateResult?> ExtractMemoryCandidateAsync(
+        string userInput,
+        string contextPack,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured ||
+            string.IsNullOrWhiteSpace(userInput) ||
+            !Uri.TryCreate(_settingsService.Settings.AiApiBaseUrl.Trim(), UriKind.Absolute, out var baseUri))
+        {
+            return null;
+        }
+
+        var prompt =
+            "You are the memory layer of a local-first personal desktop assistant.\n" +
+            "Decide whether the user's message contains a durable memory worth saving locally.\n" +
+            "Only save stable preferences, project context, decisions, workflows, application/tool facts, or concise notes.\n" +
+            "Do not save passwords, secrets, one-off casual chat, or sensitive personal data.\n" +
+            "If the new information conflicts with existing memories, summarize the newer statement without deleting anything.\n\n" +
+            "Existing local context:\n" + contextPack + "\n\n" +
+            "User message:\n" + userInput.Trim() + "\n\n" +
+            "Return JSON only. Schema:\n" +
+            "{\"shouldRemember\":true,\"type\":\"Preference|Project|Decision|Workflow|Application|Note\",\"title\":\"short title\",\"content\":\"one durable memory sentence\",\"tags\":[\"tag\"],\"weight\":0.0,\"reply\":\"short user-facing note\",\"confidence\":0.0}";
+
+        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 420);
+        return string.IsNullOrWhiteSpace(content)
+            ? null
+            : TryDeserializeJson<MemoryCandidateResult>(content);
+    }
+
+    public async Task<PersonalizedReplyResult?> CreatePersonalizedReplyAsync(
+        string userInput,
+        string contextPack,
+        ForegroundFocusSnapshot? foregroundSnapshot,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured ||
+            string.IsNullOrWhiteSpace(userInput) ||
+            !Uri.TryCreate(_settingsService.Settings.AiApiBaseUrl.Trim(), UriKind.Absolute, out var baseUri))
+        {
+            return null;
+        }
+
+        var foreground = foregroundSnapshot == null
+            ? "No foreground application snapshot is available."
+            : $"Foreground app: {foregroundSnapshot.ProcessName}; duration: {Math.Max(1, (int)foregroundSnapshot.Duration.TotalMinutes)} minutes; path: {foregroundSnapshot.ExecutablePath}";
+
+        var prompt =
+            "You are Perelegans, a lightweight local-first Windows assistant.\n" +
+            "You help by using explicit local memories and current desktop context. You are not a focus-mode coach; do not judge the user or push discipline.\n" +
+            "Answer naturally in the user's language. Be concise, concrete, and transparent when using local memory.\n\n" +
+            "Relevant local memories:\n" + contextPack + "\n\n" +
+            "Current desktop context:\n" + foreground + "\n\n" +
+            "User message:\n" + userInput.Trim() + "\n\n" +
+            "Return JSON only. Schema:\n" +
+            "{\"reply\":\"assistant reply\",\"usedMemoryIds\":[1,2],\"suggestedMemory\":{\"shouldRemember\":false,\"type\":\"Note\",\"title\":\"\",\"content\":\"\",\"tags\":[],\"weight\":0.0,\"reply\":\"\",\"confidence\":0.0}}";
+
+        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 700);
+        return string.IsNullOrWhiteSpace(content)
+            ? null
+            : TryDeserializeJson<PersonalizedReplyResult>(content);
+    }
+
     public async Task<TaskInstructionResult?> ParseTaskInstructionAsync(
         string userInput,
         string? currentFocusGoal,
@@ -57,13 +119,14 @@ public sealed class FocusClassificationClient
         }
 
         var prompt =
-            "你是一个把日常任务改写成个人文字冒险游戏任务的精灵叙事官。\n" +
-            "请把用户任务包装成一段简短 RPG 主线任务。语气可以热血、轻微中二，但不要油腻，不要太长。\n" +
-            "QuestNarrative 必须包含类似【主线任务触发】的开头。\n" +
-            "RewardName 是完成后可能掉落的道具名，8 个字以内更好。\n" +
+            "你是一个个人行动系统的 AI 任务分析师。请把用户输入的任务转成可执行的任务洞察，不要使用 RPG、游戏、冒险或战斗叙事。\n" +
+            "目标：帮助用户知道这件事是什么、下一步怎么开始、它属于哪个长期行动星座。\n" +
+            "questTitle 是 12 字以内的短标题；questNarrative 是一句自然、实用的任务说明；rewardName 是完成后的真实产出名称。\n" +
+            "summary 是任务目的摘要；nextAction 必须是 15 分钟内可启动的具体动作；difficulty 为 1-5；estimatedMinutes 为合理分钟数。\n" +
+            "tags 给 2-6 个语义标签；constellationName 给一个稳定的星座名，用于把相似任务聚类，例如“写作星座”“WPF开发星座”“考试复习星座”。\n" +
             $"用户任务：{taskTitle.Trim()}\n" +
             "必须只返回 JSON，不要 Markdown，不要解释。格式：\n" +
-            "{\"questTitle\":\"微积分的远征\",\"questNarrative\":\"【主线任务触发】：微积分的远征。守护者，傅里叶大魔王的爪牙正在第五章肆虐。你现在有 2 小时击溃它们。是否接受委托？\",\"rewardName\":\"逻辑缜密指环\"}";
+            "{\"questTitle\":\"整理论文摘要\",\"questNarrative\":\"把论文摘要整理成可提交的清晰版本。\",\"rewardName\":\"论文摘要初稿\",\"summary\":\"完成论文摘要的结构梳理和语言修订。\",\"nextAction\":\"打开文档，先列出摘要的三段结构。\",\"difficulty\":3,\"estimatedMinutes\":45,\"tags\":[\"写作\",\"论文\",\"整理\"],\"constellationName\":\"论文写作星座\"}";
 
         var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken);
         return string.IsNullOrWhiteSpace(content)
@@ -83,20 +146,68 @@ public sealed class FocusClassificationClient
             return null;
         }
 
-        var reward = string.IsNullOrWhiteSpace(rewardName) ? "未知遗物" : rewardName.Trim();
+        var reward = string.IsNullOrWhiteSpace(rewardName) ? "完成产出" : rewardName.Trim();
         var prompt =
-            "你是一个个人文字冒险游戏的战斗结算官。\n" +
-            "用户刚完成一个现实任务，请生成一句简短胜利结算和掉落描述。\n" +
-            "语气积极、有游戏感，但不要夸张到尴尬。可以包含隐性属性提升。\n" +
+            "你是一个个人行动系统的完成复盘助手。\n" +
+            "用户刚完成一个现实任务，请生成一句简短、具体、不夸张的完成总结，并指出实际产出。\n" +
             $"现实任务：{taskTitle.Trim()}\n" +
-            $"候选掉落：{reward}\n" +
+            $"候选产出：{reward}\n" +
             "必须只返回 JSON，不要 Markdown，不要解释。格式：\n" +
-            "{\"completionNarrative\":\"战斗胜利！你击退了第五章的混沌符号，获得『逻辑缜密指环』，今日智力属性隐性 +2。\",\"rewardName\":\"逻辑缜密指环\"}";
+            "{\"completionNarrative\":\"已完成论文摘要整理，得到一版结构清晰、可继续润色的初稿。\",\"rewardName\":\"论文摘要初稿\"}";
 
         var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken);
         return string.IsNullOrWhiteSpace(content)
             ? null
             : TryDeserializeJson<TaskCompletionDraft>(content);
+    }
+
+    public async Task<DailyReviewDraft?> CreateDailyReviewAsync(
+        IReadOnlyCollection<FocusTask> tasks,
+        IReadOnlyCollection<ApplicationUsage> applications,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured ||
+            !Uri.TryCreate(_settingsService.Settings.AiApiBaseUrl.Trim(), UriKind.Absolute, out var baseUri))
+        {
+            return null;
+        }
+
+        var today = DateTime.Today;
+        var taskLines = tasks
+            .Where(task => task.CreatedAt.Date == today || task.CompletedAt?.Date == today)
+            .OrderBy(task => task.CreatedAt)
+            .Take(20)
+            .Select(task =>
+                $"- {task.Title} | 状态:{task.Status} | 星座:{task.ConstellationName} | 标签:{task.Tags} | 下一步:{task.NextAction}")
+            .ToList();
+        if (taskLines.Count == 0)
+        {
+            taskLines.Add("- 今天还没有任务星点。");
+        }
+
+        var appLines = applications
+            .OrderByDescending(app => app.TotalDuration)
+            .Take(8)
+            .Select(app => $"- {app.DisplayName} | {Math.Max(1, (int)Math.Round(app.TotalDuration.TotalMinutes))}分钟 | {app.Category}")
+            .ToList();
+        if (appLines.Count == 0)
+        {
+            appLines.Add("- 暂无应用使用记录。");
+        }
+
+        var prompt =
+            "你是一个克制、具体的个人行动复盘助手。请根据今日任务星点和应用使用记录生成简短日报。\n" +
+            "不要使用 RPG 或游戏叙事。不要说教。重点指出：真正推进了什么、潜在风险、明天/下一步最小动作。\n\n" +
+            $"当前专注目标：{NormalizeFocusGoal(_settingsService.Settings.FocusGoal)}\n" +
+            "今日任务：\n" + string.Join('\n', taskLines) + "\n\n" +
+            "主要应用：\n" + string.Join('\n', appLines) + "\n\n" +
+            "必须只返回 JSON，不要 Markdown，不要解释。格式：\n" +
+            "{\"review\":\"今天主要推进了论文摘要和代码验证，专注信号集中在写作与开发。\",\"highlights\":[\"完成论文摘要初稿\",\"WPF 星图交互推进明显\"],\"risks\":[\"任务颗粒度仍偏大\"],\"suggestedNextAction\":\"明天先用 15 分钟把星图删除流程手动测一遍。\"}";
+
+        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 520);
+        return string.IsNullOrWhiteSpace(content)
+            ? null
+            : TryDeserializeJson<DailyReviewDraft>(content);
     }
 
     public async Task<FocusAssessmentResult?> ClassifyAsync(
@@ -222,7 +333,7 @@ public sealed class FocusClassificationClient
             "3. 如果包含多个任务，请拆成独立、可执行的短任务。\n\n" +
             "不要把闲聊、疑问、感谢、抱怨、状态询问、无明确行动目标的话当作任务。\n" +
             "任务必须是用户准备完成的具体事情，例如复习高数、写论文摘要、实现登录页、整理会议纪要。\n" +
-            "调度命令只允许这些值：start_monitor, pause_monitor, complete_task, refresh, settings, backup, restore, clear_data, none。\n" +
+            "调度命令只允许这些值：start_monitor, pause_monitor, complete_task, daily_review, refresh, settings, backup, restore, clear_data, none。\n" +
             "intent 只允许这些值：task, command, mixed, none。\n" +
             "如果既有命令又有任务，intent 为 mixed。\n" +
             "如果用户要求切换任务或设置任务，将任务放入 tasks。\n" +
@@ -237,7 +348,8 @@ public sealed class FocusClassificationClient
     private async Task<string?> SendOpenAiCompatiblePromptAsync(
         Uri baseUri,
         string userPrompt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int maxTokens = 300)
     {
         var requestUri = BuildChatCompletionsUri(baseUri);
         using var request = new HttpRequestMessage(HttpMethod.Post, requestUri);
@@ -247,7 +359,7 @@ public sealed class FocusClassificationClient
         {
             model = _settingsService.Settings.AiModel.Trim(),
             temperature = 0.2,
-            max_tokens = 300,
+            max_tokens = maxTokens,
             response_format = new { type = "json_object" },
             messages = new[]
             {
