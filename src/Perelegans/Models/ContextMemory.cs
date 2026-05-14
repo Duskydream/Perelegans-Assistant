@@ -7,7 +7,9 @@ public enum ContextMemoryType
     Decision = 2,
     Workflow = 3,
     Application = 4,
-    Note = 5
+    Note = 5,
+    Event = 6,
+    Task = 7
 }
 
 public class ContextMemory
@@ -26,6 +28,22 @@ public class ContextMemory
 
     public double Weight { get; set; } = 0.6;
 
+    public string MemoryAxis { get; set; } = "event";
+
+    public string AiDescription { get; set; } = string.Empty;
+
+    public string AiExplanation { get; set; } = string.Empty;
+
+    public string NextPrediction { get; set; } = string.Empty;
+
+    public bool IsPlan { get; set; }
+
+    public bool IsCompleted { get; set; }
+
+    public DateTime? CompletedAt { get; set; }
+
+    public string AiWeightProfile { get; set; } = string.Empty;
+
     public string ConstellationName { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
@@ -42,15 +60,21 @@ public class ContextMemory
 
     public string TypeText => Type switch
     {
-        ContextMemoryType.Preference => "Preference",
-        ContextMemoryType.Project => "Project",
-        ContextMemoryType.Decision => "Decision",
-        ContextMemoryType.Workflow => "Workflow",
-        ContextMemoryType.Application => "Application",
-        _ => "Note"
+        ContextMemoryType.Preference => "偏好",
+        ContextMemoryType.Project => "项目",
+        ContextMemoryType.Decision => "决定",
+        ContextMemoryType.Workflow => "流程",
+        ContextMemoryType.Application => "应用",
+        ContextMemoryType.Event => "事件",
+        ContextMemoryType.Task => "任务",
+        _ => "笔记"
     };
 
     public string Preview => Content.Length <= 96 ? Content : Content[..96] + "...";
 
-    public string InsightMetaText => $"{TypeText} / {Math.Round(Math.Clamp(Weight, 0.1, 1.0), 2):0.00}";
+    public string PlanStatusText => IsPlan
+        ? IsCompleted ? "plan: done" : "plan: open"
+        : MemoryAxis;
+
+    public string InsightMetaText => $"{TypeText} / {PlanStatusText} / {Math.Round(Math.Clamp(Weight, 0.1, 1.0), 2):0.00}";
 }

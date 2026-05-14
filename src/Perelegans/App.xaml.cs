@@ -35,6 +35,7 @@ public partial class App : System.Windows.Application
     private FocusClassificationClient? _focusClassificationClient;
     private ContextRetrievalService? _contextRetrievalService;
     private MemoryExtractionService? _memoryExtractionService;
+    private FocusModeService? _focusModeService;
 
     private async void App_OnStartup(object sender, StartupEventArgs e)
     {
@@ -68,6 +69,7 @@ public partial class App : System.Windows.Application
         _focusClassificationClient = new FocusClassificationClient(_appHttpClient, settingsService);
         _contextRetrievalService = new ContextRetrievalService(dbService);
         _memoryExtractionService = new MemoryExtractionService(dbService, _focusClassificationClient);
+        _focusModeService = new FocusModeService();
 
         var mainVm = new MainViewModel(
             dbService,
@@ -76,6 +78,7 @@ public partial class App : System.Windows.Application
             _focusClassificationClient,
             _contextRetrievalService,
             _memoryExtractionService,
+            _focusModeService,
             OpenSettingsFromAgent,
             RequestShutdown);
 
@@ -94,6 +97,8 @@ public partial class App : System.Windows.Application
                 _processMonitor,
                 _focusClassificationClient,
                 dbService,
+                settingsService,
+                _focusModeService,
                 ShowDashboard,
                 OpenSettingsFromAgent,
                 RequestShutdown)

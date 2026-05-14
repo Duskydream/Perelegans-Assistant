@@ -22,6 +22,27 @@ public sealed class MemoryCandidateResult
     [JsonPropertyName("weight")]
     public double Weight { get; set; } = 0.6;
 
+    [JsonPropertyName("memoryAxis")]
+    public string MemoryAxis { get; set; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("explanation")]
+    public string Explanation { get; set; } = string.Empty;
+
+    [JsonPropertyName("nextPrediction")]
+    public string NextPrediction { get; set; } = string.Empty;
+
+    [JsonPropertyName("isPlan")]
+    public bool IsPlan { get; set; }
+
+    [JsonPropertyName("isCompleted")]
+    public bool IsCompleted { get; set; }
+
+    [JsonPropertyName("weightProfile")]
+    public string WeightProfile { get; set; } = string.Empty;
+
     [JsonPropertyName("reply")]
     public string Reply { get; set; } = string.Empty;
 

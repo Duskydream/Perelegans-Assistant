@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perelegans — 本地优先的桌面专注助手</title>
+  <style>
+    :root {
+      --bg: #f5f4f2;
+      --bg-panel: #ffffff;
+      --bg-sidebar: #f0eeec;
+      --border: #e0ddd9;
+      --border-accent: #e8b4c0;
+      --text: #2c2a28;
+      --text-muted: #7a7672;
+      --text-faint: #b0ada8;
+      --accent: #d4748a;
+      --accent-light: #f5dde3;
+      --accent-dark: #b85a70;
+      --tag-bg: #f5dde3;
+      --tag-text: #b85a70;
+      --node-1: #d4748a;
+      --node-2: #a07ab8;
+      --node-3: #6a9fd4;
+      --node-4: #7ab89a;
+      --node-5: #d4a870;
+      --link: #c8b4bc;
+    }
+    [data-theme="dark"] {
+      --bg: #1a1918;
+      --bg-panel: #222120;
+      --bg-sidebar: #1e1d1c;
+      --border: #333130;
+      --border-accent: #6b3a46;
+      --text: #e8e4e0;
+      --text-muted: #8a8480;
+      --text-faint: #504c48;
+      --accent: #d4748a;
+      --accent-light: #3a1e24;
+      --accent-dark: #e8909a;
+      --tag-bg: #3a1e24;
+      --tag-text: #e8909a;
+      --node-1: #d4748a;
+      --node-2: #a07ab8;
+      --node-3: #6a9fd4;
+      --node-4: #7ab89a;
+      --node-5: #d4a870;
+      --link: #4a3840;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+      transition: background 0.2s, color 0.2s;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-dark); }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 48px;
+    }
+    .nav-brand {
+      font-size: 15px; font-weight: 600; letter-spacing: 0.04em;
+      color: var(--text);
+    }
+    .nav-brand span { color: var(--accent); }
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links a { color: var(--text-muted); font-size: 13px; }
+    .nav-links a:hover { color: var(--accent); }
+    .theme-btn {
+      background: none; border: 1px solid var(--border);
+      color: var(--text-muted); cursor: pointer;
+      padding: 4px 10px; font-size: 12px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .theme-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Hero ── */
+    .hero {
+      max-width: 900px; margin: 0 auto;
+      padding: 72px 32px 56px;
+      display: grid; grid-template-columns: 1fr 340px; gap: 48px; align-items: center;
+    }
+    .hero-text h1 {
+      font-size: 36px; font-weight: 300; letter-spacing: -0.01em;
+      line-height: 1.25; margin-bottom: 16px;
+    }
+    .hero-text h1 strong { font-weight: 600; color: var(--accent); }
+    .hero-text p {
+      color: var(--text-muted); font-size: 15px; line-height: 1.7;
+      margin-bottom: 28px; max-width: 420px;
+    }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 18px; font-size: 13px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg-panel);
+      color: var(--text); transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-primary {
+      background: var(--accent); border-color: var(--accent); color: #fff;
+    }
+    .btn-primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+
+    /* ── Galaxy preview ── */
+    .galaxy-preview {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      padding: 20px; position: relative; overflow: hidden;
+      height: 260px;
+    }
+    .galaxy-preview svg { width: 100%; height: 100%; }
+
+    /* ── Section ── */
+    section { max-width: 900px; margin: 0 auto; padding: 0 32px 64px; }
+    .section-label {
+      font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 8px;
+    }
+    .section-title {
+      font-size: 22px; font-weight: 400; margin-bottom: 32px;
+      border-bottom: 1px solid var(--border); padding-bottom: 12px;
+    }
+
+    /* ── Feature grid ── */
+    .feature-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      border: 1px solid var(--border); background: var(--border);
+    }
+    .feature-card {
+      background: var(--bg-panel); padding: 24px;
+    }
+    .feature-icon {
+      width: 32px; height: 32px; margin-bottom: 14px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border-accent);
+      color: var(--accent);
+    }
+    .feature-icon svg { width: 16px; height: 16px; }
+    .feature-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p { font-size: 13px; color: var(--text-muted); line-height: 1.65; }
+
+    /* ── Architecture ── */
+    .arch-layout {
+      display: grid; grid-template-columns: 200px 1fr; gap: 0;
+      border: 1px solid var(--border);
+    }
+    .arch-sidebar {
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      padding: 0;
+    }
+    .arch-nav-item {
+      padding: 12px 20px; font-size: 13px; cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted); transition: color 0.15s, background 0.15s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .arch-nav-item:hover { color: var(--text); background: var(--bg-panel); }
+    .arch-nav-item.active { color: var(--accent); background: var(--bg-panel); border-left: 2px solid var(--accent); }
+    .arch-nav-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .arch-content { padding: 28px; background: var(--bg-panel); }
+    .arch-content h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+    .arch-content p { font-size: 13px; color: var(--text-muted); line-height: 1.7; margin-bottom: 16px; }
+    .arch-content ul { list-style: none; }
+    .arch-content ul li {
+      font-size: 13px; color: var(--text-muted); padding: 5px 0;
+      border-bottom: 1px solid var(--border); display: flex; gap: 10px;
+    }
+    .arch-content ul li:last-child { border-bottom: none; }
+    .arch-content ul li code {
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 12px; color: var(--accent);
+      background: var(--accent-light); padding: 1px 6px;
+      flex-shrink: 0;
+    }
+
+    /* ── Memory node diagram ── */
+    .memory-diagram {
+      border: 1px solid var(--border); background: var(--bg-panel);
+      padding: 28px; margin-bottom: 32px;
+    }
+    .memory-diagram h3 { font-size: 14px; font-weight: 600; margin-bottom: 20px; color: var(--text-muted); }
+    .node-types { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .node-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; font-size: 12px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .node-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .memory-fields {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    }
+    .memory-field {
+      background: var(--bg-sidebar); border: 1px solid var(--border);
+      padding: 10px 12px;
+    }
+    .memory-field .field-name { font-size: 11px; color: var(--text-faint); margin-bottom: 3px; }
+    .memory-field .field-val { font-size: 12px; color: var(--text-muted); }
+
+    /* ── AI pipeline ── */
+    .pipeline {
+      display: flex; align-items: stretch; gap: 0;
+      border: 1px solid var(--border); overflow: hidden;
+    }
+    .pipeline-step {
+      flex: 1; padding: 20px 16px; background: var(--bg-panel);
+      border-right: 1px solid var(--border); position: relative;
+    }
+    .pipeline-step:last-child { border-right: none; }
+    .pipeline-step::after {
+      content: "›"; position: absolute; right: -10px; top: 50%;
+      transform: translateY(-50%); color: var(--accent); font-size: 18px;
+      z-index: 1; background: var(--bg-panel); padding: 0 2px;
+    }
+    .pipeline-step:last-child::after { display: none; }
+    .step-num { font-size: 11px; color: var(--accent); margin-bottom: 6px; letter-spacing: 0.08em; }
+    .step-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .step-desc { font-size: 12px; color: var(--text-muted); line-height: 1.55; }
+
+    /* ── Setup ── */
+    .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .setup-card {
+      border: 1px solid var(--border); background: var(--bg-panel); padding: 24px;
+    }
+    .setup-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+    .code-block {
+      background: var(--bg-sidebar); border: 1px solid var(--border);
+      padding: 14px 16px; font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 12px; color: var(--text-muted); line-height: 1.7;
+      margin-bottom: 12px; overflow-x: auto;
+    }
+    .code-block .comment { color: var(--text-faint); }
+    .code-block .cmd { color: var(--accent); }
+    .setup-table { width: 100%; border-collapse: collapse; }
+    .setup-table th, .setup-table td {
+      text-align: left; padding: 8px 10px; font-size: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .setup-table th { color: var(--text-faint); font-weight: 400; }
+    .setup-table td { color: var(--text-muted); }
+    .setup-table td:first-child {
+      font-family: "Cascadia Code", "Consolas", monospace;
+      color: var(--accent); font-size: 11px;
+    }
+
+    /* ── Tags ── */
+    .tag {
+      display: inline-block; padding: 2px 8px; font-size: 11px;
+      background: var(--tag-bg); color: var(--tag-text);
+      border: 1px solid var(--border-accent);
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 32px; max-width: 900px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: center;
+      color: var(--text-faint); font-size: 12px;
+    }
+
+    @media (max-width: 700px) {
+      .hero { grid-template-columns: 1fr; }
+      .galaxy-preview { display: none; }
+      .feature-grid { grid-template-columns: 1fr; }
+      .arch-layout { grid-template-columns: 1fr; }
+      .arch-sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+      .setup-grid { grid-template-columns: 1fr; }
+      .memory-fields { grid-template-columns: repeat(2, 1fr); }
+      .pipeline { flex-direction: column; }
+      .pipeline-step::after { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">Pere<span>legans</span></div>
+  <div class="nav-links">
+    <a href="#features">功能</a>
+    <a href="#memory">记忆星图</a>
+    <a href="#ai">AI 管线</a>
+    <a href="#setup">快速开始</a>
+    <button class="theme-btn" onclick="toggleTheme()">切换主题</button>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-text">
+    <p class="section-label">本地优先 · Windows 桌面</p>
+    <h1>你的桌面<br><strong>专注助手</strong></h1>
+    <p>Perelegans 以悬浮宠物的形式常驻桌面，记录前台应用使用情况，通过 AI 理解你的工作上下文，并在本地构建一张可交互的记忆星图。数据不离开本机。</p>
+    <div class="hero-actions">
+      <a href="https://github.com/Lxzm-Cheng/Perelegans-Assistant" class="btn btn-primary">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <a href="#setup" class="btn">快速开始</a>
+    </div>
+  </div>
+
+  <!-- Galaxy SVG preview -->
+  <div class="galaxy-preview">
+    <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
+      <!-- links -->
+      <line x1="150" y1="110" x2="80" y2="60" stroke="var(--link)" stroke-width="1"/>
+      <line x1="150" y1="110" x2="220" y2="55" stroke="var(--link)" stroke-width="1"/>
+      <line x1="150" y1="110" x2="240" y2="140" stroke="var(--link)" stroke-width="1"/>
+      <line x1="150" y1="110" x2="90" y2="170" stroke="var(--link)" stroke-width="1"/>
+      <line x1="150" y1="110" x2="60" y2="130" stroke="var(--link)" stroke-width="1"/>
+      <line x1="80" y1="60" x2="40" y2="40" stroke="var(--link)" stroke-width="0.8" opacity="0.6"/>
+      <line x1="220" y1="55" x2="260" y2="30" stroke="var(--link)" stroke-width="0.8" opacity="0.6"/>
+      <line x1="240" y1="140" x2="270" y2="175" stroke="var(--link)" stroke-width="0.8" opacity="0.6"/>
+      <!-- outer small nodes -->
+      <circle cx="40" cy="40" r="5" fill="var(--node-3)" opacity="0.5"/>
+      <circle cx="260" cy="30" r="4" fill="var(--node-2)" opacity="0.5"/>
+      <circle cx="270" cy="175" r="5" fill="var(--node-4)" opacity="0.5"/>
+      <!-- constellation nodes -->
+      <circle cx="80" cy="60" r="10" fill="var(--node-2)" opacity="0.85"/>
+      <circle cx="220" cy="55" r="12" fill="var(--node-3)" opacity="0.85"/>
+      <circle cx="240" cy="140" r="9" fill="var(--node-4)" opacity="0.85"/>
+      <circle cx="90" cy="170" r="11" fill="var(--node-5)" opacity="0.85"/>
+      <circle cx="60" cy="130" r="8" fill="var(--node-3)" opacity="0.7"/>
+      <!-- center node -->
+      <circle cx="150" cy="110" r="18" fill="var(--node-1)" opacity="0.9"/>
+      <circle cx="150" cy="110" r="22" fill="none" stroke="var(--node-1)" stroke-width="1" opacity="0.3"/>
+      <!-- labels -->
+      <text x="150" y="114" text-anchor="middle" font-size="9" fill="white" font-family="Segoe UI, sans-serif">开发</text>
+      <text x="80" y="78" text-anchor="middle" font-size="8" fill="var(--text-muted)" font-family="Segoe UI, sans-serif">学习</text>
+      <text x="220" y="73" text-anchor="middle" font-size="8" fill="var(--text-muted)" font-family="Segoe UI, sans-serif">写作</text>
+      <text x="240" y="158" text-anchor="middle" font-size="8" fill="var(--text-muted)" font-family="Segoe UI, sans-serif">工具</text>
+      <text x="90" y="188" text-anchor="middle" font-size="8" fill="var(--text-muted)" font-family="Segoe UI, sans-serif">计划</text>
+      <!-- plan indicator -->
+      <circle cx="90" cy="158" r="3" fill="var(--accent)" opacity="0.8"/>
+      <text x="96" y="161" font-size="7" fill="var(--accent)" font-family="Segoe UI, sans-serif">plan: open</text>
+    </svg>
+  </div>
+</div>
+
+<!-- Features -->
+<section id="features">
+  <p class="section-label">核心功能</p>
+  <h2 class="section-title">专注追踪 · 记忆星图 · AI 对话</h2>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+      </div>
+      <h3>应用监控</h3>
+      <p>基于 Windows 前台窗口和进程信息，自动记录每个应用的使用时长和切换次数。数据本地 SQLite 持久化，不离开本机。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l1.5 3 3.5.5-2.5 2.5.5 3.5L8 10l-3 1.5.5-3.5L3 5.5l3.5-.5z"/></svg>
+      </div>
+      <h3>记忆星图</h3>
+      <p>对话中的偏好、项目、决定、计划由 AI 自动提取为本地记忆节点，按星座分类，以可交互的星图或鱼骨图展示。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
+      </div>
+      <h3>AI 对话</h3>
+      <p>内置对话框，AI 回复时引用本地记忆和当前桌面上下文，给出具体、有依据的回答。识别到任务意图时自动解析为可执行任务。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="0"/><path d="M5 7h6M5 10h4"/></svg>
+      </div>
+      <h3>任务系统</h3>
+      <p>从对话或手动输入创建任务，AI 自动生成目标摘要、下一步动作、难度、预计时长和星座归类。任务完成时生成复盘总结。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2M4.1 4.1l1.4 1.4M10.5 10.5l1.4 1.4M4.1 11.9l1.4-1.4M10.5 5.5l1.4-1.4"/></svg>
+      </div>
+      <h3>桌面上下文分析</h3>
+      <p>多种分析模式：时间切片回放、计划进度推断、回到现场、鱼骨归因。综合本地记忆和进程切换行为，推断你在推进什么、卡在哪里。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l1 3h3l-2.5 2 1 3L8 7.5 5.5 9l1-3L4 4h3z"/></svg>
+      </div>
+      <h3>悬浮助手</h3>
+      <p>小型悬浮宠物常驻桌面顶层，气泡实时显示专注状态提示。双击打开主面板，右键菜单快速操作，支持拖拽移动。</p>
+    </div>
+  </div>
+</section>
+
+<!-- Memory -->
+<section id="memory">
+  <p class="section-label">记忆系统</p>
+  <h2 class="section-title">本地记忆节点结构</h2>
+  <div class="memory-diagram">
+    <h3>节点类型</h3>
+    <div class="node-types">
+      <div class="node-chip"><div class="node-dot" style="background:var(--node-1)"></div>偏好 Preference</div>
+      <div class="node-chip"><div class="node-dot" style="background:var(--node-2)"></div>项目 Project</div>
+      <div class="node-chip"><div class="node-dot" style="background:var(--node-3)"></div>决定 Decision</div>
+      <div class="node-chip"><div class="node-dot" style="background:var(--node-4)"></div>流程 Workflow</div>
+      <div class="node-chip"><div class="node-dot" style="background:var(--node-5)"></div>应用 Application</div>
+      <div class="node-chip"><div class="node-dot" style="background:var(--text-faint)"></div>笔记 Note</div>
+      <div class="node-chip"><div class="node-dot" style="background:var(--accent)"></div>事件 Event</div>
+      <div class="node-chip"><div class="node-dot" style="background:var(--accent-dark)"></div>任务 Task</div>
+    </div>
+    <div class="memory-fields">
+      <div class="memory-field"><div class="field-name">title</div><div class="field-val">具体可读标题</div></div>
+      <div class="memory-field"><div class="field-name">content</div><div class="field-val">持久记忆正文</div></div>
+      <div class="memory-field"><div class="field-name">memoryAxis</div><div class="field-val">event / task</div></div>
+      <div class="memory-field"><div class="field-name">tags</div><div class="field-val">短英文标签</div></div>
+      <div class="memory-field"><div class="field-name">description</div><div class="field-val">AI 描述</div></div>
+      <div class="memory-field"><div class="field-name">explanation</div><div class="field-val">为何重要</div></div>
+      <div class="memory-field"><div class="field-name">nextPrediction</div><div class="field-val">下一步预测</div></div>
+      <div class="memory-field"><div class="field-name">weight</div><div class="field-val">检索权重 0–1</div></div>
+      <div class="memory-field"><div class="field-name">isPlan</div><div class="field-val">是否为计划</div></div>
+      <div class="memory-field"><div class="field-name">isCompleted</div><div class="field-val">计划完成状态</div></div>
+      <div class="memory-field"><div class="field-name">constellationName</div><div class="field-val">星座归类</div></div>
+      <div class="memory-field"><div class="field-name">X / Y / nodeSize</div><div class="field-val">星图坐标与大小</div></div>
+    </div>
+  </div>
+  <p style="font-size:13px;color:var(--text-muted);line-height:1.7;">
+    记忆节点以鱼骨/RAG 结构组织：<code style="font-family:monospace;font-size:12px;color:var(--accent);background:var(--accent-light);padding:1px 5px;">memoryAxis</code> 为主轴（事件或任务），
+    <code style="font-family:monospace;font-size:12px;color:var(--accent);background:var(--accent-light);padding:1px 5px;">tags</code> 为聚类分支，
+    <code style="font-family:monospace;font-size:12px;color:var(--accent);background:var(--accent-light);padding:1px 5px;">constellationName</code> 为星座归类（如"开发""学习 / 深度学习"）。
+    未完成的 plan 节点在检索和日报中权重更高，已完成的 plan 作为产出证据。
+  </p>
+</section>
+
+<!-- AI Pipeline -->
+<section id="ai">
+  <p class="section-label">AI 管线</p>
+  <h2 class="section-title">FocusClassificationClient 调用链</h2>
+  <div class="pipeline">
+    <div class="pipeline-step">
+      <div class="step-num">01</div>
+      <div class="step-title">专注判断</div>
+      <div class="step-desc">根据进程名和停留时长，判断当前应用是否有助于专注目标。结果显示在悬浮气泡。</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">02</div>
+      <div class="step-title">记忆提取</div>
+      <div class="step-desc">分析用户输入，决定是否值得保存为本地记忆节点，并生成结构化的鱼骨节点数据。</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">03</div>
+      <div class="step-title">个性化回复</div>
+      <div class="step-desc">结合本地记忆上下文和当前前台应用，生成具体、有依据的对话回复。</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">04</div>
+      <div class="step-title">任务解析</div>
+      <div class="step-desc">从自然语言输入中识别任务意图、调度命令，拆分为独立可执行的短任务。</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">05</div>
+      <div class="step-title">日报 / 洞察</div>
+      <div class="step-desc">综合任务、记忆星图和进程切换行为，生成日报复盘或多模式桌面上下文分析。</div>
+    </div>
+  </div>
+  <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+    <span class="tag">截图分析</span>
+    <span class="tag">时间切片回放</span>
+    <span class="tag">计划进度推断</span>
+    <span class="tag">回到现场</span>
+    <span class="tag">鱼骨归因</span>
+    <span class="tag">星图解释</span>
+    <span class="tag">上下文压缩摘要</span>
+  </div>
+</section>
+
+<!-- Architecture -->
+<section>
+  <p class="section-label">项目架构</p>
+  <h2 class="section-title">目录结构</h2>
+  <div class="arch-layout">
+    <div class="arch-sidebar">
+      <div class="arch-nav-item active" onclick="showArch('services')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/></svg>
+        Services
+      </div>
+      <div class="arch-nav-item" onclick="showArch('models')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg>
+        Models
+      </div>
+      <div class="arch-nav-item" onclick="showArch('views')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10"/><path d="M2 6h12"/></svg>
+        Views / ViewModels
+      </div>
+      <div class="arch-nav-item" onclick="showArch('data')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="8" cy="5" rx="6" ry="2"/><path d="M2 5v6c0 1.1 2.7 2 6 2s6-.9 6-2V5"/><path d="M2 8c0 1.1 2.7 2 6 2s6-.9 6-2"/></svg>
+        Data
+      </div>
+      <div class="arch-nav-item" onclick="showArch('themes')">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/></svg>
+        Themes / i18n
+      </div>
+    </div>
+    <div class="arch-content" id="arch-content">
+      <h3>Services</h3>
+      <p>核心业务逻辑层，各服务职责单一，通过构造函数注入组合。</p>
+      <ul>
+        <li><code>FocusClassificationClient</code>所有 AI 接口调用：专注判断、记忆提取、对话、任务分析、日报、截图分析</li>
+        <li><code>ContextRetrievalService</code>记忆检索与上下文打包，为 AI 调用准备 RAG 上下文</li>
+        <li><code>MemoryExtractionService</code>记忆候选提取与保存，处理显式记忆命令</li>
+        <li><code>FocusModeService</code>专注模式状态管理，追踪当前任务记忆节点</li>
+        <li><code>DatabaseService</code>SQLite 数据库读写封装</li>
+        <li><code>ProcessMonitorService</code>Windows 前台进程监控，定时采样</li>
+        <li><code>SettingsService</code>设置读写，持久化到 settings.json</li>
+        <li><code>ThemeService</code>亮色/暗色主题切换，应用自定义画刷</li>
+        <li><code>LocalizationService</code>多语言资源切换</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- Setup -->
+<section id="setup">
+  <p class="section-label">快速开始</p>
+  <h2 class="section-title">环境要求与配置</h2>
+  <div class="setup-grid">
+    <div class="setup-card">
+      <h3>构建与运行</h3>
+      <div class="code-block">
+        <span class="comment"># 环境要求：Windows 10 19041+，.NET 8 SDK</span><br><br>
+        <span class="comment"># 构建</span><br>
+        <span class="cmd">dotnet build</span> src\Perelegans\Perelegans.csproj<br><br>
+        <span class="comment"># 运行</span><br>
+        <span class="cmd">dotnet run</span> --project src\Perelegans\Perelegans.csproj
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);">启动后显示悬浮助手，双击打开主面板。</p>
+    </div>
+    <div class="setup-card">
+      <h3>AI 配置（可选）</h3>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">未配置 AI 时，仍可记录应用使用情况并进行基础专注判断。</p>
+      <table class="setup-table">
+        <tr><th>字段</th><th>说明</th></tr>
+        <tr><td>AiApiBaseUrl</td><td>OpenAI 兼容接口地址</td></tr>
+        <tr><td>AiApiKey</td><td>接口密钥</td></tr>
+        <tr><td>AiModel</td><td>模型名称，如 gpt-4o</td></tr>
+        <tr><td>FocusGoal</td><td>专注目标，可留空</td></tr>
+      </table>
+    </div>
+    <div class="setup-card">
+      <h3>数据存储位置</h3>
+      <div class="code-block">%LocalAppData%\Perelegans\<br>  ├── settings.json<br>  ├── perelegans.db<br>  └── error.log</div>
+      <p style="font-size:12px;color:var(--text-muted);">支持在设置页进行数据库备份和恢复。</p>
+    </div>
+    <div class="setup-card">
+      <h3>技术栈</h3>
+      <table class="setup-table">
+        <tr><th>层</th><th>技术</th></tr>
+        <tr><td>框架</td><td>WPF on .NET 8</td></tr>
+        <tr><td>UI 库</td><td>MahApps.Metro</td></tr>
+        <tr><td>MVVM</td><td>CommunityToolkit.Mvvm</td></tr>
+        <tr><td>数据库</td><td>SQLite + EF Core</td></tr>
+        <tr><td>AI</td><td>OpenAI 兼容接口</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer style="max-width:900px;">
+  <span>Perelegans — 本地优先的 Windows 桌面专注助手</span>
+  <span>MIT License</span>
+</footer>
+
+<script>
+  function toggleTheme() {
+    const html = document.documentElement;
+    html.dataset.theme = html.dataset.theme === 'dark' ? '' : 'dark';
+  }
+
+  const archData = {
+    services: {
+      title: 'Services',
+      desc: '核心业务逻辑层，各服务职责单一，通过构造函数注入组合。',
+      items: [
+        ['FocusClassificationClient', '所有 AI 接口调用：专注判断、记忆提取、对话、任务分析、日报、截图分析'],
+        ['ContextRetrievalService', '记忆检索与上下文打包，为 AI 调用准备 RAG 上下文'],
+        ['MemoryExtractionService', '记忆候选提取与保存，处理显式记忆命令'],
+        ['FocusModeService', '专注模式状态管理，追踪当前任务记忆节点'],
+        ['DatabaseService', 'SQLite 数据库读写封装'],
+        ['ProcessMonitorService', 'Windows 前台进程监控，定时采样'],
+        ['SettingsService', '设置读写，持久化到 settings.json'],
+        ['ThemeService', '亮色/暗色主题切换，应用自定义画刷'],
+        ['LocalizationService', '多语言资源切换'],
+      ]
+    },
+    models: {
+      title: 'Models',
+      desc: '数据模型层，包含 EF Core 实体和 AI 结果 DTO。',
+      items: [
+        ['ContextMemory', '记忆节点实体，含类型、内容、标签、权重、计划状态、星座、坐标'],
+        ['FocusTask', '任务实体，含 AI 生成的洞察、下一步动作、星座归类'],
+        ['ApplicationUsage', '应用累计使用记录'],
+        ['ApplicationUsageSession', '单次前台会话记录'],
+        ['MemoryCandidateResult', 'AI 记忆提取结果 DTO'],
+        ['PersonalizedReplyResult', 'AI 对话回复结果 DTO'],
+        ['TaskAdventureDraft', 'AI 任务洞察生成结果 DTO'],
+        ['DailyReviewDraft', 'AI 日报生成结果 DTO'],
+        ['DesktopContextInsight', 'AI 桌面上下文分析结果 DTO'],
+      ]
+    },
+    views: {
+      title: 'Views / ViewModels',
+      desc: 'WPF MVVM 结构，View 与 ViewModel 一一对应，使用 CommunityToolkit.Mvvm。',
+      items: [
+        ['FloatingPetWindow', '悬浮宠物窗口，透明顶层，含气泡和右键菜单'],
+        ['MainWindow', '主面板，双栏布局：左侧监控状态，右侧对话和记忆星图'],
+        ['SettingsWindow', '设置窗口，左侧导航：外观、AI、记忆、系统、数据'],
+        ['FloatingPetViewModel', '悬浮助手状态：气泡文本、专注状态、监控开关'],
+        ['MainViewModel', '主面板状态：对话、任务、记忆节点、星图、日报'],
+        ['SettingsViewModel', '设置状态：主题、语言、AI 配置、记忆管理'],
+      ]
+    },
+    data: {
+      title: 'Data',
+      desc: 'EF Core 数据库上下文，SQLite 持久化，数据存储在 %LocalAppData%\\Perelegans\\。',
+      items: [
+        ['PerelegansDbContext', 'EF Core DbContext，包含 5 张表的模型配置'],
+        ['ApplicationUsages', '应用累计使用记录表'],
+        ['ApplicationUsageSessions', '每次前台会话记录表'],
+        ['FocusTasks', '任务列表表'],
+        ['FocusTaskLinks', '任务关联关系表'],
+        ['ContextMemories', '本地记忆节点表'],
+      ]
+    },
+    themes: {
+      title: 'Themes / i18n',
+      desc: '主题资源字典和多语言资源文件。',
+      items: [
+        ['LightTheme.xaml', '亮色主题资源字典，粉色调 accent'],
+        ['DarkTheme.xaml', '暗色主题资源字典'],
+        ['Icons.xaml', '自定义 Path 图标资源'],
+        ['Strings.resx', '默认语言（英文）字符串资源'],
+        ['Strings.zh-Hans.resx', '简体中文字符串资源'],
+      ]
+    }
+  };
+
+  function showArch(key) {
+    const data = archData[key];
+    const content = document.getElementById('arch-content');
+    content.innerHTML = `
+      <h3>${data.title}</h3>
+      <p>${data.desc}</p>
+      <ul>${data.items.map(([code, desc]) => `<li><code>${code}</code>${desc}</li>`).join('')}</ul>
+    `;
+    document.querySelectorAll('.arch-nav-item').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+  }
+</script>

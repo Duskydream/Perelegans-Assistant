@@ -1,7 +1,10 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
@@ -24,10 +27,13 @@ public partial class MainViewModel : ObservableObject
     private readonly FocusClassificationClient? _focusClient;
     private readonly ContextRetrievalService _contextRetrievalService;
     private readonly MemoryExtractionService _memoryExtractionService;
+    private readonly FocusModeService _focusModeService;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _assistantThinkingTimer;
     private int _assistantThinkingIndex;
+    private DateTime _lastSceneCheckpointAt = DateTime.MinValue;
+    private string _lastSceneCheckpointProcess = string.Empty;
 
     [ObservableProperty]
     private ObservableCollection<ApplicationUsage> _applications = new();
@@ -73,6 +79,12 @@ public partial class MainViewModel : ObservableObject
     private ObservableCollection<GalaxyLinkViewModel> _galaxyLinks = new();
 
     [ObservableProperty]
+    private ObservableCollection<FishboneBranchViewModel> _fishboneBranches = new();
+
+    [ObservableProperty]
+    private string _memoryPreviewMode = "galaxy";
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveGalaxyTaskCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteGalaxyTaskCommand))]
     private ContextMemory? _selectedGalaxyMemory;
@@ -95,6 +107,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasConversationStarted;
 
+    [ObservableProperty]
+    private bool _isFocusModeActive;
+
     public int ApplicationCount => Applications.Count;
     public int ProductiveCount => Applications.Count(a => a.Category == ApplicationFocusCategory.Productive);
     public int DistractingCount => Applications.Count(a => a.Category == ApplicationFocusCategory.Distracting);
@@ -111,6 +126,12 @@ public partial class MainViewModel : ObservableObject
     public string FocusTaskCountText => string.Format(T("Main_FocusTaskCountFormat"), FocusTasks.Count(t => t.Status == FocusTaskStatus.Completed), FocusTasks.Count);
     public string MemoryCountText => string.Format(T("Main_MemoryCountFormat"), ContextMemories.Count);
     public bool HasSelectedGalaxyTask => SelectedGalaxyMemory != null;
+    public bool IsGalaxyPreviewMode => MemoryPreviewMode == "galaxy";
+    public bool IsFishbonePreviewMode => MemoryPreviewMode == "fishbone";
+    public string FocusModeButtonText => IsFocusModeActive ? T("Main_FocusModeEnd") : T("Main_FocusModeStart");
+    public string FocusModeStatusText => IsFocusModeActive
+        ? string.Format(T("Main_FocusModeActiveFormat"), _focusModeService.TaskTitle)
+        : T("Main_FocusModeIdle");
     public string ProductiveShareText
     {
         get
@@ -132,6 +153,7 @@ public partial class MainViewModel : ObservableObject
         FocusClassificationClient? focusClient,
         ContextRetrievalService contextRetrievalService,
         MemoryExtractionService memoryExtractionService,
+        FocusModeService focusModeService,
         Action openSettings,
         Action exitApplication)
     {
@@ -141,6 +163,7 @@ public partial class MainViewModel : ObservableObject
         _focusClient = focusClient;
         _contextRetrievalService = contextRetrievalService;
         _memoryExtractionService = memoryExtractionService;
+        _focusModeService = focusModeService;
         _openSettings = openSettings;
         _exitApplication = exitApplication;
 
@@ -151,6 +174,8 @@ public partial class MainViewModel : ObservableObject
         _assistantThinkingTimer.Tick += (_, _) => AdvanceAssistantThinkingText();
 
         _processMonitor.ForegroundFocusUpdated += OnForegroundFocusUpdated;
+        _focusModeService.StateChanged += OnFocusModeStateChanged;
+        IsFocusModeActive = _focusModeService.IsActive;
         TranslationService.Instance.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == "Item[]")
@@ -299,6 +324,35 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task ToggleFocusMode()
+    {
+        if (_focusModeService.IsActive)
+        {
+            _focusModeService.Stop();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_FocusModeEnded")));
+            return;
+        }
+
+        var memory = await _dbService.GetLatestOpenPlanMemoryAsync();
+        if (memory == null)
+        {
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_FocusModeNoPlan")));
+            return;
+        }
+
+        _focusModeService.Start(memory);
+        SetMonitorEnabled(true);
+        ConversationMessages.Add(ConversationMessage.Assistant(
+            string.Format(T("Main_FocusModeStartedFormat"), memory.Title)));
+    }
+
+    [RelayCommand]
+    private void SetMemoryPreviewMode(string mode)
+    {
+        MemoryPreviewMode = mode == "fishbone" ? "fishbone" : "galaxy";
+    }
+
+    [RelayCommand]
     private void OpenSettings()
     {
         _openSettings();
@@ -317,6 +371,7 @@ public partial class MainViewModel : ObservableObject
         CurrentProcessName = snapshot.ProcessName;
         CurrentProcessDurationText = FormatDuration(snapshot.Duration);
         CurrentFocusLabel = snapshot.IsKnownProductivityApp ? T("Main_LikelyProductive") : T("Main_Unclassified");
+        QueueSceneCheckpoint(snapshot);
     }
 
     [RelayCommand(CanExecute = nameof(CanSendConversationMessage))]
@@ -360,16 +415,14 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var snapshot = _processMonitor.SampleForegroundWindowFocus();
-            var memories = await _contextRetrievalService.RetrieveAsync("today local memory context recap", snapshot, 10);
-            PersonalizedReplyResult? reply = null;
+            var memories = await _contextRetrievalService.RetrieveAsync("today local memory context recap plan completed process switches", snapshot, 18);
+            var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(DateTime.Now.AddHours(-24));
+            DailyReviewDraft? review = null;
             if (_focusClient?.IsConfigured == true)
             {
                 try
                 {
-                    reply = await _focusClient.CreatePersonalizedReplyAsync(
-                        "请根据本地记忆、当前桌面上下文和最近应用使用情况，生成一段简短的上下文复盘。不要评价专注程度，只总结最近推进了什么、偏好有什么变化、下次回来可以从哪里继续。",
-                        ContextRetrievalService.BuildContextPack(memories),
-                        snapshot);
+                    review = await _focusClient.CreateDailyReviewAsync(FocusTasks, memories, sessions);
                 }
                 catch (Exception ex)
                 {
@@ -377,10 +430,24 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
+            var insightMemories = memories
+                .Concat((await _dbService.GetContextMemoriesAsync())
+                    .Where(memory => memory.IsPlan)
+                    .OrderByDescending(memory => memory.UpdatedAt)
+                    .Take(12))
+                .DistinctBy(memory => memory.Id)
+                .ToList();
+            var insight = await CreateDesktopInsightAsync("daily_review", "每日总结：生成计划推断、鱼骨归因和星图解释", insightMemories, sessions, snapshot);
+            var archivePath = await ArchiveLocalContextDigestAsync("daily", insightMemories, sessions, insight);
+            await RefreshContextMemoriesAsync();
+
             ConversationMessages.Add(ConversationMessage.Assistant(
-                !string.IsNullOrWhiteSpace(reply?.Reply)
-                    ? reply.Reply.Trim()
-                    : CreateLocalContextReply(memories, snapshot)));
+                (review != null
+                    ? FormatDailyReview(review)
+                    : CreateLocalContextReply(memories, snapshot)) +
+                "\n\n" +
+                FormatDesktopInsight(insight) +
+                "\n\n已写入本地摘要：" + archivePath));
             StatusText = T("Main_DailyReviewReady");
         }
         finally
@@ -416,11 +483,22 @@ public partial class MainViewModel : ObservableObject
             SelectedGalaxyMemory.Type,
             SelectedGalaxyMemory.Source,
             SelectedGalaxyMemory.Tags,
-            GalaxyEditIsCompleted ? Math.Max(SelectedGalaxyMemory.Weight, 0.85) : Math.Min(SelectedGalaxyMemory.Weight, 0.75),
-            SelectedGalaxyMemory.Id);
+            SelectedGalaxyMemory.Weight,
+            SelectedGalaxyMemory.Id,
+            memoryAxis: SelectedGalaxyMemory.MemoryAxis,
+            aiDescription: SelectedGalaxyMemory.AiDescription,
+            aiExplanation: SelectedGalaxyMemory.AiExplanation,
+            nextPrediction: SelectedGalaxyMemory.NextPrediction,
+            isPlan: SelectedGalaxyMemory.IsPlan,
+            isCompleted: SelectedGalaxyMemory.IsPlan && GalaxyEditIsCompleted,
+            aiWeightProfile: SelectedGalaxyMemory.AiWeightProfile);
 
         StatusText = T("Main_GalaxyTaskSaved");
         await RefreshContextMemoriesAsync(updated.Id);
+        if (updated.IsPlan && updated.IsCompleted)
+        {
+            EndFocusModeIfMatches(updated.Id);
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanEditGalaxyTask))]
@@ -460,6 +538,20 @@ public partial class MainViewModel : ObservableObject
         StatusText = T("Main_GalaxyTaskMoved");
     }
 
+    public void PreviewGalaxyTaskPosition(ContextMemory memory, double x, double y)
+    {
+        var current = ContextMemories.FirstOrDefault(item => item.Id == memory.Id);
+        if (current == null)
+        {
+            return;
+        }
+
+        current.X = x;
+        current.Y = y;
+        GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(ContextMemories));
+        FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(ContextMemories));
+    }
+
     private bool CanEditGalaxyTask()
     {
         return SelectedGalaxyMemory != null;
@@ -484,6 +576,11 @@ public partial class MainViewModel : ObservableObject
     {
         var normalized = text.Trim().ToLowerInvariant();
 
+        if (await TryHandleDesktopInsightCommandAsync(text, normalized))
+        {
+            return true;
+        }
+
         if (ContainsAny(normalized, "help", "commands", "帮助", "怎么用"))
         {
             ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantHelp")));
@@ -502,6 +599,18 @@ public partial class MainViewModel : ObservableObject
             await RefreshAsync();
             await RefreshContextMemoriesAsync();
             ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantRefreshed")));
+            return true;
+        }
+
+        if (ContainsAny(normalized, "daily review", "recap", "日报", "每日总结", "总结今天", "今日复盘"))
+        {
+            await GenerateDailyReview();
+            return true;
+        }
+
+        if (ContainsAny(normalized, "complete", "done", "finish task", "完成任务", "完成了", "已完成"))
+        {
+            await CompleteLatestTaskAsync();
             return true;
         }
 
@@ -546,6 +655,139 @@ public partial class MainViewModel : ObservableObject
         return false;
     }
 
+    private async Task<bool> TryHandleDesktopInsightCommandAsync(string text, string normalized)
+    {
+        if (ContainsAny(normalized, "刚才在干嘛", "刚刚在干嘛", "时间切片", "行为回放", "窗口回放", "replay", "what was i doing"))
+        {
+            await GenerateDesktopContextInsightAsync("replay", text, TimeSpan.FromHours(2), saveArchive: false);
+            return true;
+        }
+
+        if (ContainsAny(normalized, "检查计划", "计划进度", "plan progress", "推断完成", "是否完成", "哪些计划"))
+        {
+            await GenerateDesktopContextInsightAsync("plan_progress", text, TimeSpan.FromHours(24), saveArchive: false);
+            return true;
+        }
+
+        if (ContainsAny(normalized, "继续刚才", "回到现场", "恢复现场", "继续上次", "resume scene", "continue last"))
+        {
+            await GenerateDesktopContextInsightAsync("resume_scene", text, TimeSpan.FromHours(24), saveArchive: true);
+            return true;
+        }
+
+        if (ContainsAny(normalized, "鱼骨归因", "进程归因", "任务归因", "fishbone", "行为归因"))
+        {
+            await GenerateDesktopContextInsightAsync("fishbone", text, TimeSpan.FromHours(24), saveArchive: true);
+            return true;
+        }
+
+        if (ContainsAny(normalized, "压缩记忆", "压缩上下文", "本地摘要", "生成摘要", "memory digest", "context digest"))
+        {
+            await GenerateDesktopContextInsightAsync("digest", text, TimeSpan.FromHours(24), saveArchive: true);
+            return true;
+        }
+
+        if (ContainsAny(normalized, "解释星图", "星图解释", "星座解释", "为什么归类", "galaxy explain"))
+        {
+            await GenerateDesktopContextInsightAsync("galaxy", text, TimeSpan.FromHours(24), saveArchive: false);
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task GenerateDesktopContextInsightAsync(
+        string mode,
+        string userInput,
+        TimeSpan lookback,
+        bool saveArchive)
+    {
+        HasConversationStarted = true;
+        StartAssistantThinking();
+        StatusText = T("Main_ContextThinking");
+        try
+        {
+            var snapshot = _processMonitor.SampleForegroundWindowFocus();
+            var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(DateTime.Now - lookback);
+            var memories = await GetInsightMemoriesAsync(userInput, snapshot);
+            var insight = await CreateDesktopInsightAsync(mode, userInput, memories, sessions, snapshot);
+
+            string? archivePath = null;
+            if (saveArchive || mode == "digest")
+            {
+                archivePath = await ArchiveLocalContextDigestAsync(mode, memories, sessions, insight);
+                await RefreshContextMemoriesAsync();
+            }
+
+            var response = FormatDesktopInsight(insight);
+            if (!string.IsNullOrWhiteSpace(archivePath))
+            {
+                response += "\n\n已写入本地摘要：" + archivePath;
+            }
+
+            ConversationMessages.Add(ConversationMessage.Assistant(response));
+            StatusText = T("Main_ContextReady");
+        }
+        finally
+        {
+            StopAssistantThinking();
+        }
+    }
+
+    private async Task<IReadOnlyList<ContextMemory>> GetInsightMemoriesAsync(
+        string query,
+        ForegroundFocusSnapshot? snapshot)
+    {
+        var retrieved = await _contextRetrievalService.RetrieveAsync(
+            query + " plan scene digest fishbone galaxy resume replay",
+            snapshot,
+            18);
+        var all = await _dbService.GetContextMemoriesAsync();
+        return retrieved
+            .Concat(all.Where(memory =>
+                memory.IsPlan ||
+                memory.Source.Contains("scene", StringComparison.OrdinalIgnoreCase) ||
+                memory.Source.Contains("archive", StringComparison.OrdinalIgnoreCase) ||
+                memory.Source.Contains("fishbone", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted)
+                .ThenByDescending(memory => memory.UpdatedAt)
+                .Take(24))
+            .DistinctBy(memory => memory.Id)
+            .Take(36)
+            .ToList();
+    }
+
+    private async Task<DesktopContextInsight> CreateDesktopInsightAsync(
+        string mode,
+        string userInput,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        ForegroundFocusSnapshot? snapshot)
+    {
+        if (_focusClient?.IsConfigured == true)
+        {
+            try
+            {
+                var insight = await _focusClient.CreateDesktopContextInsightAsync(
+                    mode,
+                    userInput,
+                    memories,
+                    sessions,
+                    snapshot);
+                if (insight != null && !string.IsNullOrWhiteSpace(insight.Summary))
+                {
+                    return insight;
+                }
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+        }
+
+        return CreateFallbackDesktopInsight(mode, memories, sessions, snapshot);
+    }
+
     private async Task DispatchContextAssistantAsync(string text)
     {
         StartAssistantThinking();
@@ -553,7 +795,22 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var snapshot = _processMonitor.SampleForegroundWindowFocus();
+            ContextMemory? savedPlan = null;
+            if (MemoryExtractionService.LooksLikePlanMemory(text))
+            {
+                savedPlan = await _memoryExtractionService.SaveExplicitMemoryAsync(text);
+                if (savedPlan != null)
+                {
+                    await RefreshContextMemoriesAsync(savedPlan.Id);
+                }
+            }
+
             var memories = await _contextRetrievalService.RetrieveAsync(text, snapshot);
+            if (memories.Count < 2)
+            {
+                memories = await TryExpandSparseContextAsync(text, snapshot, memories);
+            }
+
             var contextPack = ContextRetrievalService.BuildContextPack(memories);
 
         if (LooksLikeExplicitMemory(text))
@@ -591,18 +848,26 @@ public partial class MainViewModel : ObservableObject
 
         if (reply?.SuggestedMemory is { ShouldRemember: true, Confidence: >= 0.72 } candidate &&
             _settingsService.Settings.AutoSaveMemories &&
-            !string.IsNullOrWhiteSpace(candidate.Content))
+            !string.IsNullOrWhiteSpace(candidate.Content) &&
+            savedPlan == null)
         {
             await _dbService.UpsertContextMemoryAsync(
-                candidate.Title,
+                MemoryExtractionService.NormalizeCandidateTitle(candidate.Title, candidate.Content),
                 candidate.Content,
                 MemoryExtractionService.ParseType(candidate.Type),
                 "ai-candidate",
                 string.Join(", ", candidate.Tags.Take(8)),
-                candidate.Weight);
+                candidate.Weight,
+                memoryAxis: candidate.MemoryAxis,
+                aiDescription: candidate.Description,
+                aiExplanation: candidate.Explanation,
+                nextPrediction: candidate.NextPrediction,
+                isPlan: candidate.IsPlan || MemoryExtractionService.LooksLikePlanMemory(candidate.Content),
+                isCompleted: candidate.IsCompleted,
+                aiWeightProfile: candidate.WeightProfile);
             await RefreshContextMemoriesAsync();
         }
-        else
+        else if (savedPlan == null)
         {
             var autoMemory = await _memoryExtractionService.TryExtractAndSaveAsync(
                 text,
@@ -624,6 +889,277 @@ public partial class MainViewModel : ObservableObject
         {
             StopAssistantThinking();
         }
+    }
+
+    private async Task<IReadOnlyList<ContextMemory>> TryExpandSparseContextAsync(
+        string text,
+        ForegroundFocusSnapshot? snapshot,
+        IReadOnlyList<ContextMemory> currentMemories)
+    {
+        if (_focusClient?.IsConfigured != true)
+        {
+            return currentMemories;
+        }
+
+        try
+        {
+            StatusText = T("Main_ContextThinking");
+            var allMemories = await _dbService.GetContextMemoriesAsync();
+            var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(DateTime.Now.AddHours(-24));
+            var digest = await _focusClient.CreateLocalMemoryDigestAsync(text, allMemories, sessions);
+            if (digest is not { ShouldRemember: true, Confidence: >= 0.65 } ||
+                string.IsNullOrWhiteSpace(digest.Content))
+            {
+                return currentMemories;
+            }
+
+            var saved = await _dbService.UpsertContextMemoryAsync(
+                MemoryExtractionService.NormalizeCandidateTitle(digest.Title, digest.Content),
+                digest.Content,
+                MemoryExtractionService.ParseType(digest.Type),
+                "ai-compression",
+                string.Join(", ", digest.Tags.DefaultIfEmpty("digest").Take(8)),
+                Math.Clamp(digest.Weight, 0.45, 0.9),
+                memoryAxis: digest.MemoryAxis,
+                aiDescription: digest.Description,
+                aiExplanation: digest.Explanation,
+                nextPrediction: digest.NextPrediction,
+                isPlan: digest.IsPlan,
+                isCompleted: digest.IsCompleted,
+                aiWeightProfile: digest.WeightProfile);
+
+            await RefreshContextMemoriesAsync(saved.Id);
+            return await _contextRetrievalService.RetrieveAsync(text, snapshot, 10);
+        }
+        catch (Exception ex)
+        {
+            App.WriteCrashLog(ex);
+            return currentMemories;
+        }
+    }
+
+    private DesktopContextInsight CreateFallbackDesktopInsight(
+        string mode,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        ForegroundFocusSnapshot? snapshot)
+    {
+        var orderedSessions = sessions
+            .OrderBy(session => session.StartTime)
+            .ToList();
+        var openPlans = memories
+            .Where(memory => memory.IsPlan && !memory.IsCompleted)
+            .OrderByDescending(memory => memory.Weight)
+            .ThenByDescending(memory => memory.UpdatedAt)
+            .ToList();
+        var completedPlans = memories
+            .Where(memory => memory.IsPlan && memory.IsCompleted)
+            .OrderByDescending(memory => memory.CompletedAt ?? memory.UpdatedAt)
+            .Take(5)
+            .ToList();
+
+        var summary = mode switch
+        {
+            "replay" => CreateReplaySummary(orderedSessions, snapshot),
+            "plan_progress" => $"当前有 {openPlans.Count} 个未完成 plan，{completedPlans.Count} 个最近完成的 plan。下面是基于窗口行为的弱证据推断。",
+            "resume_scene" => CreateResumeSceneSummary(orderedSessions, openPlans, snapshot),
+            "fishbone" => "已把最近进程行为按 plan/tag 做了一次本地鱼骨归因。",
+            "galaxy" => "已根据星座、tag、plan 完成状态解释当前记忆星图。",
+            _ => "已生成一份本地桌面上下文摘要。"
+        };
+
+        return new DesktopContextInsight
+        {
+            Summary = summary,
+            Evidence = CreateSessionEvidence(orderedSessions, snapshot),
+            PlanSuggestions = CreatePlanProgressSuggestions(openPlans, orderedSessions),
+            Fishbone = CreateFishboneLines(openPlans, orderedSessions),
+            ConstellationExplanations = CreateConstellationExplanationLines(memories),
+            SuggestedNextAction = CreateSuggestedNextAction(openPlans, orderedSessions, snapshot)
+        };
+    }
+
+    private async Task<string?> ArchiveLocalContextDigestAsync(
+        string reason,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        DesktopContextInsight insight)
+    {
+        var directory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Perelegans",
+            "memories",
+            "digest");
+        Directory.CreateDirectory(directory);
+
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+        var token = CreateFileToken(reason);
+        var jsonPath = Path.Combine(directory, $"{stamp}.{token}.json");
+        var mdPath = Path.Combine(directory, $"{stamp}.{token}.md");
+
+        var archive = new
+        {
+            createdAt = DateTime.Now,
+            reason,
+            insight,
+            memories = memories
+                .OrderByDescending(memory => memory.UpdatedAt)
+                .Take(40)
+                .Select(memory => new
+                {
+                    memory.Id,
+                    memory.Title,
+                    Type = memory.Type.ToString(),
+                    memory.MemoryAxis,
+                    memory.Tags,
+                    memory.ConstellationName,
+                    memory.IsPlan,
+                    memory.IsCompleted,
+                    memory.Weight,
+                    memory.Content,
+                    memory.AiDescription,
+                    memory.AiExplanation,
+                    memory.NextPrediction
+                }),
+            sessions = sessions
+                .OrderBy(session => session.StartTime)
+                .TakeLast(120)
+                .Select(session => new
+                {
+                    session.ProcessName,
+                    session.ExecutablePath,
+                    session.StartTime,
+                    session.EndTime,
+                    minutes = Math.Round(session.Duration.TotalMinutes, 1),
+                    session.IsKnownProductivityApp
+                })
+        };
+
+        await File.WriteAllTextAsync(
+            jsonPath,
+            JsonSerializer.Serialize(archive, new JsonSerializerOptions { WriteIndented = true }),
+            Encoding.UTF8);
+        await File.WriteAllTextAsync(mdPath, BuildMarkdownDigest(reason, insight, memories, sessions), Encoding.UTF8);
+
+        await _dbService.UpsertContextMemoryAsync(
+            $"本地上下文摘要 {DateTime.Now:MM-dd HH:mm}",
+            BuildMarkdownDigest(reason, insight, memories, sessions),
+            ContextMemoryType.Event,
+            reason == "fishbone" ? "ai-fishbone" : "local-archive",
+            reason == "fishbone" ? "digest, rag, fishbone" : "digest, rag, scene",
+            0.74,
+            memoryAxis: "event",
+            aiDescription: insight.Summary,
+            aiExplanation: "这是一份从本地记忆、plan 状态和 Win32 进程切换行为压缩出的上下文摘要，用于后续 RAG 恢复现场。",
+            nextPrediction: insight.SuggestedNextAction);
+
+        return mdPath;
+    }
+
+    private static string FormatDesktopInsight(DesktopContextInsight insight)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine(insight.Summary.Trim());
+        AppendSection(builder, "证据", insight.Evidence);
+        AppendSection(builder, "计划推断", insight.PlanSuggestions);
+        AppendSection(builder, "鱼骨归因", insight.Fishbone);
+        AppendSection(builder, "星图解释", insight.ConstellationExplanations);
+
+        if (!string.IsNullOrWhiteSpace(insight.SuggestedNextAction))
+        {
+            builder.AppendLine();
+            builder.AppendLine("下一步");
+            builder.AppendLine(insight.SuggestedNextAction.Trim());
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static string BuildMarkdownDigest(
+        string reason,
+        DesktopContextInsight insight,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"# Perelegans 本地上下文摘要");
+        builder.AppendLine();
+        builder.AppendLine($"- reason: {reason}");
+        builder.AppendLine($"- created_at: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        builder.AppendLine();
+        builder.AppendLine("## 主轴");
+        builder.AppendLine(insight.Summary.Trim());
+        AppendMarkdownList(builder, "## 证据", insight.Evidence);
+        AppendMarkdownList(builder, "## Plan 推断", insight.PlanSuggestions);
+        AppendMarkdownList(builder, "## 鱼骨归因", insight.Fishbone);
+        AppendMarkdownList(builder, "## 星图解释", insight.ConstellationExplanations);
+        builder.AppendLine("## 下一步预测");
+        builder.AppendLine(string.IsNullOrWhiteSpace(insight.SuggestedNextAction)
+            ? "暂无明确下一步。"
+            : insight.SuggestedNextAction.Trim());
+        builder.AppendLine();
+        builder.AppendLine("## 相关记忆");
+        foreach (var memory in memories.OrderByDescending(memory => memory.UpdatedAt).Take(20))
+        {
+            builder.AppendLine($"- [{memory.Id}] {memory.Title} | {memory.ConstellationName} | {memory.Tags} | plan:{memory.IsPlan}/{memory.IsCompleted}");
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("## 进程切片");
+        foreach (var session in sessions.OrderBy(session => session.StartTime).TakeLast(40))
+        {
+            builder.AppendLine($"- {session.StartTime:HH:mm}-{session.EndTime:HH:mm} {session.ProcessName} {Math.Max(1, (int)Math.Round(session.Duration.TotalMinutes))}m");
+        }
+
+        return builder.ToString();
+    }
+
+    private void QueueSceneCheckpoint(ForegroundFocusSnapshot snapshot)
+    {
+        if (snapshot.Duration < TimeSpan.FromMinutes(12) ||
+            DateTime.Now - _lastSceneCheckpointAt < TimeSpan.FromMinutes(30) ||
+            string.Equals(_lastSceneCheckpointProcess, snapshot.ProcessName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _lastSceneCheckpointAt = DateTime.Now;
+        _lastSceneCheckpointProcess = snapshot.ProcessName;
+        var snapshotCopy = snapshot;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var memories = await _dbService.GetContextMemoriesAsync();
+                var openPlan = memories
+                    .Where(memory => memory.IsPlan && !memory.IsCompleted)
+                    .OrderByDescending(memory => CalculateProcessPlanAffinity(snapshotCopy.ProcessName, memory))
+                    .FirstOrDefault();
+                if (openPlan == null)
+                {
+                    return;
+                }
+
+                var related = CalculateProcessPlanAffinity(snapshotCopy.ProcessName, openPlan) > 0
+                    ? $"可能关联未完成 plan「{openPlan.Title}」。"
+                    : "暂未找到明确关联的 plan，但这是一个可恢复的工作现场。";
+                await _dbService.UpsertContextMemoryAsync(
+                    $"现场：{snapshotCopy.ProcessName}",
+                    $"{DateTime.Now:HH:mm} 左右，前台在 {snapshotCopy.ProcessName} 停留约 {Math.Max(1, (int)Math.Round(snapshotCopy.Duration.TotalMinutes))} 分钟。{related}",
+                    ContextMemoryType.Event,
+                    "scene-checkpoint",
+                    "scene, checkpoint",
+                    0.42,
+                    memoryAxis: "event",
+                    aiDescription: $"系统自动保留的桌面现场：{snapshotCopy.ProcessName}",
+                    aiExplanation: "当用户稍后说“继续刚才”时，这条记忆可帮助恢复最近工作现场。",
+                    nextPrediction: openPlan == null ? string.Empty : openPlan.NextPrediction);
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+        });
     }
 
     private async Task<TaskInstructionResult?> TryParseWithAiAsync(string text)
@@ -905,6 +1441,20 @@ public partial class MainViewModel : ObservableObject
 
     private async Task CompleteLatestTaskAsync()
     {
+        if (_focusModeService.IsActive && _focusModeService.TaskMemoryId.HasValue)
+        {
+            var completedMemory = await _dbService.CompleteContextMemoryAsync(_focusModeService.TaskMemoryId.Value);
+            if (completedMemory != null)
+            {
+                ConversationMessages.Add(ConversationMessage.Assistant(
+                    string.Format(T("Main_FocusModeCompletedFormat"), completedMemory.Title)));
+                await RefreshContextMemoriesAsync(completedMemory.Id);
+                EndFocusModeIfMatches(completedMemory.Id);
+                IsGalaxyVisible = true;
+                return;
+            }
+        }
+
         var latest = FocusTasks
             .Where(t => t.Status == FocusTaskStatus.Active)
             .OrderByDescending(t => t.CreatedAt)
@@ -960,6 +1510,7 @@ public partial class MainViewModel : ObservableObject
     {
         ContextMemories = new ObservableCollection<ContextMemory>(await _dbService.GetContextMemoriesAsync());
         GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(ContextMemories));
+        FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(ContextMemories));
         SelectedGalaxyMemory = highlightId.HasValue
             ? ContextMemories.FirstOrDefault(memory => memory.Id == highlightId.Value)
             : SelectedGalaxyMemory == null
@@ -998,21 +1549,59 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private static IEnumerable<FishboneBranchViewModel> CreateFishboneBranches(IReadOnlyCollection<ContextMemory> memories)
+    {
+        var groups = memories
+            .GroupBy(memory => string.IsNullOrWhiteSpace(memory.ConstellationName) ? "未归类" : memory.ConstellationName)
+            .OrderByDescending(group => group.Count(memory => memory.IsPlan && !memory.IsCompleted))
+            .ThenByDescending(group => group.Count())
+            .Take(8);
+
+        foreach (var group in groups)
+        {
+            var items = group
+                .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted)
+                .ThenByDescending(memory => memory.Weight)
+                .Take(6)
+                .Select(memory =>
+                {
+                    var status = memory.IsPlan
+                        ? memory.IsCompleted ? "done" : "open"
+                        : memory.MemoryAxis;
+                    return $"{memory.Title} [{status}]";
+                })
+                .ToList();
+            var openPlans = group.Count(memory => memory.IsPlan && !memory.IsCompleted);
+            yield return new FishboneBranchViewModel(
+                group.Key,
+                string.Join("  /  ", items),
+                string.Join(", ", group.SelectMany(memory => SplitTagsForInsight(memory.Tags)).Distinct(StringComparer.OrdinalIgnoreCase).Take(5)),
+                openPlans);
+        }
+    }
+
     private static double CalculateMemoryLinkStrength(ContextMemory source, ContextMemory target)
     {
         var sameConstellation = !string.IsNullOrWhiteSpace(source.ConstellationName) &&
             string.Equals(source.ConstellationName, target.ConstellationName, StringComparison.OrdinalIgnoreCase);
-        var sameType = source.Type == target.Type;
         var sourceTags = SplitTags(source.Tags);
         var targetTags = SplitTags(target.Tags);
         var overlap = sourceTags.Intersect(targetTags, StringComparer.OrdinalIgnoreCase).Count();
+        var sourceTerms = ExtractMemoryLinkTerms(source);
+        var targetTerms = ExtractMemoryLinkTerms(target);
+        var termOverlap = sourceTerms.Intersect(targetTerms, StringComparer.OrdinalIgnoreCase).Count();
 
-        if (!sameConstellation && !sameType && overlap == 0)
+        if (!sameConstellation && overlap == 0 && termOverlap < 2)
         {
             return 0;
         }
 
-        return Math.Clamp((sameConstellation ? 0.36 : 0) + (sameType ? 0.18 : 0) + overlap * 0.16, 0.22, 0.92);
+        if (sameConstellation && overlap == 0 && termOverlap == 0 && IsBroadConstellation(source.ConstellationName))
+        {
+            return 0;
+        }
+
+        return Math.Clamp((sameConstellation ? 0.34 : 0) + overlap * 0.2 + termOverlap * 0.08, 0.22, 0.88);
     }
 
     private static HashSet<string> SplitTags(string tags)
@@ -1020,7 +1609,34 @@ public partial class MainViewModel : ObservableObject
         return tags
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(tag => tag.Length >= 2)
+            .Where(tag => !IsGenericLinkTerm(tag))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static HashSet<string> ExtractMemoryLinkTerms(ContextMemory memory)
+    {
+        var text = string.Join(' ', memory.Title, memory.Content, memory.Tags, memory.ConstellationName);
+        return text
+            .Split([' ', '\r', '\n', '\t', ',', '.', ';', ':', '/', '\\', '|', '，', '。', '；', '：', '、', '（', '）', '(', ')'],
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(term => term.Trim().TrimStart('#').ToLowerInvariant())
+            .Where(term => term.Length >= 2)
+            .Where(term => !IsGenericLinkTerm(term))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool IsBroadConstellation(string constellation)
+    {
+        return constellation is "开发" or "学习" or "游戏" or "写作" or "设计" or "数据" or "沟通" or "生活" or "行动" or "行动 / 学习与开发" or "笔记";
+    }
+
+    private static bool IsGenericLinkTerm(string term)
+    {
+        return term.Trim().ToLowerInvariant() is
+            "笔记" or "记录" or "记忆" or "项目" or "任务" or "工作" or "流程" or "应用" or "行动" or "星座" or
+            "note" or "notes" or "memory" or "memories" or "project" or "task" or "workflow" or "work" or
+            "app" or "application" or "action" or "focus" or
+            "开发" or "学习" or "游戏" or "写作" or "设计" or "数据" or "沟通" or "生活" or "plan";
     }
 
     private static IEnumerable<GalaxyLinkViewModel> CreateGalaxyLinks(
@@ -1090,6 +1706,271 @@ public partial class MainViewModel : ObservableObject
         return $"{review.Review.Trim()}{highlights}{risks}{next}";
     }
 
+    private static string CreateReplaySummary(
+        IReadOnlyList<ApplicationUsageSession> sessions,
+        ForegroundFocusSnapshot? snapshot)
+    {
+        if (sessions.Count == 0)
+        {
+            return snapshot == null
+                ? "还没有足够的窗口切换记录可回放。"
+                : $"当前现场停在 {snapshot.ProcessName}，已持续约 {Math.Max(1, (int)Math.Round(snapshot.Duration.TotalMinutes))} 分钟。";
+        }
+
+        var first = sessions.First();
+        var last = sessions.Last();
+        var top = sessions
+            .GroupBy(session => session.ProcessName)
+            .OrderByDescending(group => group.Sum(session => session.Duration.TotalMinutes))
+            .Take(3)
+            .Select(group => group.Key);
+        return $"{first.StartTime:HH:mm} 到 {last.EndTime:HH:mm} 的主要现场是 {string.Join("、", top)}，中间发生了 {sessions.Count} 次可记录窗口停留。";
+    }
+
+    private static string CreateResumeSceneSummary(
+        IReadOnlyList<ApplicationUsageSession> sessions,
+        IReadOnlyList<ContextMemory> openPlans,
+        ForegroundFocusSnapshot? snapshot)
+    {
+        var plan = openPlans.FirstOrDefault();
+        var current = snapshot == null
+            ? sessions.LastOrDefault()?.ProcessName
+            : snapshot.ProcessName;
+        if (plan == null)
+        {
+            return string.IsNullOrWhiteSpace(current)
+                ? "目前没有足够的 plan 和窗口记录来恢复现场。"
+                : $"最近现场停在 {current}，但没有匹配到明确的未完成 plan。";
+        }
+
+        return $"最值得恢复的现场是「{plan.Title}」。最近桌面信号指向 {current ?? "未知应用"}，可以从该 plan 的下一步继续。";
+    }
+
+    private static List<string> CreateSessionEvidence(
+        IReadOnlyList<ApplicationUsageSession> sessions,
+        ForegroundFocusSnapshot? snapshot)
+    {
+        var evidence = sessions
+            .GroupBy(session => session.ProcessName)
+            .Select(group => new
+            {
+                ProcessName = group.Key,
+                Minutes = Math.Max(1, (int)Math.Round(group.Sum(session => session.Duration.TotalMinutes))),
+                Switches = group.Count(),
+                Last = group.Max(session => session.EndTime)
+            })
+            .OrderByDescending(item => item.Minutes)
+            .Take(5)
+            .Select(item => $"{item.ProcessName}: {item.Minutes} 分钟，{item.Switches} 段，最近 {item.Last:HH:mm}")
+            .ToList();
+
+        if (snapshot != null)
+        {
+            evidence.Insert(0, $"当前前台：{snapshot.ProcessName}，已持续约 {Math.Max(1, (int)Math.Round(snapshot.Duration.TotalMinutes))} 分钟");
+        }
+
+        if (evidence.Count == 0)
+        {
+            evidence.Add("暂无足够进程切换证据。");
+        }
+
+        return evidence;
+    }
+
+    private static List<string> CreatePlanProgressSuggestions(
+        IReadOnlyList<ContextMemory> openPlans,
+        IReadOnlyList<ApplicationUsageSession> sessions)
+    {
+        if (openPlans.Count == 0)
+        {
+            return ["没有未完成 plan 需要推断。"];
+        }
+
+        return openPlans
+            .Take(6)
+            .Select(plan =>
+            {
+                var matched = sessions
+                    .Where(session => CalculateProcessPlanAffinity(session.ProcessName, plan) > 0)
+                    .ToList();
+                if (matched.Count == 0)
+                {
+                    return $"「{plan.Title}」仍是 open。最近进程证据不足，不建议自动勾选完成。";
+                }
+
+                var minutes = Math.Max(1, (int)Math.Round(matched.Sum(session => session.Duration.TotalMinutes)));
+                var processes = string.Join("、", matched.Select(session => session.ProcessName).Distinct().Take(3));
+                return $"「{plan.Title}」可能有推进：{processes} 共约 {minutes} 分钟。建议询问用户确认后再勾选完成。";
+            })
+            .ToList();
+    }
+
+    private static List<string> CreateFishboneLines(
+        IReadOnlyList<ContextMemory> openPlans,
+        IReadOnlyList<ApplicationUsageSession> sessions)
+    {
+        var lines = new List<string>();
+        foreach (var plan in openPlans.Take(6))
+        {
+            var matched = sessions
+                .Where(session => CalculateProcessPlanAffinity(session.ProcessName, plan) > 0)
+                .GroupBy(session => session.ProcessName)
+                .Select(group => $"{group.Key}:{Math.Max(1, (int)Math.Round(group.Sum(session => session.Duration.TotalMinutes)))}m")
+                .Take(4)
+                .ToList();
+            lines.Add(matched.Count == 0
+                ? $"主骨：{plan.Title} / 分支：暂无明确进程证据 / tag：{plan.Tags}"
+                : $"主骨：{plan.Title} / 分支：{string.Join("、", matched)} / tag：{plan.Tags}");
+        }
+
+        if (lines.Count == 0)
+        {
+            lines.AddRange(sessions
+                .GroupBy(session => session.ProcessName)
+                .OrderByDescending(group => group.Sum(session => session.Duration.TotalMinutes))
+                .Take(5)
+                .Select(group => $"主骨：未归属行为 / 分支：{group.Key}:{Math.Max(1, (int)Math.Round(group.Sum(session => session.Duration.TotalMinutes)))}m"));
+        }
+
+        return lines.Count == 0 ? ["暂无可归因的进程行为。"] : lines;
+    }
+
+    private static List<string> CreateConstellationExplanationLines(IEnumerable<ContextMemory> memories)
+    {
+        return memories
+            .Where(memory => !string.IsNullOrWhiteSpace(memory.ConstellationName))
+            .GroupBy(memory => memory.ConstellationName)
+            .OrderByDescending(group => group.Count(memory => memory.IsPlan && !memory.IsCompleted))
+            .ThenByDescending(group => group.Count())
+            .Take(8)
+            .Select(group =>
+            {
+                var open = group.Count(memory => memory.IsPlan && !memory.IsCompleted);
+                var completed = group.Count(memory => memory.IsPlan && memory.IsCompleted);
+                var tags = string.Join(", ", group
+                    .SelectMany(memory => SplitTagsForInsight(memory.Tags))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(5));
+                return $"{group.Key}: {group.Count()} 个节点，open plan {open} 个，done plan {completed} 个；主要 tag：{(string.IsNullOrWhiteSpace(tags) ? "无" : tags)}";
+            })
+            .DefaultIfEmpty("暂无可解释的星座聚类。")
+            .ToList();
+    }
+
+    private static string CreateSuggestedNextAction(
+        IReadOnlyList<ContextMemory> openPlans,
+        IReadOnlyList<ApplicationUsageSession> sessions,
+        ForegroundFocusSnapshot? snapshot)
+    {
+        var plan = openPlans.FirstOrDefault();
+        if (plan != null && !string.IsNullOrWhiteSpace(plan.NextPrediction))
+        {
+            return plan.NextPrediction;
+        }
+
+        if (plan != null)
+        {
+            return $"先回到「{plan.Title}」，把它拆成一个 15 分钟内能完成的小动作。";
+        }
+
+        var lastProcess = snapshot?.ProcessName ?? sessions.LastOrDefault()?.ProcessName;
+        return string.IsNullOrWhiteSpace(lastProcess)
+            ? "先创建一个明确的 plan，让后续进程行为可以被归因。"
+            : $"回到 {lastProcess}，确认刚才现场是否还需要保存成一个 plan。";
+    }
+
+    private static int CalculateProcessPlanAffinity(string processName, ContextMemory plan)
+    {
+        var processTags = InferProcessTags(processName);
+        var planTags = SplitTagsForInsight(plan.Tags)
+            .Concat(SplitTagsForInsight(plan.ConstellationName.Replace("/", ",")))
+            .Concat(SplitTagsForInsight(plan.Title))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return processTags.Count(tag => planTags.Contains(tag));
+    }
+
+    private static HashSet<string> InferProcessTags(string processName)
+    {
+        var normalized = processName.ToLowerInvariant();
+        var tags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (ContainsAny(normalized, "code", "devenv", "rider", "visualstudio"))
+        {
+            tags.UnionWith(["development", "code", "debug"]);
+        }
+
+        if (ContainsAny(normalized, "chrome", "msedge", "firefox", "browser"))
+        {
+            tags.UnionWith(["research", "learn", "web"]);
+        }
+
+        if (ContainsAny(normalized, "word", "onenote", "obsidian", "notion"))
+        {
+            tags.UnionWith(["writing", "notes", "learn"]);
+        }
+
+        if (ContainsAny(normalized, "excel", "powerbi"))
+        {
+            tags.UnionWith(["data", "analysis"]);
+        }
+
+        if (ContainsAny(normalized, "python", "jupyter", "anaconda"))
+        {
+            tags.UnionWith(["development", "code", "learn", "ml", "dl"]);
+        }
+
+        return tags;
+    }
+
+    private static IEnumerable<string> SplitTagsForInsight(string tags)
+    {
+        return tags
+            .Split([' ', ',', '/', '\\', '|', ';', ':', '，', '、', '；', '：'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(tag => tag.Trim().TrimStart('#').ToLowerInvariant())
+            .Where(tag => tag.Length >= 2);
+    }
+
+    private static void AppendSection(StringBuilder builder, string title, IReadOnlyCollection<string> items)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        builder.AppendLine();
+        builder.AppendLine(title);
+        foreach (var item in items.Where(item => !string.IsNullOrWhiteSpace(item)).Take(8))
+        {
+            builder.AppendLine("• " + item.Trim());
+        }
+    }
+
+    private static void AppendMarkdownList(StringBuilder builder, string title, IReadOnlyCollection<string> items)
+    {
+        builder.AppendLine(title);
+        if (items.Count == 0)
+        {
+            builder.AppendLine("- 无");
+            builder.AppendLine();
+            return;
+        }
+
+        foreach (var item in items.Where(item => !string.IsNullOrWhiteSpace(item)).Take(12))
+        {
+            builder.AppendLine("- " + item.Trim());
+        }
+
+        builder.AppendLine();
+    }
+
+    private static string CreateFileToken(string text)
+    {
+        var token = new string(text
+            .Where(character => char.IsLetterOrDigit(character) || character is '-' or '_')
+            .Take(32)
+            .ToArray());
+        return string.IsNullOrWhiteSpace(token) ? "digest" : token;
+    }
+
     private void SetMonitorEnabled(bool enabled)
     {
         if (_settingsService.Settings.MonitorEnabled == enabled)
@@ -1123,6 +2004,22 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsMonitorEnabled));
         OnPropertyChanged(nameof(MonitorButtonText));
         OnPropertyChanged(nameof(MonitoringStateText));
+    }
+
+    private void OnFocusModeStateChanged()
+    {
+        IsFocusModeActive = _focusModeService.IsActive;
+        OnPropertyChanged(nameof(FocusModeButtonText));
+        OnPropertyChanged(nameof(FocusModeStatusText));
+    }
+
+    private void EndFocusModeIfMatches(int memoryId)
+    {
+        if (_focusModeService.TaskMemoryId == memoryId)
+        {
+            _focusModeService.Stop();
+            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_FocusModeEnded")));
+        }
     }
 
     private void StartAssistantThinking()
@@ -1183,7 +2080,13 @@ public partial class MainViewModel : ObservableObject
             return T("Main_AssistantNoMemoryMatched") + appLine;
         }
 
-        var top = memories.Take(3).Select(memory => $"• {memory.Title}: {memory.Preview}");
+        var top = memories.Take(3).Select(memory =>
+        {
+            var plan = memory.IsPlan
+                ? memory.IsCompleted ? "（plan 已完成）" : "（plan 未完成）"
+                : string.Empty;
+            return $"• {memory.Title}{plan}: {memory.Preview}";
+        });
         return T("Main_AssistantMemoryMatched") + "\n" + string.Join("\n", top) + appLine;
     }
 
@@ -1200,6 +2103,8 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(FocusTaskCountText));
         OnPropertyChanged(nameof(MemoryCountText));
         AssistantThinkingText = T($"Main_AssistantThinking{_assistantThinkingIndex + 1}");
+        OnPropertyChanged(nameof(FocusModeButtonText));
+        OnPropertyChanged(nameof(FocusModeStatusText));
     }
 
     private void RefreshUiTextProperties()
@@ -1211,6 +2116,14 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ApplicationCountText));
         OnPropertyChanged(nameof(FocusTaskCountText));
         OnPropertyChanged(nameof(MemoryCountText));
+        OnPropertyChanged(nameof(FocusModeButtonText));
+        OnPropertyChanged(nameof(FocusModeStatusText));
+    }
+
+    partial void OnMemoryPreviewModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsGalaxyPreviewMode));
+        OnPropertyChanged(nameof(IsFishbonePreviewMode));
     }
 
     partial void OnContextMemoriesChanged(ObservableCollection<ContextMemory> value)
@@ -1232,7 +2145,7 @@ public partial class MainViewModel : ObservableObject
 
         GalaxyEditTitle = value.Title;
         GalaxyEditCreatedAtText = value.UpdatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
-        GalaxyEditIsCompleted = value.Weight >= 0.8;
+        GalaxyEditIsCompleted = value.IsPlan && value.IsCompleted;
     }
 
     private static string T(string key) => TranslationService.Instance[key];
@@ -1297,4 +2210,13 @@ public sealed class GalaxyLinkViewModel(double x1, double y1, double x2, double 
     public double X2 { get; } = x2;
     public double Y2 { get; } = y2;
     public double Opacity { get; } = Math.Clamp(strength, 0.25, 0.85);
+}
+
+public sealed class FishboneBranchViewModel(string title, string items, string tags, int openPlanCount)
+{
+    public string Title { get; } = title;
+    public string Items { get; } = items;
+    public string Tags { get; } = tags;
+    public int OpenPlanCount { get; } = openPlanCount;
+    public string MetaText => OpenPlanCount > 0 ? $"{OpenPlanCount} open plan" : "context";
 }

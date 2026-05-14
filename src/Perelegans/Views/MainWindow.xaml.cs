@@ -184,6 +184,7 @@ public partial class MainWindow : MetroWindow
         var nextY = Math.Clamp(_dragStartOffset.Y + delta.Y, 0, 560);
         Canvas.SetLeft(_draggedGalaxyPresenter, nextX);
         Canvas.SetTop(_draggedGalaxyPresenter, nextY);
+        _viewModel?.PreviewGalaxyTaskPosition(_draggedGalaxyTask, nextX, nextY);
         e.Handled = true;
     }
 

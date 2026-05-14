@@ -270,6 +270,17 @@
                             <TextBlock Text="{Binding MonitorButtonText}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+                    <Button Command="{Binding ToggleFocusModeCommand}"
+                            Style="{StaticResource LineButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="21" Height="16" Margin="0,0,10,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="{StaticResource Icon.Target}"/>
+                            </Viewbox>
+                            <TextBlock Text="{Binding FocusModeButtonText}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                     <Button Command="{Binding RefreshCommand}"
                             Style="{StaticResource LineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
@@ -357,6 +368,9 @@
                                FontSize="13"
                                FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding FocusModeStatusText}"
+                               Margin="0,4,0,0"
+                               Style="{StaticResource QuietTextStyle}"/>
                     <TextBlock Text="{Binding MemoryCountText}"
                                Margin="0,4,0,0"
                                Style="{StaticResource QuietTextStyle}"/>
@@ -603,6 +617,18 @@
                                 Command="{Binding ToggleGalaxyCommand}"
                                 Style="{StaticResource PresetButtonStyle}"
                                 Margin="0"/>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,10,0">
+                            <Button Content="{i18n:Translate Main_MemoryPreviewGalaxy}"
+                                    Command="{Binding SetMemoryPreviewModeCommand}"
+                                    CommandParameter="galaxy"
+                                    Style="{StaticResource PresetButtonStyle}"
+                                    Margin="0,0,6,0"/>
+                            <Button Content="{i18n:Translate Main_MemoryPreviewFishbone}"
+                                    Command="{Binding SetMemoryPreviewModeCommand}"
+                                    CommandParameter="fishbone"
+                                    Style="{StaticResource PresetButtonStyle}"
+                                    Margin="0"/>
+                        </StackPanel>
                         <StackPanel>
                             <TextBlock Text="{i18n:Translate Main_GalaxyTitle}"
                                        FontSize="22"
@@ -622,7 +648,8 @@
                         <ScrollViewer Grid.Column="0"
                                       HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Auto"
-                                      PreviewMouseWheel="GalaxyScrollViewer_PreviewMouseWheel">
+                                      PreviewMouseWheel="GalaxyScrollViewer_PreviewMouseWheel"
+                                      Visibility="{Binding IsGalaxyPreviewMode, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <Grid x:Name="GalaxyMapSurface" Width="920" Height="640" ClipToBounds="True">
                             <Grid.RenderTransform>
                                 <ScaleTransform x:Name="GalaxyScaleTransform" ScaleX="1" ScaleY="1"/>
@@ -815,6 +842,78 @@
                         </Grid>
                         </ScrollViewer>
 
+                        <Border Grid.Column="0"
+                                Padding="20"
+                                Background="{DynamicResource Perelegans.WindowBackground}"
+                                BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                BorderThickness="1"
+                                Visibility="{Binding IsFishbonePreviewMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0"
+                                        Width="128"
+                                        Height="128"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Background="{DynamicResource Perelegans.PanelBackground}"
+                                        BorderBrush="{DynamicResource Perelegans.AccentBrush}"
+                                        BorderThickness="1">
+                                    <StackPanel VerticalAlignment="Center" Margin="12">
+                                        <TextBlock Text="{i18n:Translate Main_MemoryPreviewFishbone}"
+                                                   FontSize="18"
+                                                   FontWeight="SemiBold"
+                                                   TextAlignment="Center"/>
+                                        <TextBlock Text="{Binding MemoryCountText}"
+                                                   Margin="0,8,0,0"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   Style="{StaticResource QuietTextStyle}"/>
+                                    </StackPanel>
+                                </Border>
+                                <ItemsControl Grid.Column="1"
+                                              ItemsSource="{Binding FishboneBranches}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,14">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="170"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding Title}"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <Grid Grid.Column="1">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <Line X1="0" X2="560" Y1="10" Y2="10"
+                                                          Stroke="{DynamicResource Perelegans.BorderBrush}"
+                                                          StrokeThickness="1.1"/>
+                                                    <TextBlock Grid.Row="1"
+                                                               Text="{Binding Items}"
+                                                               Margin="0,5,0,0"
+                                                               TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
+                                                    <TextBlock Grid.Row="2"
+                                                               Text="{Binding Tags}"
+                                                               Margin="0,3,0,0"
+                                                               TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource Perelegans.AccentBrush}"
+                                                               FontSize="11"/>
+                                                </Grid>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+
                         <Border Grid.Column="1"
                                 Margin="16,0,0,0"
                                 Padding="14"
@@ -851,22 +950,30 @@
                                 <CheckBox Content="{i18n:Translate Main_GalaxyTaskCompleted}"
                                           Margin="0,2,0,16"
                                           IsEnabled="{Binding HasSelectedGalaxyTask}"
+                                          Visibility="{Binding SelectedGalaxyMemory.IsPlan, Converter={StaticResource BooleanToVisibilityConverter}}"
                                           IsChecked="{Binding GalaxyEditIsCompleted, Mode=TwoWay}"/>
 
-                                <TextBlock Text="{i18n:Translate Main_GalaxyTaskInsight}"
-                                           Margin="0,0,0,5"
+                                 <TextBlock Text="{i18n:Translate Main_GalaxyTaskInsight}"
+                                            Margin="0,0,0,5"
+                                            Style="{StaticResource QuietTextStyle}"/>
+                                <TextBlock Text="{Binding SelectedGalaxyMemory.AiDescription}"
+                                            Margin="0,0,0,10"
+                                            TextWrapping="Wrap"
+                                            FontSize="12"/>
+
+                                <TextBlock Text="{i18n:Translate Main_GalaxyTaskExplanation}"
                                            Style="{StaticResource QuietTextStyle}"/>
-                                <TextBlock Text="{Binding SelectedGalaxyMemory.Content}"
-                                           Margin="0,0,0,10"
+                                <TextBlock Text="{Binding SelectedGalaxyMemory.AiExplanation}"
+                                           Margin="0,5,0,10"
                                            TextWrapping="Wrap"
                                            FontSize="12"/>
 
                                 <TextBlock Text="{i18n:Translate Main_GalaxyTaskNextAction}"
                                            Style="{StaticResource QuietTextStyle}"/>
-                                <TextBlock Text="{Binding SelectedGalaxyMemory.Preview}"
-                                           Margin="0,5,0,10"
-                                           TextWrapping="Wrap"
-                                           FontSize="12"/>
+                                <TextBlock Text="{Binding SelectedGalaxyMemory.NextPrediction}"
+                                            Margin="0,5,0,10"
+                                            TextWrapping="Wrap"
+                                            FontSize="12"/>
 
                                 <TextBlock Text="{Binding SelectedGalaxyMemory.Tags, StringFormat={}{0}}"
                                            Margin="0,0,0,4"

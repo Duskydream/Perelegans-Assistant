@@ -27,7 +27,13 @@ public sealed class ContextRetrievalService
     {
         var lines = memories
             .Select(memory =>
-                $"- [{memory.Id}] {memory.TypeText}: {memory.Title}\n  {memory.Content}\n  Tags: {memory.Tags}")
+                $"- [{memory.Id}] {memory.TypeText}: {memory.Title}\n" +
+                $"  Axis: {memory.MemoryAxis}; Constellation: {memory.ConstellationName}; Tags: {memory.Tags}\n" +
+                $"  Plan: {memory.IsPlan}; Completed: {memory.IsCompleted}; Weight: {memory.Weight:0.00}; WeightProfile: {memory.AiWeightProfile}\n" +
+                $"  Content: {memory.Content}\n" +
+                $"  Description: {memory.AiDescription}\n" +
+                $"  Explanation: {memory.AiExplanation}\n" +
+                $"  NextPrediction: {memory.NextPrediction}")
             .ToList();
 
         return lines.Count == 0

@@ -64,6 +64,35 @@ public class DatabaseService
             .ToList();
     }
 
+    public async Task<ContextMemory?> GetLatestOpenPlanMemoryAsync()
+    {
+        await using var db = new PerelegansDbContext();
+        return await db.ContextMemories
+            .AsNoTracking()
+            .Where(m => m.IsPlan && !m.IsCompleted)
+            .OrderByDescending(m => m.UpdatedAt)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<ContextMemory?> CompleteContextMemoryAsync(int id)
+    {
+        await using var db = new PerelegansDbContext();
+        var memory = await db.ContextMemories.FirstOrDefaultAsync(m => m.Id == id);
+        if (memory == null)
+        {
+            return null;
+        }
+
+        memory.IsCompleted = true;
+        memory.CompletedAt = DateTime.Now;
+        memory.Weight = CreateEffectiveMemoryWeight(memory.Weight, memory.IsPlan, true);
+        memory.AiWeightProfile = CreateMemoryWeightProfile(memory.IsPlan, true, memory.Weight);
+        memory.UpdatedAt = DateTime.Now;
+        memory.NodeSize = CreateMemoryNodeSize(memory.Weight, memory.Content);
+        await db.SaveChangesAsync();
+        return memory;
+    }
+
     public async Task<ContextMemory> UpsertContextMemoryAsync(
         string title,
         string content,
@@ -71,9 +100,16 @@ public class DatabaseService
         string source,
         string tags,
         double weight,
-        int? id = null)
+        int? id = null,
+        string memoryAxis = "",
+        string aiDescription = "",
+        string aiExplanation = "",
+        string nextPrediction = "",
+        bool? isPlan = null,
+        bool? isCompleted = null,
+        string aiWeightProfile = "")
     {
-        var normalizedTitle = string.IsNullOrWhiteSpace(title)
+        var normalizedTitle = string.IsNullOrWhiteSpace(title) || IsGenericMemoryTitle(title)
             ? CreateMemoryTitle(content)
             : title.Trim();
         var normalizedContent = content.Trim();
@@ -102,18 +138,48 @@ public class DatabaseService
             db.ContextMemories.Add(memory);
         }
 
+        var normalizedTags = NormalizeMemoryTags(tags, normalizedContent);
+        var planDetected = (isPlan ?? false) || LooksLikePlanMemory(normalizedContent) || HasTag(normalizedTags, "plan");
+        if (planDetected)
+        {
+            normalizedTags = AddTag(normalizedTags, "plan");
+            type = ContextMemoryType.Task;
+        }
+
         memory.Title = normalizedTitle;
         memory.Content = normalizedContent;
         memory.Type = type;
         memory.Source = source.Trim();
-        memory.Tags = tags.Trim();
-        memory.Weight = Math.Clamp(weight, 0.1, 1.0);
-        memory.ConstellationName = CreateMemoryConstellationName(type, memory.Tags, normalizedTitle);
+        memory.Tags = normalizedTags;
+        memory.IsPlan = planDetected;
+        memory.MemoryAxis = NormalizeMemoryAxis(memoryAxis, type, planDetected);
+        memory.AiDescription = NormalizeLongText(aiDescription, normalizedContent, 1200);
+        memory.AiExplanation = NormalizeLongText(aiExplanation, CreateFallbackMemoryExplanation(type, normalizedTags, normalizedContent, planDetected), 2000);
+        memory.NextPrediction = NormalizeLongText(nextPrediction, planDetected ? CreateFallbackNextAction(normalizedTitle) : string.Empty, 1200);
+        memory.AiWeightProfile = string.IsNullOrWhiteSpace(aiWeightProfile)
+            ? CreateMemoryWeightProfile(planDetected, isCompleted ?? memory.IsCompleted, weight)
+            : aiWeightProfile.Trim();
+        memory.IsCompleted = isCompleted ?? (planDetected ? memory.IsCompleted : false);
+        memory.CompletedAt = memory.IsCompleted
+            ? memory.CompletedAt ?? DateTime.Now
+            : null;
+        memory.Weight = CreateEffectiveMemoryWeight(weight, planDetected, memory.IsCompleted);
+        memory.ConstellationName = CreateMemoryConstellationName(type, memory.Tags, normalizedTitle, normalizedContent);
         memory.NodeSize = CreateMemoryNodeSize(memory.Weight, normalizedContent);
         memory.UpdatedAt = DateTime.Now;
 
         await db.SaveChangesAsync();
         return memory;
+    }
+
+    public async Task<List<ApplicationUsageSession>> GetApplicationUsageSessionsSinceAsync(DateTime since)
+    {
+        await using var db = new PerelegansDbContext();
+        return await db.ApplicationUsageSessions
+            .AsNoTracking()
+            .Where(s => s.StartTime >= since || s.EndTime >= since)
+            .OrderByDescending(s => s.StartTime)
+            .ToListAsync();
     }
 
     public async Task MarkContextMemoriesUsedAsync(IEnumerable<int> ids)
@@ -249,9 +315,12 @@ public class DatabaseService
             Difficulty = Math.Clamp(adventure?.Difficulty ?? 2, 1, 5),
             EstimatedMinutes = Math.Clamp(adventure?.EstimatedMinutes ?? 25, 5, 480),
             Tags = NormalizeTags(adventure?.Tags, normalizedTitle),
-            ConstellationName = string.IsNullOrWhiteSpace(adventure?.ConstellationName)
-                ? CreateFallbackConstellationName(normalizedTitle)
-                : adventure.ConstellationName.Trim(),
+            ConstellationName = CreateTaskConstellationName(
+                normalizedTitle,
+                NormalizeTags(adventure?.Tags, normalizedTitle),
+                adventure?.Summary,
+                adventure?.NextAction,
+                adventure?.ConstellationName),
             CreatedAt = DateTime.Now,
             X = x,
             Y = y,
@@ -654,6 +723,14 @@ public class DatabaseService
                 "Source" TEXT NOT NULL DEFAULT '',
                 "Tags" TEXT NOT NULL DEFAULT '',
                 "Weight" REAL NOT NULL DEFAULT 0.6,
+                "MemoryAxis" TEXT NOT NULL DEFAULT 'event',
+                "AiDescription" TEXT NOT NULL DEFAULT '',
+                "AiExplanation" TEXT NOT NULL DEFAULT '',
+                "NextPrediction" TEXT NOT NULL DEFAULT '',
+                "IsPlan" INTEGER NOT NULL DEFAULT 0,
+                "IsCompleted" INTEGER NOT NULL DEFAULT 0,
+                "CompletedAt" TEXT NULL,
+                "AiWeightProfile" TEXT NOT NULL DEFAULT '',
                 "ConstellationName" TEXT NOT NULL DEFAULT '',
                 "CreatedAt" TEXT NOT NULL,
                 "UpdatedAt" TEXT NOT NULL,
@@ -672,6 +749,14 @@ public class DatabaseService
         await command.ExecuteNonQueryAsync();
 
         await EnsureColumnAsync(connection, "ContextMemories", "ConstellationName", "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(connection, "ContextMemories", "MemoryAxis", "TEXT NOT NULL DEFAULT 'event'");
+        await EnsureColumnAsync(connection, "ContextMemories", "AiDescription", "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(connection, "ContextMemories", "AiExplanation", "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(connection, "ContextMemories", "NextPrediction", "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(connection, "ContextMemories", "IsPlan", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "ContextMemories", "IsCompleted", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "ContextMemories", "CompletedAt", "TEXT NULL");
+        await EnsureColumnAsync(connection, "ContextMemories", "AiWeightProfile", "TEXT NOT NULL DEFAULT ''");
         await EnsureColumnAsync(connection, "ContextMemories", "X", "REAL NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "Y", "REAL NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "NodeSize", "REAL NOT NULL DEFAULT 18");
@@ -760,9 +845,15 @@ public class DatabaseService
                 changed = true;
             }
 
-            if (string.IsNullOrWhiteSpace(task.ConstellationName))
+            var taskConstellation = CreateTaskConstellationName(
+                task.Title,
+                task.Tags,
+                task.AiSummary,
+                task.NextAction,
+                task.ConstellationName);
+            if (!string.Equals(task.ConstellationName, taskConstellation, StringComparison.Ordinal))
             {
-                task.ConstellationName = CreateFallbackConstellationName(task.Title);
+                task.ConstellationName = taskConstellation;
                 changed = true;
             }
         }
@@ -784,6 +875,71 @@ public class DatabaseService
         for (var index = 0; index < memories.Count; index++)
         {
             var memory = memories[index];
+            if (IsGenericMemoryTitle(memory.Title) && !string.IsNullOrWhiteSpace(memory.Content))
+            {
+                memory.Title = CreateMemoryTitle(memory.Content);
+                changed = true;
+            }
+
+            var planDetected = memory.IsPlan || LooksLikePlanMemory(memory.Content) || HasTag(memory.Tags, "plan");
+            if (planDetected && (!memory.IsPlan || memory.Type != ContextMemoryType.Task || !HasTag(memory.Tags, "plan")))
+            {
+                memory.IsPlan = true;
+                memory.Type = ContextMemoryType.Task;
+                memory.Tags = AddTag(memory.Tags, "plan");
+                changed = true;
+            }
+
+            var normalizedTags = NormalizeMemoryTags(memory.Tags, memory.Content);
+            if (!string.Equals(memory.Tags, normalizedTags, StringComparison.Ordinal))
+            {
+                memory.Tags = normalizedTags;
+                changed = true;
+            }
+
+            var axis = NormalizeMemoryAxis(memory.MemoryAxis, memory.Type, memory.IsPlan);
+            if (!string.Equals(memory.MemoryAxis, axis, StringComparison.Ordinal))
+            {
+                memory.MemoryAxis = axis;
+                changed = true;
+            }
+
+            if (memory.IsCompleted && memory.CompletedAt == null)
+            {
+                memory.CompletedAt = memory.UpdatedAt;
+                changed = true;
+            }
+
+            if (!memory.IsCompleted && memory.CompletedAt != null)
+            {
+                memory.CompletedAt = null;
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(memory.AiDescription))
+            {
+                memory.AiDescription = NormalizeLongText(string.Empty, memory.Content, 1200);
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(memory.AiExplanation))
+            {
+                memory.AiExplanation = CreateFallbackMemoryExplanation(memory.Type, memory.Tags, memory.Content, memory.IsPlan);
+                changed = true;
+            }
+
+            if (memory.IsPlan && string.IsNullOrWhiteSpace(memory.NextPrediction))
+            {
+                memory.NextPrediction = CreateFallbackNextAction(memory.Title);
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(memory.AiWeightProfile))
+            {
+                memory.AiWeightProfile = CreateMemoryWeightProfile(memory.IsPlan, memory.IsCompleted, memory.Weight);
+                changed = true;
+            }
+
             if (memory.X <= 0 || memory.Y <= 0 || memory.NodeSize <= 0)
             {
                 var (x, y) = CreateGalaxyCoordinate(index, memory.Title);
@@ -799,7 +955,7 @@ public class DatabaseService
                 changed = true;
             }
 
-            var constellation = CreateMemoryConstellationName(memory.Type, memory.Tags, memory.Title);
+            var constellation = CreateMemoryConstellationName(memory.Type, memory.Tags, memory.Title, memory.Content);
             if (!string.Equals(memory.ConstellationName, constellation, StringComparison.Ordinal))
             {
                 memory.ConstellationName = constellation;
@@ -913,24 +1069,203 @@ public class DatabaseService
         return 14 + weightSize + contentSize;
     }
 
-    private static string CreateMemoryConstellationName(ContextMemoryType type, string tags, string title)
+    private static double CreateEffectiveMemoryWeight(double requestedWeight, bool isPlan, bool isCompleted)
     {
-        var firstTag = tags
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .FirstOrDefault(tag => tag.Length >= 2);
-        if (!string.IsNullOrWhiteSpace(firstTag))
+        var baseWeight = Math.Clamp(requestedWeight, 0.1, 1.0);
+        if (!isPlan)
         {
-            return $"{firstTag}星座";
+            return baseWeight;
         }
 
-        return type switch
+        return isCompleted
+            ? Math.Clamp(baseWeight * 0.82, 0.35, 0.86)
+            : Math.Clamp(baseWeight + 0.18, 0.72, 1.0);
+    }
+
+    private static string CreateMemoryWeightProfile(bool isPlan, bool isCompleted, double requestedWeight)
+    {
+        var status = isPlan
+            ? isCompleted ? "completed" : "open"
+            : "context";
+        var planBoost = isPlan && !isCompleted ? 0.35 : isPlan ? 0.08 : 0.0;
+        var completionPenalty = isPlan && isCompleted ? 0.18 : 0.0;
+        return
+            $"{{\"base\":{Math.Clamp(requestedWeight, 0.1, 1.0):0.00},\"planBoost\":{planBoost:0.00},\"completionPenalty\":{completionPenalty:0.00},\"status\":\"{status}\"}}";
+    }
+
+    private static string NormalizeMemoryAxis(string memoryAxis, ContextMemoryType type, bool isPlan)
+    {
+        if (isPlan || type == ContextMemoryType.Task)
         {
-            ContextMemoryType.Preference => "偏好星座",
-            ContextMemoryType.Project => "项目星座",
-            ContextMemoryType.Decision => "决策星座",
-            ContextMemoryType.Workflow => "工作流星座",
-            ContextMemoryType.Application => "应用星座",
-            _ => CreateFallbackConstellationName(title)
+            return "task";
+        }
+
+        var normalized = memoryAxis.Trim().ToLowerInvariant();
+        return normalized is "task" or "event" or "decision" or "workflow" or "preference" or "application"
+            ? normalized
+            : type switch
+            {
+                ContextMemoryType.Preference => "preference",
+                ContextMemoryType.Decision => "decision",
+                ContextMemoryType.Workflow => "workflow",
+                ContextMemoryType.Application => "application",
+                _ => "event"
+            };
+    }
+
+    private static string NormalizeLongText(string text, string fallback, int maxLength)
+    {
+        var normalized = string.IsNullOrWhiteSpace(text) ? fallback : text;
+        normalized = normalized.Trim();
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
+
+    private static string CreateFallbackMemoryExplanation(
+        ContextMemoryType type,
+        string tags,
+        string content,
+        bool isPlan)
+    {
+        var axis = isPlan ? "任务/计划" : type switch
+        {
+            ContextMemoryType.Preference => "偏好",
+            ContextMemoryType.Decision => "决策",
+            ContextMemoryType.Workflow => "流程",
+            ContextMemoryType.Application => "应用",
+            ContextMemoryType.Project => "项目",
+            _ => "事件"
+        };
+        var constellation = CreateMemoryConstellationName(type, tags, content, content);
+        return $"按「{axis}」主轴保存；根据 tag「{tags}」与内容语义归入「{constellation}」。";
+    }
+
+    private static string CreateMemoryConstellationName(
+        ContextMemoryType type,
+        string tags,
+        string title,
+        string content)
+    {
+        var text = string.Join(' ', title, content, tags, type.ToString());
+        return CreateTaxonomyConstellationName(text, type);
+    }
+
+    private static string CreateTaskConstellationName(
+        string title,
+        string tags,
+        string? summary = null,
+        string? nextAction = null,
+        string? modelConstellation = null)
+    {
+        var text = string.Join(' ', title, tags, summary, nextAction, modelConstellation);
+        return CreateTaxonomyConstellationName(text, null);
+    }
+
+    private static string CreateTaxonomyConstellationName(string text, ContextMemoryType? memoryType)
+    {
+        var normalized = (text ?? string.Empty).ToLowerInvariant();
+        var mentionsLearning = ContainsAny(normalized,
+            "study", "learn", "course", "lesson", "exam", "review", "reading notes",
+            "学习", "复习", "课程", "考试", "刷题", "读书", "阅读");
+        var mentionsDevelopment = ContainsAny(normalized,
+            "code", "coding", "dev", "develop", "development", "program", "programming", "repo", "project",
+            "bug", "fix", "implement", "refactor", "test", "dotnet", "c#", "csharp",
+            "代码", "开发", "编程", "项目", "仓库", "实现", "修复", "重构", "测试", "调试");
+
+        if (mentionsLearning && mentionsDevelopment)
+        {
+            return "行动 / 学习与开发";
+        }
+
+        if (ContainsAny(normalized,
+                "deep learning", "deeplearning", "machine learning", "neural", "cnn", "transformer", "ml",
+                "深度学习", "机器学习", "神经网络", "模型训练", "算法学习"))
+        {
+            return "学习 / 深度学习";
+        }
+
+        if (ContainsAny(normalized,
+                "study", "learn", "course", "lesson", "exam", "review", "reading notes",
+                "学习", "复习", "课程", "考试", "刷题", "读书", "阅读"))
+        {
+            return "学习";
+        }
+
+        if (ContainsAny(normalized,
+                "game", "gaming", "steam", "unity", "unreal", "play session",
+                "游戏", "游玩", "娱乐"))
+        {
+            return "游戏";
+        }
+
+        if (ContainsAny(normalized,
+                "wpf", "xaml", "avalonia", "winui", "desktop", "perelegans"))
+        {
+            return "开发 / 桌面应用";
+        }
+
+        if (ContainsAny(normalized,
+                "frontend", "front-end", "react", "vue", "css", "html", "ui", "ux", "web"))
+        {
+            return "开发 / 前端";
+        }
+
+        if (ContainsAny(normalized,
+                "backend", "api", "server", "database", "sql", "ef core", "http"))
+        {
+            return "开发 / 后端";
+        }
+
+        if (ContainsAny(normalized,
+                "code", "coding", "dev", "develop", "development", "program", "programming", "repo", "project",
+                "bug", "fix", "implement", "refactor", "test", "dotnet", "c#", "csharp",
+                "代码", "开发", "编程", "项目", "仓库", "实现", "修复", "重构", "测试", "调试"))
+        {
+            return "开发";
+        }
+
+        if (ContainsAny(normalized,
+                "write", "writing", "paper", "article", "draft", "document", "docx", "markdown",
+                "写作", "论文", "文章", "文档", "草稿", "整理"))
+        {
+            return "写作";
+        }
+
+        if (ContainsAny(normalized,
+                "design", "figma", "prototype", "layout", "visual",
+                "设计", "原型", "视觉", "排版"))
+        {
+            return "设计";
+        }
+
+        if (ContainsAny(normalized,
+                "data", "analysis", "spreadsheet", "excel", "chart", "report",
+                "数据", "分析", "表格", "报表", "图表"))
+        {
+            return "数据";
+        }
+
+        if (ContainsAny(normalized,
+                "meeting", "email", "chat", "message", "communicate",
+                "会议", "沟通", "邮件", "消息", "讨论"))
+        {
+            return "沟通";
+        }
+
+        if (ContainsAny(normalized,
+                "health", "home", "life", "habit", "finance",
+                "生活", "健康", "习惯", "家庭", "财务"))
+        {
+            return "生活";
+        }
+
+        return memoryType switch
+        {
+            ContextMemoryType.Preference => "偏好",
+            ContextMemoryType.Decision => "决策",
+            ContextMemoryType.Workflow => "工作流",
+            ContextMemoryType.Application => "应用",
+            ContextMemoryType.Project => "项目",
+            _ => "行动"
         };
     }
 
@@ -938,6 +1273,12 @@ public class DatabaseService
     {
         var normalized = content.Trim().Replace('\r', ' ').Replace('\n', ' ');
         return normalized.Length <= 24 ? normalized : normalized[..24];
+    }
+
+    private static bool IsGenericMemoryTitle(string title)
+    {
+        return title.Trim().ToLowerInvariant() is
+            "笔记" or "记录" or "记忆" or "项目" or "任务" or "note" or "notes" or "memory" or "project" or "task";
     }
 
     private static HashSet<string> CreateSearchTerms(string query)
@@ -960,7 +1301,17 @@ public class DatabaseService
 
     private static double ScoreMemory(ContextMemory memory, HashSet<string> terms)
     {
-        var haystack = string.Join(' ', memory.Title, memory.Content, memory.Tags, memory.Source).ToLowerInvariant();
+        var haystack = string.Join(
+            ' ',
+            memory.Title,
+            memory.Content,
+            memory.Tags,
+            memory.Source,
+            memory.MemoryAxis,
+            memory.AiDescription,
+            memory.AiExplanation,
+            memory.NextPrediction,
+            memory.ConstellationName).ToLowerInvariant();
         var score = 0d;
         foreach (var term in terms)
         {
@@ -977,7 +1328,8 @@ public class DatabaseService
 
         var ageDays = Math.Max(0, (DateTime.Now - memory.UpdatedAt).TotalDays);
         var recencyBoost = Math.Max(0, 1.2 - ageDays / 30d);
-        return score + memory.Weight * 2 + recencyBoost;
+        var planBoost = memory.IsPlan && !memory.IsCompleted ? 1.8 : memory.IsPlan ? 0.45 : 0;
+        return score + memory.Weight * 2 + recencyBoost + planBoost;
     }
 
     private static HashSet<string> ExtractKeywords(string text)
@@ -992,6 +1344,11 @@ public class DatabaseService
             .Where(token => token.Length >= 2)
             .Select(token => token.ToLowerInvariant())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool ContainsAny(string text, params string[] candidates)
+    {
+        return candidates.Any(candidate => text.Contains(candidate, StringComparison.OrdinalIgnoreCase));
     }
 
     private static HashSet<string> ExtractSemanticTerms(FocusTask task)
@@ -1033,6 +1390,127 @@ public class DatabaseService
         return string.Join(", ", normalized);
     }
 
+    private static string NormalizeMemoryTags(string tags, string content)
+    {
+        var normalized = new List<string>();
+        if (LooksLikePlanMemory(content) || HasTag(tags, "plan"))
+        {
+            normalized.Add("plan");
+        }
+
+        normalized.AddRange(CreateSemanticMemoryTags(content));
+        normalized.AddRange(tags
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeTag)
+            .Where(IsUsefulMemoryTag));
+
+        if (normalized.Count == 0)
+        {
+            normalized = ExtractKeywords(content)
+                .Select(NormalizeTag)
+                .Where(IsUsefulMemoryTag)
+                .Take(6)
+                .ToList();
+        }
+
+        if (normalized.Count == 0)
+        {
+            normalized.Add("memory");
+        }
+
+        return string.Join(", ", normalized.Distinct(StringComparer.OrdinalIgnoreCase).Take(8));
+    }
+
+    private static string AddTag(string tags, string tag)
+    {
+        var normalized = tags
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeTag)
+            .Where(IsUsefulMemoryTag)
+            .ToList();
+        if (!normalized.Contains(tag, StringComparer.OrdinalIgnoreCase))
+        {
+            normalized.Insert(0, tag);
+        }
+
+        return string.Join(", ", normalized.Distinct(StringComparer.OrdinalIgnoreCase).Take(8));
+    }
+
+    private static bool HasTag(string tags, string tag)
+    {
+        return tags
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(item => string.Equals(item.Trim().TrimStart('#'), tag, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool LooksLikePlanMemory(string text)
+    {
+        var normalized = text.Trim().ToLowerInvariant();
+        return ContainsAny(normalized,
+            "我要", "我计划", "我打算", "我准备", "我想要", "计划", "打算",
+            "i will", "i plan", "i want to", "i'm going to", "going to", "plan to");
+    }
+
+    private static IEnumerable<string> CreateSemanticMemoryTags(string content)
+    {
+        var lower = content.ToLowerInvariant();
+        if (ContainsAny(lower, "deep learning", "deeplearning", "深度学习"))
+        {
+            yield return "deep learning";
+            yield return "dl";
+            yield return "learn";
+        }
+
+        if (ContainsAny(lower, "machine learning", "机器学习"))
+        {
+            yield return "machine learning";
+            yield return "ml";
+            yield return "learn";
+        }
+
+        if (ContainsAny(lower, "学习", "复习", "课程", "阅读", "learn", "study", "course"))
+        {
+            yield return "learn";
+        }
+
+        if (ContainsAny(lower, "开发", "编程", "代码", "实现", "调试", "programming", "development", "coding", "code"))
+        {
+            yield return "development";
+            yield return "code";
+        }
+
+        if (ContainsAny(lower, "wpf", "xaml", "avalonia", "winui"))
+        {
+            yield return "desktop";
+            yield return "wpf";
+        }
+    }
+
+    private static string NormalizeTag(string tag)
+    {
+        return tag.Trim().TrimStart('#').ToLowerInvariant();
+    }
+
+    private static bool IsUsefulMemoryTag(string tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag) || tag.Length > 32)
+        {
+            return false;
+        }
+
+        if (ContainsAny(tag, "我要", "我计划", "我打算", "我准备", "我想要"))
+        {
+            return false;
+        }
+
+        return !ContainsCjk(tag);
+    }
+
+    private static bool ContainsCjk(string text)
+    {
+        return text.Any(character => character is >= '\u4e00' and <= '\u9fff');
+    }
+
     private static string CreateFallbackNextAction(string title)
     {
         return $"先推进「{title}」最小可验证的一步。";
@@ -1040,10 +1518,7 @@ public class DatabaseService
 
     private static string CreateFallbackConstellationName(string title)
     {
-        var firstKeyword = ExtractKeywords(title).FirstOrDefault();
-        return string.IsNullOrWhiteSpace(firstKeyword)
-            ? "行动星座"
-            : $"{firstKeyword}星座";
+        return CreateTaxonomyConstellationName(title, null);
     }
 
     private async Task DropLegacyGameTablesAsync()

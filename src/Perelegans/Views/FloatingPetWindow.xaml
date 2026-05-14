@@ -23,6 +23,9 @@
     <Grid Tag="{Binding}">
         <Grid.ContextMenu>
             <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                <MenuItem Header="{Binding MonitorMenuText}"
+                          Command="{Binding ToggleMonitorCommand}"/>
+                <Separator/>
                 <MenuItem Header="设置"
                           Command="{Binding OpenSettingsCommand}"/>
                 <Separator/>

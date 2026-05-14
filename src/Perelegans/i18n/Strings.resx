@@ -58,24 +58,27 @@
   <data name="Main_Send" xml:space="preserve"><value>Send</value></data>
   <data name="Main_Refresh" xml:space="preserve"><value>Refresh</value></data>
   <data name="Main_Settings" xml:space="preserve"><value>Settings</value></data>
-  <data name="Main_Galaxy" xml:space="preserve"><value>Galaxy</value></data>
+  <data name="Main_Galaxy" xml:space="preserve"><value>Memory</value></data>
   <data name="Main_DailyReview" xml:space="preserve"><value>Daily review</value></data>
   <data name="Main_CloseGalaxy" xml:space="preserve"><value>Back</value></data>
-  <data name="Main_GalaxyTitle" xml:space="preserve"><value>Personal Memory Galaxy</value></data>
+  <data name="Main_GalaxyTitle" xml:space="preserve"><value>Local Memory</value></data>
+  <data name="Main_MemoryPreviewGalaxy" xml:space="preserve"><value>Galaxy</value></data>
+  <data name="Main_MemoryPreviewFishbone" xml:space="preserve"><value>Fishbone</value></data>
   <data name="Main_GalaxyEmpty" xml:space="preserve"><value>No memory nodes yet.</value></data>
   <data name="Main_GalaxyEditTitle" xml:space="preserve"><value>Memory Node</value></data>
   <data name="Main_GalaxyEditHint" xml:space="preserve"><value>Select a star to edit it. Drag a star to reshape the map.</value></data>
   <data name="Main_GalaxyTaskTitle" xml:space="preserve"><value>Title</value></data>
   <data name="Main_GalaxyTaskTime" xml:space="preserve"><value>Updated</value></data>
-  <data name="Main_GalaxyTaskCompleted" xml:space="preserve"><value>Important memory</value></data>
-  <data name="Main_GalaxyTaskInsight" xml:space="preserve"><value>AI insight</value></data>
-  <data name="Main_GalaxyTaskNextAction" xml:space="preserve"><value>Next action</value></data>
+  <data name="Main_GalaxyTaskCompleted" xml:space="preserve"><value>Completed</value></data>
+  <data name="Main_GalaxyTaskInsight" xml:space="preserve"><value>AI description</value></data>
+  <data name="Main_GalaxyTaskExplanation" xml:space="preserve"><value>Why it belongs here</value></data>
+  <data name="Main_GalaxyTaskNextAction" xml:space="preserve"><value>Prediction / next step</value></data>
   <data name="Main_GalaxyTaskSave" xml:space="preserve"><value>Save memory</value></data>
   <data name="Main_GalaxyTaskDelete" xml:space="preserve"><value>Delete memory</value></data>
   <data name="Main_GalaxyTaskSaved" xml:space="preserve"><value>Memory node saved.</value></data>
   <data name="Main_GalaxyTaskMoved" xml:space="preserve"><value>Memory node moved.</value></data>
   <data name="Main_GalaxyTaskDeleted" xml:space="preserve"><value>Memory node deleted.</value></data>
-  <data name="Main_GalaxyTaskTitleRequired" xml:space="preserve"><value>Task title is required.</value></data>
+  <data name="Main_GalaxyTaskTitleRequired" xml:space="preserve"><value>Memory title is required.</value></data>
   <data name="Main_GalaxyTaskTimeInvalid" xml:space="preserve"><value>Use a valid time, for example 2026-05-13 14:30.</value></data>
   <data name="Main_GalaxyTaskSaveFailed" xml:space="preserve"><value>Could not save this memory.</value></data>
   <data name="Main_GalaxyTaskDeleteFailed" xml:space="preserve"><value>Could not delete this memory.</value></data>
@@ -86,6 +89,14 @@
   <data name="Main_ClearData" xml:space="preserve"><value>Clear data</value></data>
   <data name="Main_StartMonitor" xml:space="preserve"><value>Start listening</value></data>
   <data name="Main_PauseMonitor" xml:space="preserve"><value>Take a break</value></data>
+  <data name="Main_FocusModeStart" xml:space="preserve"><value>Focus mode</value></data>
+  <data name="Main_FocusModeEnd" xml:space="preserve"><value>End focus</value></data>
+  <data name="Main_FocusModeIdle" xml:space="preserve"><value>Focus mode is off</value></data>
+  <data name="Main_FocusModeActiveFormat" xml:space="preserve"><value>Focusing: {0}</value></data>
+  <data name="Main_FocusModeNoPlan" xml:space="preserve"><value>No unfinished plan memory yet. Say “I plan to...” first.</value></data>
+  <data name="Main_FocusModeStartedFormat" xml:space="preserve"><value>Focus mode started for “{0}”. I will keep reminders gentle.</value></data>
+  <data name="Main_FocusModeEnded" xml:space="preserve"><value>Focus mode ended.</value></data>
+  <data name="Main_FocusModeCompletedFormat" xml:space="preserve"><value>Marked “{0}” complete and ended focus mode.</value></data>
   <data name="Main_MonitoringOn" xml:space="preserve"><value>Quietly keeping up with your day</value></data>
   <data name="Main_MonitoringOff" xml:space="preserve"><value>Paused for now</value></data>
   <data name="Main_CurrentApp" xml:space="preserve"><value>Current app</value></data>

@@ -41,10 +41,15 @@ public sealed class FocusClassificationClient
             "Only save stable preferences, project context, decisions, workflows, application/tool facts, or concise notes.\n" +
             "Do not save passwords, secrets, one-off casual chat, or sensitive personal data.\n" +
             "If the new information conflicts with existing memories, summarize the newer statement without deleting anything.\n\n" +
+            "Language rules: title, content, reply, and any user-visible text must be Simplified Chinese. Keep only tags in short lowercase English.\n" +
+            "The title must be specific and human-readable. Never use generic titles such as 笔记, 记录, 记忆, Note, Project, or Task.\n" +
+            "Organize memory as a fishbone/RAG node: memoryAxis is event or task; tags are clustering ribs; description explains what happened or what is planned; explanation explains why it matters; nextPrediction predicts the likely next useful step.\n" +
+            "If the user says 我要, 我计划, 我打算, I plan, or I want to, set type=Task, memoryAxis=task, isPlan=true, isCompleted=false, and include the tag plan.\n" +
+            "Use Chinese constellation-style names when a memory is later displayed; do not output mixed labels such as learning星座.\n\n" +
             "Existing local context:\n" + contextPack + "\n\n" +
             "User message:\n" + userInput.Trim() + "\n\n" +
             "Return JSON only. Schema:\n" +
-            "{\"shouldRemember\":true,\"type\":\"Preference|Project|Decision|Workflow|Application|Note\",\"title\":\"short title\",\"content\":\"one durable memory sentence\",\"tags\":[\"tag\"],\"weight\":0.0,\"reply\":\"short user-facing note\",\"confidence\":0.0}";
+            "{\"shouldRemember\":true,\"type\":\"Preference|Project|Decision|Workflow|Application|Note|Event|Task\",\"title\":\"short title\",\"content\":\"one durable memory sentence\",\"tags\":[\"tag\"],\"weight\":0.0,\"memoryAxis\":\"event|task\",\"description\":\"what this memory means\",\"explanation\":\"why it matters\",\"nextPrediction\":\"likely next step\",\"isPlan\":false,\"isCompleted\":false,\"weightProfile\":\"compact json string\",\"reply\":\"short user-facing note\",\"confidence\":0.0}";
 
         var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 420);
         return string.IsNullOrWhiteSpace(content)
@@ -72,12 +77,15 @@ public sealed class FocusClassificationClient
         var prompt =
             "You are Perelegans, a lightweight local-first Windows assistant.\n" +
             "You help by using explicit local memories and current desktop context. You are not a focus-mode coach; do not judge the user or push discipline.\n" +
-            "Answer naturally in the user's language. Be concise, concrete, and transparent when using local memory.\n\n" +
+            "Answer naturally in Simplified Chinese by default. Be concise, concrete, and transparent when using local memory.\n" +
+            "For suggestedMemory, title/content/reply must be Simplified Chinese; only tags should be short lowercase English words.\n\n" +
+            "For suggestedMemory.title, use a specific title from the actual subject. Never use generic titles such as 笔记, 记录, 记忆, Note, Project, or Task.\n\n" +
+            "When suggesting memory, use a fishbone/RAG node: memoryAxis event/task, tags for clustering, description, explanation, nextPrediction. If the user expresses a plan with 我要/我计划/我打算/I plan/I want to, mark it as type Task, tag plan, isPlan true, isCompleted false.\n\n" +
             "Relevant local memories:\n" + contextPack + "\n\n" +
             "Current desktop context:\n" + foreground + "\n\n" +
             "User message:\n" + userInput.Trim() + "\n\n" +
             "Return JSON only. Schema:\n" +
-            "{\"reply\":\"assistant reply\",\"usedMemoryIds\":[1,2],\"suggestedMemory\":{\"shouldRemember\":false,\"type\":\"Note\",\"title\":\"\",\"content\":\"\",\"tags\":[],\"weight\":0.0,\"reply\":\"\",\"confidence\":0.0}}";
+            "{\"reply\":\"assistant reply\",\"usedMemoryIds\":[1,2],\"suggestedMemory\":{\"shouldRemember\":false,\"type\":\"Note\",\"title\":\"\",\"content\":\"\",\"tags\":[],\"weight\":0.0,\"memoryAxis\":\"event\",\"description\":\"\",\"explanation\":\"\",\"nextPrediction\":\"\",\"isPlan\":false,\"isCompleted\":false,\"weightProfile\":\"\",\"reply\":\"\",\"confidence\":0.0}}";
 
         var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 700);
         return string.IsNullOrWhiteSpace(content)
@@ -123,10 +131,11 @@ public sealed class FocusClassificationClient
             "目标：帮助用户知道这件事是什么、下一步怎么开始、它属于哪个长期行动星座。\n" +
             "questTitle 是 12 字以内的短标题；questNarrative 是一句自然、实用的任务说明；rewardName 是完成后的真实产出名称。\n" +
             "summary 是任务目的摘要；nextAction 必须是 15 分钟内可启动的具体动作；difficulty 为 1-5；estimatedMinutes 为合理分钟数。\n" +
-            "tags 给 2-6 个语义标签；constellationName 给一个稳定的星座名，用于把相似任务聚类，例如“写作星座”“WPF开发星座”“考试复习星座”。\n" +
+            "questTitle、questNarrative、rewardName、summary、nextAction、constellationName 必须使用简体中文；只有 tags 使用 2-6 个短英文标签。\n" +
+            "constellationName 只能使用固定抽象分类或一层子类，例如“开发”“开发 / 桌面应用”“学习”“学习 / 深度学习”“游戏”“写作”“设计”“数据”“沟通”“生活”。不要用具体项目名、任务名或英文 tag 拼星座名。\n" +
             $"用户任务：{taskTitle.Trim()}\n" +
             "必须只返回 JSON，不要 Markdown，不要解释。格式：\n" +
-            "{\"questTitle\":\"整理论文摘要\",\"questNarrative\":\"把论文摘要整理成可提交的清晰版本。\",\"rewardName\":\"论文摘要初稿\",\"summary\":\"完成论文摘要的结构梳理和语言修订。\",\"nextAction\":\"打开文档，先列出摘要的三段结构。\",\"difficulty\":3,\"estimatedMinutes\":45,\"tags\":[\"写作\",\"论文\",\"整理\"],\"constellationName\":\"论文写作星座\"}";
+            "{\"questTitle\":\"整理论文摘要\",\"questNarrative\":\"把论文摘要整理成可提交的清晰版本。\",\"rewardName\":\"论文摘要初稿\",\"summary\":\"完成论文摘要的结构梳理和语言修订。\",\"nextAction\":\"打开文档，先列出摘要的三段结构。\",\"difficulty\":3,\"estimatedMinutes\":45,\"tags\":[\"writing\",\"paper\",\"editing\"],\"constellationName\":\"写作\"}";
 
         var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken);
         return string.IsNullOrWhiteSpace(content)
@@ -163,7 +172,8 @@ public sealed class FocusClassificationClient
 
     public async Task<DailyReviewDraft?> CreateDailyReviewAsync(
         IReadOnlyCollection<FocusTask> tasks,
-        IReadOnlyCollection<ApplicationUsage> applications,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
         CancellationToken cancellationToken = default)
     {
         if (!IsConfigured ||
@@ -185,22 +195,45 @@ public sealed class FocusClassificationClient
             taskLines.Add("- 今天还没有任务星点。");
         }
 
-        var appLines = applications
-            .OrderByDescending(app => app.TotalDuration)
+        var memoryLines = memories
+            .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted)
+            .ThenByDescending(memory => memory.Weight)
+            .Take(18)
+            .Select(memory =>
+                $"- [{memory.Id}] {memory.Title} | 轴:{memory.MemoryAxis} | plan:{memory.IsPlan}/{memory.IsCompleted} | 星座:{memory.ConstellationName} | 标签:{memory.Tags} | 下一步:{memory.NextPrediction}")
+            .ToList();
+        if (memoryLines.Count == 0)
+        {
+            memoryLines.Add("- 暂无可用本地记忆。");
+        }
+
+        var appLines = sessions
+            .GroupBy(session => session.ProcessName)
+            .Select(group => new
+            {
+                ProcessName = group.Key,
+                Minutes = Math.Max(1, (int)Math.Round(group.Aggregate(TimeSpan.Zero, (total, session) => total + session.Duration).TotalMinutes)),
+                Switches = group.Count(),
+                First = group.Min(session => session.StartTime),
+                Last = group.Max(session => session.EndTime)
+            })
+            .OrderByDescending(app => app.Minutes)
             .Take(8)
-            .Select(app => $"- {app.DisplayName} | {Math.Max(1, (int)Math.Round(app.TotalDuration.TotalMinutes))}分钟 | {app.Category}")
+            .Select(app => $"- {app.ProcessName} | {app.Minutes}分钟 | 切换{app.Switches}次 | {app.First:HH:mm}-{app.Last:HH:mm}")
             .ToList();
         if (appLines.Count == 0)
         {
-            appLines.Add("- 暂无应用使用记录。");
+            appLines.Add("- 最近24小时暂无应用切换记录。");
         }
 
         var prompt =
-            "你是一个克制、具体的个人行动复盘助手。请根据今日任务星点和应用使用记录生成简短日报。\n" +
-            "不要使用 RPG 或游戏叙事。不要说教。重点指出：真正推进了什么、潜在风险、明天/下一步最小动作。\n\n" +
+            "你是 Perelegans 的本地记忆复盘层。请把任务星点、本地记忆星图和最近24小时 Win32 进程切换行为合并分析，生成简短日报。\n" +
+            "不要使用 RPG 或游戏叙事。不要说教。把窗口/进程切换当作系统自然生长出的上下文信号，推测用户真正推进了什么、卡在哪里、下一步最小动作是什么。\n" +
+            "特别关注 plan 记忆的完成状态：未完成 plan 权重更高，已完成 plan 作为产出证据。\n\n" +
             $"当前专注目标：{NormalizeFocusGoal(_settingsService.Settings.FocusGoal)}\n" +
             "今日任务：\n" + string.Join('\n', taskLines) + "\n\n" +
-            "主要应用：\n" + string.Join('\n', appLines) + "\n\n" +
+            "本地记忆星图：\n" + string.Join('\n', memoryLines) + "\n\n" +
+            "最近24小时进程切换聚合：\n" + string.Join('\n', appLines) + "\n\n" +
             "必须只返回 JSON，不要 Markdown，不要解释。格式：\n" +
             "{\"review\":\"今天主要推进了论文摘要和代码验证，专注信号集中在写作与开发。\",\"highlights\":[\"完成论文摘要初稿\",\"WPF 星图交互推进明显\"],\"risks\":[\"任务颗粒度仍偏大\"],\"suggestedNextAction\":\"明天先用 15 分钟把星图删除流程手动测一遍。\"}";
 
@@ -208,6 +241,133 @@ public sealed class FocusClassificationClient
         return string.IsNullOrWhiteSpace(content)
             ? null
             : TryDeserializeJson<DailyReviewDraft>(content);
+    }
+
+    public async Task<MemoryCandidateResult?> CreateLocalMemoryDigestAsync(
+        string userInput,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured ||
+            !Uri.TryCreate(_settingsService.Settings.AiApiBaseUrl.Trim(), UriKind.Absolute, out var baseUri))
+        {
+            return null;
+        }
+
+        var memoryLines = memories
+            .OrderByDescending(memory => memory.UpdatedAt)
+            .Take(40)
+            .Select(memory =>
+                $"- [{memory.Id}] {memory.Title} | {memory.MemoryAxis} | plan:{memory.IsPlan}/{memory.IsCompleted} | {memory.ConstellationName} | {memory.Tags} | {memory.Content}")
+            .ToList();
+        if (memoryLines.Count == 0)
+        {
+            memoryLines.Add("- 暂无历史记忆。");
+        }
+
+        var sessionLines = sessions
+            .GroupBy(session => session.ProcessName)
+            .Select(group => new
+            {
+                ProcessName = group.Key,
+                Minutes = Math.Max(1, (int)Math.Round(group.Aggregate(TimeSpan.Zero, (total, session) => total + session.Duration).TotalMinutes)),
+                Switches = group.Count()
+            })
+            .OrderByDescending(item => item.Minutes)
+            .Take(10)
+            .Select(item => $"- {item.ProcessName}: {item.Minutes}分钟, 切换{item.Switches}次")
+            .ToList();
+        if (sessionLines.Count == 0)
+        {
+            sessionLines.Add("- 最近24小时暂无进程切换记录。");
+        }
+
+        var prompt =
+            "当前 RAG 检索上下文不足。请把已有本地记忆和最近24小时进程行为压缩成一条可再次检索的本地记忆摘要。\n" +
+            "输出的 content 使用简短 Markdown，保留鱼骨结构：事件/任务主轴、tag 聚类、解释、预测、plan 完成情况。\n" +
+            "不要虚构隐私细节；只基于输入信号做温和推断。\n\n" +
+            $"用户当前问题：{userInput.Trim()}\n\n" +
+            "已有本地记忆：\n" + string.Join('\n', memoryLines) + "\n\n" +
+            "最近24小时进程行为：\n" + string.Join('\n', sessionLines) + "\n\n" +
+            "必须只返回 JSON，不要 Markdown 代码块。格式：\n" +
+            "{\"shouldRemember\":true,\"type\":\"Event\",\"title\":\"本地上下文压缩摘要\",\"content\":\"## 主轴\\n...\",\"tags\":[\"digest\",\"rag\"],\"weight\":0.72,\"memoryAxis\":\"event\",\"description\":\"压缩后的上下文摘要\",\"explanation\":\"用于上下文不足时补齐 RAG\",\"nextPrediction\":\"下次优先读取这条摘要再展开相关 plan\",\"isPlan\":false,\"isCompleted\":false,\"weightProfile\":\"{\\\"base\\\":0.72,\\\"digest\\\":0.30}\",\"reply\":\"已压缩本地上下文。\",\"confidence\":0.8}";
+
+        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 800);
+        return string.IsNullOrWhiteSpace(content)
+            ? null
+            : TryDeserializeJson<MemoryCandidateResult>(content);
+    }
+
+    public async Task<DesktopContextInsight?> CreateDesktopContextInsightAsync(
+        string mode,
+        string userInput,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        ForegroundFocusSnapshot? foregroundSnapshot,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured ||
+            !Uri.TryCreate(_settingsService.Settings.AiApiBaseUrl.Trim(), UriKind.Absolute, out var baseUri))
+        {
+            return null;
+        }
+
+        var modeInstruction = mode switch
+        {
+            "replay" => "生成时间切片回放：按窗口/进程切换推测用户刚才在推进什么、卡在哪里。",
+            "plan_progress" => "生成 plan 自动进度推断：只给建议，不自动标记完成；重点说明证据和不确定性。",
+            "resume_scene" => "生成回到现场：帮助用户恢复最近工作现场，指出停在哪里、下一步打开什么。",
+            "fishbone" => "生成任务-进程鱼骨归因：把进程行为按 plan/tag 聚类到主骨和分支。",
+            "galaxy" => "生成星图解释：解释星座归类、阻塞点、未完成 plan 和节点关系。",
+            _ => "生成桌面上下文洞察：整合本地记忆、plan 状态和进程行为。"
+        };
+
+        var memoryLines = memories
+            .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted)
+            .ThenByDescending(memory => memory.UpdatedAt)
+            .Take(30)
+            .Select(memory =>
+                $"- [{memory.Id}] {memory.Title} | type:{memory.Type} | axis:{memory.MemoryAxis} | plan:{memory.IsPlan}/{memory.IsCompleted} | constellation:{memory.ConstellationName} | tags:{memory.Tags} | next:{memory.NextPrediction} | content:{memory.Content}")
+            .ToList();
+        if (memoryLines.Count == 0)
+        {
+            memoryLines.Add("- 暂无本地记忆。");
+        }
+
+        var sessionLines = sessions
+            .OrderBy(session => session.StartTime)
+            .TakeLast(60)
+            .Select(session =>
+                $"- {session.StartTime:HH:mm:ss}-{session.EndTime:HH:mm:ss} | {session.ProcessName} | {Math.Max(1, (int)Math.Round(session.Duration.TotalMinutes))}分钟 | {session.ExecutablePath}")
+            .ToList();
+        if (sessionLines.Count == 0)
+        {
+            sessionLines.Add("- 暂无进程切换记录。");
+        }
+
+        var foreground = foregroundSnapshot == null
+            ? "No current foreground snapshot."
+            : $"{foregroundSnapshot.ProcessName} | {Math.Max(1, (int)Math.Round(foregroundSnapshot.Duration.TotalMinutes))}分钟 | {foregroundSnapshot.ExecutablePath}";
+
+        var prompt =
+            "你是 Perelegans 的 Win32 本地上下文分析层。你不是聊天机器人，而是在解释本地记忆星图与进程传感数据。\n" +
+            "只基于给定信号做温和推断；不要装作看到了文件内容；不要说教；不要使用 RPG/游戏叙事。\n" +
+            "如果证据不足，明确说“证据不足”，但仍给一个最小可继续动作。\n" +
+            "plan 记忆：未完成 plan 代表未来意图，已完成 plan 代表产出证据。进程切换只能作为间接证据，不能自动完成任务。\n\n" +
+            $"模式：{mode}\n" +
+            $"任务：{modeInstruction}\n" +
+            $"用户输入：{userInput.Trim()}\n" +
+            $"当前前台：{foreground}\n\n" +
+            "本地记忆/plan：\n" + string.Join('\n', memoryLines) + "\n\n" +
+            "进程时间切片：\n" + string.Join('\n', sessionLines) + "\n\n" +
+            "返回 JSON only。字段含义：summary 是一段自然中文；evidence 是证据；planSuggestions 是计划完成/推进建议；fishbone 是鱼骨分支；constellationExplanations 是星图解释；suggestedNextAction 是下一步。\n" +
+            "{\"summary\":\"...\",\"evidence\":[\"...\"],\"planSuggestions\":[\"...\"],\"fishbone\":[\"主骨：... / 分支：...\"],\"constellationExplanations\":[\"...\"],\"suggestedNextAction\":\"...\"}";
+
+        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 1000);
+        return string.IsNullOrWhiteSpace(content)
+            ? null
+            : TryDeserializeJson<DesktopContextInsight>(content);
     }
 
     public async Task<FocusAssessmentResult?> ClassifyAsync(

@@ -175,7 +175,7 @@
     <value>设置</value>
   </data>
   <data name="Main_Galaxy" xml:space="preserve">
-    <value>星图</value>
+    <value>记忆</value>
   </data>
   <data name="Main_DailyReview" xml:space="preserve">
     <value>今日复盘</value>
@@ -184,16 +184,22 @@
     <value>返回</value>
   </data>
   <data name="Main_GalaxyTitle" xml:space="preserve">
-    <value>个人记忆星系</value>
+    <value>本地记忆</value>
+  </data>
+  <data name="Main_MemoryPreviewGalaxy" xml:space="preserve">
+    <value>星图</value>
+  </data>
+  <data name="Main_MemoryPreviewFishbone" xml:space="preserve">
+    <value>鱼骨</value>
   </data>
   <data name="Main_GalaxyEmpty" xml:space="preserve">
-    <value>还没有任务星点。</value>
+    <value>还没有记忆节点。</value>
   </data>
   <data name="Main_GalaxyEditTitle" xml:space="preserve">
-    <value>任务星点</value>
+    <value>记忆节点</value>
   </data>
   <data name="Main_GalaxyEditHint" xml:space="preserve">
-    <value>选中星点后编辑；拖动星点可以重排星图。</value>
+    <value>选中节点后编辑；拖动节点可以重排星图。</value>
   </data>
   <data name="Main_GalaxyTaskTitle" xml:space="preserve">
     <value>标题</value>
@@ -202,13 +208,16 @@
     <value>更新时间</value>
   </data>
   <data name="Main_GalaxyTaskCompleted" xml:space="preserve">
-    <value>重要记忆</value>
+    <value>已完成</value>
   </data>
   <data name="Main_GalaxyTaskInsight" xml:space="preserve">
-    <value>AI 洞察</value>
+    <value>AI 描述</value>
+  </data>
+  <data name="Main_GalaxyTaskExplanation" xml:space="preserve">
+    <value>归类解释</value>
   </data>
   <data name="Main_GalaxyTaskNextAction" xml:space="preserve">
-    <value>下一步行动</value>
+    <value>预测 / 下一步</value>
   </data>
   <data name="Main_GalaxyTaskSave" xml:space="preserve">
     <value>保存记忆</value>
@@ -226,7 +235,7 @@
     <value>记忆节点已删除。</value>
   </data>
   <data name="Main_GalaxyTaskTitleRequired" xml:space="preserve">
-    <value>任务标题不能为空。</value>
+    <value>记忆标题不能为空。</value>
   </data>
   <data name="Main_GalaxyTaskTimeInvalid" xml:space="preserve">
     <value>请输入有效时间，例如 2026-05-13 14:30。</value>
@@ -257,6 +266,30 @@
   </data>
   <data name="Main_PauseMonitor" xml:space="preserve">
     <value>先歇一会</value>
+  </data>
+  <data name="Main_FocusModeStart" xml:space="preserve">
+    <value>专注模式</value>
+  </data>
+  <data name="Main_FocusModeEnd" xml:space="preserve">
+    <value>结束专注</value>
+  </data>
+  <data name="Main_FocusModeIdle" xml:space="preserve">
+    <value>专注模式未开启</value>
+  </data>
+  <data name="Main_FocusModeActiveFormat" xml:space="preserve">
+    <value>正在专注：{0}</value>
+  </data>
+  <data name="Main_FocusModeNoPlan" xml:space="preserve">
+    <value>还没有未完成的计划记忆。可以先说“我计划……”。</value>
+  </data>
+  <data name="Main_FocusModeStartedFormat" xml:space="preserve">
+    <value>已为「{0}」开启专注模式。我会用很轻的语气提醒你。</value>
+  </data>
+  <data name="Main_FocusModeEnded" xml:space="preserve">
+    <value>专注模式已结束。</value>
+  </data>
+  <data name="Main_FocusModeCompletedFormat" xml:space="preserve">
+    <value>已把「{0}」标记完成，并结束专注模式。</value>
   </data>
   <data name="Main_MonitoringOn" xml:space="preserve">
     <value>正安静跟上你的节奏</value>
