@@ -9,7 +9,16 @@ public enum ContextMemoryType
     Application = 4,
     Note = 5,
     Event = 6,
-    Task = 7
+    Task = 7,
+    Review = 8
+}
+
+public enum ContextMemoryLifecycle
+{
+    Active = 0,
+    Stale = 1,
+    Archived = 2,
+    Contradicted = 3
 }
 
 public class ContextMemory
@@ -42,6 +51,12 @@ public class ContextMemory
 
     public DateTime? CompletedAt { get; set; }
 
+    public bool IsAbandoned { get; set; }
+
+    public DateTime? AbandonedAt { get; set; }
+
+    public ContextMemoryLifecycle Lifecycle { get; set; } = ContextMemoryLifecycle.Active;
+
     public string AiWeightProfile { get; set; } = string.Empty;
 
     public string ConstellationName { get; set; } = string.Empty;
@@ -67,14 +82,15 @@ public class ContextMemory
         ContextMemoryType.Application => "应用",
         ContextMemoryType.Event => "事件",
         ContextMemoryType.Task => "任务",
+        ContextMemoryType.Review => "复盘",
         _ => "笔记"
     };
 
     public string Preview => Content.Length <= 96 ? Content : Content[..96] + "...";
 
     public string PlanStatusText => IsPlan
-        ? IsCompleted ? "plan: done" : "plan: open"
+        ? IsAbandoned ? "plan: abandoned" : IsCompleted ? "plan: done" : "plan: open"
         : MemoryAxis;
 
-    public string InsightMetaText => $"{TypeText} / {PlanStatusText} / {Math.Round(Math.Clamp(Weight, 0.1, 1.0), 2):0.00}";
+    public string InsightMetaText => $"{TypeText} / {PlanStatusText} / {Lifecycle} / {Math.Round(Math.Clamp(Weight, 0.1, 1.0), 2):0.00}";
 }

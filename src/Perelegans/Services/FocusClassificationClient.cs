@@ -1,4 +1,4 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -73,11 +73,15 @@ public sealed class FocusClassificationClient
         var foreground = foregroundSnapshot == null
             ? "No foreground application snapshot is available."
             : $"Foreground app: {foregroundSnapshot.ProcessName}; duration: {Math.Max(1, (int)foregroundSnapshot.Duration.TotalMinutes)} minutes; path: {foregroundSnapshot.ExecutablePath}";
+        var personalityPrompt = NormalizePersonalityPrompt(_settingsService.Settings.AiPersonalityPrompt);
 
         var prompt =
+            "Assistant personality prompt for the visible reply:\n" + personalityPrompt + "\n\n" +
             "You are Perelegans, a lightweight local-first Windows assistant.\n" +
             "You help by using explicit local memories and current desktop context. You are not a focus-mode coach; do not judge the user or push discipline.\n" +
             "Answer naturally in Simplified Chinese by default. Be concise, concrete, and transparent when using local memory.\n" +
+            "Follow the personality prompt for warmth and relationship style, but do not let it override reliability, local evidence limits, JSON-only output, or the requested schema.\n" +
+            "Memory callback rule: when relevant local memories are present, weave one short callback into reply naturally, such as reminding the user of a plan, preference, project, or recent context. If no memory is relevant, do not pretend.\n" +
             "For suggestedMemory, title/content/reply must be Simplified Chinese; only tags should be short lowercase English words.\n\n" +
             "For suggestedMemory.title, use a specific title from the actual subject. Never use generic titles such as 笔记, 记录, 记忆, Note, Project, or Task.\n\n" +
             "When suggesting memory, use a fishbone/RAG node: memoryAxis event/task, tags for clustering, description, explanation, nextPrediction. If the user expresses a plan with 我要/我计划/我打算/I plan/I want to, mark it as type Task, tag plan, isPlan true, isCompleted false.\n\n" +
@@ -196,11 +200,11 @@ public sealed class FocusClassificationClient
         }
 
         var memoryLines = memories
-            .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted)
+            .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
             .ThenByDescending(memory => memory.Weight)
             .Take(18)
             .Select(memory =>
-                $"- [{memory.Id}] {memory.Title} | 轴:{memory.MemoryAxis} | plan:{memory.IsPlan}/{memory.IsCompleted} | 星座:{memory.ConstellationName} | 标签:{memory.Tags} | 下一步:{memory.NextPrediction}")
+                $"- [{memory.Id}] {memory.Title} | 轴:{memory.MemoryAxis} | plan:{memory.IsPlan}/{memory.IsCompleted}/abandoned:{memory.IsAbandoned} | lifecycle:{memory.Lifecycle} | 星座:{memory.ConstellationName} | 标签:{memory.Tags} | 下一步:{memory.NextPrediction}")
             .ToList();
         if (memoryLines.Count == 0)
         {
@@ -324,11 +328,11 @@ public sealed class FocusClassificationClient
         };
 
         var memoryLines = memories
-            .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted)
+            .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
             .ThenByDescending(memory => memory.UpdatedAt)
             .Take(30)
             .Select(memory =>
-                $"- [{memory.Id}] {memory.Title} | type:{memory.Type} | axis:{memory.MemoryAxis} | plan:{memory.IsPlan}/{memory.IsCompleted} | constellation:{memory.ConstellationName} | tags:{memory.Tags} | next:{memory.NextPrediction} | content:{memory.Content}")
+                $"- [{memory.Id}] {memory.Title} | type:{memory.Type} | axis:{memory.MemoryAxis} | plan:{memory.IsPlan}/{memory.IsCompleted}/abandoned:{memory.IsAbandoned} | lifecycle:{memory.Lifecycle} | constellation:{memory.ConstellationName} | tags:{memory.Tags} | next:{memory.NextPrediction} | content:{memory.Content}")
             .ToList();
         if (memoryLines.Count == 0)
         {
@@ -554,6 +558,13 @@ public sealed class FocusClassificationClient
             : focusGoal.Trim();
     }
 
+    private static string NormalizePersonalityPrompt(string? prompt)
+    {
+        return string.IsNullOrWhiteSpace(prompt)
+            ? AppSettings.DefaultAiPersonalityPrompt
+            : prompt.Trim();
+    }
+
     private static string? ExtractOpenAiContent(string responseBody)
     {
         using var document = JsonDocument.Parse(responseBody);
@@ -593,25 +604,53 @@ public sealed class FocusClassificationClient
             return null;
         }
 
-        try
+        foreach (var candidate in CreateJsonCandidates(json))
         {
-            return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions
+            try
             {
-                PropertyNameCaseInsensitive = true
-            });
+                return JsonSerializer.Deserialize<T>(candidate, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+            catch (JsonException)
+            {
+            }
         }
-        catch
-        {
-            return null;
-        }
+
+        return null;
     }
 
     private static string? ExtractJsonObject(string text)
     {
-        var start = text.IndexOf('{');
-        var end = text.LastIndexOf('}');
+        var normalized = text.Trim();
+        if (normalized.StartsWith("```", StringComparison.Ordinal))
+        {
+            var firstLineBreak = normalized.IndexOf('\n');
+            var lastFence = normalized.LastIndexOf("```", StringComparison.Ordinal);
+            if (firstLineBreak >= 0 && lastFence > firstLineBreak)
+            {
+                normalized = normalized[(firstLineBreak + 1)..lastFence].Trim();
+            }
+        }
+
+        var start = normalized.IndexOf('{');
+        var end = normalized.LastIndexOf('}');
         return start >= 0 && end > start
-            ? text[start..(end + 1)]
+            ? normalized[start..(end + 1)]
             : null;
+    }
+
+    private static IEnumerable<string> CreateJsonCandidates(string json)
+    {
+        yield return json;
+
+        var withoutTrailingCommas = json
+            .Replace(",}", "}", StringComparison.Ordinal)
+            .Replace(",]", "]", StringComparison.Ordinal);
+        if (!string.Equals(json, withoutTrailingCommas, StringComparison.Ordinal))
+        {
+            yield return withoutTrailingCommas;
+        }
     }
 }

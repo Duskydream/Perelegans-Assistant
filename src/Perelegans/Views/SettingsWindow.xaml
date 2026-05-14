@@ -348,6 +348,28 @@
                         <TextBox Height="34" FontSize="13" VerticalContentAlignment="Center" Text="{Binding AiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="{Binding AiApiKeyPlaceholder}"/>
                         <TextBlock Text="{i18n:Translate Settings_AiModel}" Margin="0,16,0,8" Style="{StaticResource FieldLabelStyle}"/>
                         <TextBox Height="34" FontSize="13" VerticalContentAlignment="Center" Text="{Binding AiModel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" mah:TextBoxHelper.Watermark="{Binding AiModelPlaceholder}"/>
+                        <TextBlock Text="{i18n:Translate Settings_AiPersonalityPrompt}" Margin="0,16,0,8" Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBox MinHeight="96"
+                                 FontSize="13"
+                                 Padding="10,8"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 Text="{Binding AiPersonalityPrompt, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 mah:TextBoxHelper.Watermark="{i18n:Translate Settings_AiPersonalityPromptWatermark}"/>
+                        <TextBlock Text="{i18n:Translate Settings_AiPersonalityPromptHint}"
+                                   Margin="0,8,0,0"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource QuietTextStyle}"/>
+                        <Button Width="112"
+                                Height="32"
+                                Margin="0,10,0,0"
+                                HorizontalAlignment="Left"
+                                HorizontalContentAlignment="Center"
+                                BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                Style="{StaticResource LineButtonStyle}"
+                                Content="{i18n:Translate Settings_AiPersonalityPromptReset}"
+                                Command="{Binding ResetAiPersonalityPromptCommand}"/>
                         <DockPanel Margin="0,18,0,0" LastChildFill="True">
                             <Button DockPanel.Dock="Left" Width="112" Height="34" Margin="0,0,10,0" Style="{StaticResource AccentLineButtonStyle}" Content="{i18n:Translate Settings_AiTestButton}" Command="{Binding TestAiCommand}"/>
                             <Border Padding="12,9" Background="{DynamicResource Perelegans.PanelBackground}" BorderBrush="{DynamicResource Perelegans.BorderBrush}" BorderThickness="1" Visibility="{Binding HasAiTestStatus, Converter={StaticResource BooleanToVisibilityConverter}}">

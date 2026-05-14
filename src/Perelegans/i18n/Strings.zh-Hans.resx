@@ -99,6 +99,21 @@
   <data name="Settings_AiModel" xml:space="preserve">
     <value>模型：</value>
   </data>
+  <data name="Settings_AiPersonalityPrompt" xml:space="preserve">
+    <value>助手人格 prompt：</value>
+  </data>
+  <data name="Settings_AiPersonalityPromptWatermark" xml:space="preserve">
+    <value>我是 Perelegans，一个专属于你的陪伴助手...</value>
+  </data>
+  <data name="Settings_AiPersonalityPromptHint" xml:space="preserve">
+    <value>用于对话回复。可靠性、本地证据边界和 JSON 结构化输出仍然优先。</value>
+  </data>
+  <data name="Settings_AiPersonalityPromptReset" xml:space="preserve">
+    <value>恢复默认</value>
+  </data>
+  <data name="Settings_AiPersonalityPromptResetConfirm" xml:space="preserve">
+    <value>是否确认恢复 Perelegans 的默认人格提示词？</value>
+  </data>
   <data name="Settings_AiTestButton" xml:space="preserve">
     <value>测试</value>
   </data>
@@ -209,6 +224,9 @@
   </data>
   <data name="Main_GalaxyTaskCompleted" xml:space="preserve">
     <value>已完成</value>
+  </data>
+  <data name="Main_GalaxyTaskAbandoned" xml:space="preserve">
+    <value>已放弃</value>
   </data>
   <data name="Main_GalaxyTaskInsight" xml:space="preserve">
     <value>AI 描述</value>

@@ -29,7 +29,7 @@ public sealed class ContextRetrievalService
             .Select(memory =>
                 $"- [{memory.Id}] {memory.TypeText}: {memory.Title}\n" +
                 $"  Axis: {memory.MemoryAxis}; Constellation: {memory.ConstellationName}; Tags: {memory.Tags}\n" +
-                $"  Plan: {memory.IsPlan}; Completed: {memory.IsCompleted}; Weight: {memory.Weight:0.00}; WeightProfile: {memory.AiWeightProfile}\n" +
+                $"  Plan: {memory.IsPlan}; Completed: {memory.IsCompleted}; Abandoned: {memory.IsAbandoned}; Lifecycle: {memory.Lifecycle}; Weight: {memory.Weight:0.00}; WeightProfile: {memory.AiWeightProfile}\n" +
                 $"  Content: {memory.Content}\n" +
                 $"  Description: {memory.AiDescription}\n" +
                 $"  Explanation: {memory.AiExplanation}\n" +

@@ -69,7 +69,7 @@ public class DatabaseService
         await using var db = new PerelegansDbContext();
         return await db.ContextMemories
             .AsNoTracking()
-            .Where(m => m.IsPlan && !m.IsCompleted)
+            .Where(m => m.IsPlan && !m.IsCompleted && !m.IsAbandoned)
             .OrderByDescending(m => m.UpdatedAt)
             .FirstOrDefaultAsync();
     }
@@ -85,12 +85,65 @@ public class DatabaseService
 
         memory.IsCompleted = true;
         memory.CompletedAt = DateTime.Now;
-        memory.Weight = CreateEffectiveMemoryWeight(memory.Weight, memory.IsPlan, true);
-        memory.AiWeightProfile = CreateMemoryWeightProfile(memory.IsPlan, true, memory.Weight);
+        memory.IsAbandoned = false;
+        memory.AbandonedAt = null;
+        memory.Lifecycle = ContextMemoryLifecycle.Archived;
+        memory.Weight = CreateEffectiveMemoryWeight(memory.Weight, memory.IsPlan, true, false);
+        memory.AiWeightProfile = CreateMemoryWeightProfile(memory.IsPlan, true, false, memory.Weight);
         memory.UpdatedAt = DateTime.Now;
         memory.NodeSize = CreateMemoryNodeSize(memory.Weight, memory.Content);
         await db.SaveChangesAsync();
         return memory;
+    }
+
+    public async Task<ContextMemory?> AbandonContextMemoryAsync(int id)
+    {
+        await using var db = new PerelegansDbContext();
+        var memory = await db.ContextMemories.FirstOrDefaultAsync(m => m.Id == id);
+        if (memory == null)
+        {
+            return null;
+        }
+
+        memory.IsAbandoned = true;
+        memory.AbandonedAt = DateTime.Now;
+        memory.IsCompleted = false;
+        memory.CompletedAt = null;
+        memory.Lifecycle = ContextMemoryLifecycle.Archived;
+        memory.Weight = CreateEffectiveMemoryWeight(memory.Weight, memory.IsPlan, false, true);
+        memory.AiWeightProfile = CreateMemoryWeightProfile(memory.IsPlan, false, true, memory.Weight);
+        memory.UpdatedAt = DateTime.Now;
+        memory.NodeSize = CreateMemoryNodeSize(memory.Weight, memory.Content);
+        await db.SaveChangesAsync();
+        return memory;
+    }
+
+    public async Task<int> RefreshMemoryLifecycleForDailyReviewAsync()
+    {
+        await using var db = new PerelegansDbContext();
+        var memories = await db.ContextMemories.ToListAsync();
+        var changed = 0;
+        foreach (var memory in memories)
+        {
+            var lifecycle = CreateDefaultLifecycle(memory.IsPlan, memory.IsCompleted, memory.IsAbandoned, memory.UpdatedAt);
+            if (memory.Lifecycle == ContextMemoryLifecycle.Contradicted)
+            {
+                continue;
+            }
+
+            if (memory.Lifecycle != lifecycle)
+            {
+                memory.Lifecycle = lifecycle;
+                changed++;
+            }
+        }
+
+        if (changed > 0)
+        {
+            await db.SaveChangesAsync();
+        }
+
+        return changed;
     }
 
     public async Task<ContextMemory> UpsertContextMemoryAsync(
@@ -107,6 +160,9 @@ public class DatabaseService
         string nextPrediction = "",
         bool? isPlan = null,
         bool? isCompleted = null,
+        bool? isAbandoned = null,
+        ContextMemoryLifecycle? lifecycle = null,
+        bool suppressPlanDetection = false,
         string aiWeightProfile = "")
     {
         var normalizedTitle = string.IsNullOrWhiteSpace(title) || IsGenericMemoryTitle(title)
@@ -138,8 +194,9 @@ public class DatabaseService
             db.ContextMemories.Add(memory);
         }
 
-        var normalizedTags = NormalizeMemoryTags(tags, normalizedContent);
-        var planDetected = (isPlan ?? false) || LooksLikePlanMemory(normalizedContent) || HasTag(normalizedTags, "plan");
+        var normalizedTags = NormalizeMemoryTags(tags, normalizedContent, suppressPlanDetection);
+        var planDetected = !suppressPlanDetection &&
+            ((isPlan ?? false) || LooksLikePlanMemory(normalizedContent) || HasTag(normalizedTags, "plan"));
         if (planDetected)
         {
             normalizedTags = AddTag(normalizedTags, "plan");
@@ -156,14 +213,29 @@ public class DatabaseService
         memory.AiDescription = NormalizeLongText(aiDescription, normalizedContent, 1200);
         memory.AiExplanation = NormalizeLongText(aiExplanation, CreateFallbackMemoryExplanation(type, normalizedTags, normalizedContent, planDetected), 2000);
         memory.NextPrediction = NormalizeLongText(nextPrediction, planDetected ? CreateFallbackNextAction(normalizedTitle) : string.Empty, 1200);
-        memory.AiWeightProfile = string.IsNullOrWhiteSpace(aiWeightProfile)
-            ? CreateMemoryWeightProfile(planDetected, isCompleted ?? memory.IsCompleted, weight)
-            : aiWeightProfile.Trim();
         memory.IsCompleted = isCompleted ?? (planDetected ? memory.IsCompleted : false);
+        memory.IsAbandoned = isAbandoned ?? (planDetected ? memory.IsAbandoned : false);
+        if (memory.IsCompleted)
+        {
+            memory.IsAbandoned = false;
+        }
+
+        if (memory.IsAbandoned)
+        {
+            memory.IsCompleted = false;
+        }
+
         memory.CompletedAt = memory.IsCompleted
             ? memory.CompletedAt ?? DateTime.Now
             : null;
-        memory.Weight = CreateEffectiveMemoryWeight(weight, planDetected, memory.IsCompleted);
+        memory.AbandonedAt = memory.IsAbandoned
+            ? memory.AbandonedAt ?? DateTime.Now
+            : null;
+        memory.Lifecycle = lifecycle ?? CreateDefaultLifecycle(planDetected, memory.IsCompleted, memory.IsAbandoned, memory.UpdatedAt);
+        memory.AiWeightProfile = string.IsNullOrWhiteSpace(aiWeightProfile)
+            ? CreateMemoryWeightProfile(planDetected, memory.IsCompleted, memory.IsAbandoned, weight)
+            : aiWeightProfile.Trim();
+        memory.Weight = CreateEffectiveMemoryWeight(weight, planDetected, memory.IsCompleted, memory.IsAbandoned);
         memory.ConstellationName = CreateMemoryConstellationName(type, memory.Tags, normalizedTitle, normalizedContent);
         memory.NodeSize = CreateMemoryNodeSize(memory.Weight, normalizedContent);
         memory.UpdatedAt = DateTime.Now;
@@ -730,6 +802,9 @@ public class DatabaseService
                 "IsPlan" INTEGER NOT NULL DEFAULT 0,
                 "IsCompleted" INTEGER NOT NULL DEFAULT 0,
                 "CompletedAt" TEXT NULL,
+                "IsAbandoned" INTEGER NOT NULL DEFAULT 0,
+                "AbandonedAt" TEXT NULL,
+                "Lifecycle" INTEGER NOT NULL DEFAULT 0,
                 "AiWeightProfile" TEXT NOT NULL DEFAULT '',
                 "ConstellationName" TEXT NOT NULL DEFAULT '',
                 "CreatedAt" TEXT NOT NULL,
@@ -756,6 +831,9 @@ public class DatabaseService
         await EnsureColumnAsync(connection, "ContextMemories", "IsPlan", "INTEGER NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "IsCompleted", "INTEGER NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "CompletedAt", "TEXT NULL");
+        await EnsureColumnAsync(connection, "ContextMemories", "IsAbandoned", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "ContextMemories", "AbandonedAt", "TEXT NULL");
+        await EnsureColumnAsync(connection, "ContextMemories", "Lifecycle", "INTEGER NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "AiWeightProfile", "TEXT NOT NULL DEFAULT ''");
         await EnsureColumnAsync(connection, "ContextMemories", "X", "REAL NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "Y", "REAL NOT NULL DEFAULT 0");
@@ -881,7 +959,10 @@ public class DatabaseService
                 changed = true;
             }
 
-            var planDetected = memory.IsPlan || LooksLikePlanMemory(memory.Content) || HasTag(memory.Tags, "plan");
+            var suppressPlanDetection = memory.Type == ContextMemoryType.Review ||
+                memory.Source.Contains("review", StringComparison.OrdinalIgnoreCase);
+            var planDetected = !suppressPlanDetection &&
+                (memory.IsPlan || LooksLikePlanMemory(memory.Content) || HasTag(memory.Tags, "plan"));
             if (planDetected && (!memory.IsPlan || memory.Type != ContextMemoryType.Task || !HasTag(memory.Tags, "plan")))
             {
                 memory.IsPlan = true;
@@ -890,7 +971,7 @@ public class DatabaseService
                 changed = true;
             }
 
-            var normalizedTags = NormalizeMemoryTags(memory.Tags, memory.Content);
+            var normalizedTags = NormalizeMemoryTags(memory.Tags, memory.Content, suppressPlanDetection);
             if (!string.Equals(memory.Tags, normalizedTags, StringComparison.Ordinal))
             {
                 memory.Tags = normalizedTags;
@@ -916,6 +997,18 @@ public class DatabaseService
                 changed = true;
             }
 
+            if (memory.IsAbandoned && memory.AbandonedAt == null)
+            {
+                memory.AbandonedAt = memory.UpdatedAt;
+                changed = true;
+            }
+
+            if (!memory.IsAbandoned && memory.AbandonedAt != null)
+            {
+                memory.AbandonedAt = null;
+                changed = true;
+            }
+
             if (string.IsNullOrWhiteSpace(memory.AiDescription))
             {
                 memory.AiDescription = NormalizeLongText(string.Empty, memory.Content, 1200);
@@ -936,7 +1029,14 @@ public class DatabaseService
 
             if (string.IsNullOrWhiteSpace(memory.AiWeightProfile))
             {
-                memory.AiWeightProfile = CreateMemoryWeightProfile(memory.IsPlan, memory.IsCompleted, memory.Weight);
+                memory.AiWeightProfile = CreateMemoryWeightProfile(memory.IsPlan, memory.IsCompleted, memory.IsAbandoned, memory.Weight);
+                changed = true;
+            }
+
+            var lifecycle = CreateDefaultLifecycle(memory.IsPlan, memory.IsCompleted, memory.IsAbandoned, memory.UpdatedAt);
+            if (memory.Lifecycle != ContextMemoryLifecycle.Contradicted && memory.Lifecycle != lifecycle)
+            {
+                memory.Lifecycle = lifecycle;
                 changed = true;
             }
 
@@ -1069,7 +1169,7 @@ public class DatabaseService
         return 14 + weightSize + contentSize;
     }
 
-    private static double CreateEffectiveMemoryWeight(double requestedWeight, bool isPlan, bool isCompleted)
+    private static double CreateEffectiveMemoryWeight(double requestedWeight, bool isPlan, bool isCompleted, bool isAbandoned)
     {
         var baseWeight = Math.Clamp(requestedWeight, 0.1, 1.0);
         if (!isPlan)
@@ -1077,20 +1177,41 @@ public class DatabaseService
             return baseWeight;
         }
 
+        if (isAbandoned)
+        {
+            return Math.Clamp(baseWeight * 0.58, 0.22, 0.62);
+        }
+
         return isCompleted
             ? Math.Clamp(baseWeight * 0.82, 0.35, 0.86)
             : Math.Clamp(baseWeight + 0.18, 0.72, 1.0);
     }
 
-    private static string CreateMemoryWeightProfile(bool isPlan, bool isCompleted, double requestedWeight)
+    private static string CreateMemoryWeightProfile(bool isPlan, bool isCompleted, bool isAbandoned, double requestedWeight)
     {
         var status = isPlan
-            ? isCompleted ? "completed" : "open"
+            ? isAbandoned ? "abandoned" : isCompleted ? "completed" : "open"
             : "context";
-        var planBoost = isPlan && !isCompleted ? 0.35 : isPlan ? 0.08 : 0.0;
+        var planBoost = isPlan && !isCompleted && !isAbandoned ? 0.35 : isPlan && !isAbandoned ? 0.08 : 0.0;
         var completionPenalty = isPlan && isCompleted ? 0.18 : 0.0;
+        var abandonmentPenalty = isPlan && isAbandoned ? 0.35 : 0.0;
         return
-            $"{{\"base\":{Math.Clamp(requestedWeight, 0.1, 1.0):0.00},\"planBoost\":{planBoost:0.00},\"completionPenalty\":{completionPenalty:0.00},\"status\":\"{status}\"}}";
+            $"{{\"base\":{Math.Clamp(requestedWeight, 0.1, 1.0):0.00},\"planBoost\":{planBoost:0.00},\"completionPenalty\":{completionPenalty:0.00},\"abandonmentPenalty\":{abandonmentPenalty:0.00},\"status\":\"{status}\"}}";
+    }
+
+    private static ContextMemoryLifecycle CreateDefaultLifecycle(bool isPlan, bool isCompleted, bool isAbandoned, DateTime updatedAt)
+    {
+        if (isCompleted || isAbandoned)
+        {
+            return ContextMemoryLifecycle.Archived;
+        }
+
+        if (!isPlan && updatedAt < DateTime.Now.AddDays(-45))
+        {
+            return ContextMemoryLifecycle.Stale;
+        }
+
+        return ContextMemoryLifecycle.Active;
     }
 
     private static string NormalizeMemoryAxis(string memoryAxis, ContextMemoryType type, bool isPlan)
@@ -1101,7 +1222,7 @@ public class DatabaseService
         }
 
         var normalized = memoryAxis.Trim().ToLowerInvariant();
-        return normalized is "task" or "event" or "decision" or "workflow" or "preference" or "application"
+        return normalized is "task" or "event" or "decision" or "workflow" or "preference" or "application" or "review"
             ? normalized
             : type switch
             {
@@ -1109,6 +1230,7 @@ public class DatabaseService
                 ContextMemoryType.Decision => "decision",
                 ContextMemoryType.Workflow => "workflow",
                 ContextMemoryType.Application => "application",
+                ContextMemoryType.Review => "review",
                 _ => "event"
             };
     }
@@ -1162,6 +1284,11 @@ public class DatabaseService
 
     private static string CreateTaxonomyConstellationName(string text, ContextMemoryType? memoryType)
     {
+        if (memoryType == ContextMemoryType.Review)
+        {
+            return "复盘";
+        }
+
         var normalized = (text ?? string.Empty).ToLowerInvariant();
         var mentionsLearning = ContainsAny(normalized,
             "study", "learn", "course", "lesson", "exam", "review", "reading notes",
@@ -1328,8 +1455,18 @@ public class DatabaseService
 
         var ageDays = Math.Max(0, (DateTime.Now - memory.UpdatedAt).TotalDays);
         var recencyBoost = Math.Max(0, 1.2 - ageDays / 30d);
-        var planBoost = memory.IsPlan && !memory.IsCompleted ? 1.8 : memory.IsPlan ? 0.45 : 0;
-        return score + memory.Weight * 2 + recencyBoost + planBoost;
+        var planBoost = memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned
+            ? 1.8
+            : memory.IsPlan && !memory.IsAbandoned ? 0.45 : 0;
+        var lifecycleWeight = memory.Lifecycle switch
+        {
+            ContextMemoryLifecycle.Active => 1.0,
+            ContextMemoryLifecycle.Stale => 0.72,
+            ContextMemoryLifecycle.Archived => 0.62,
+            ContextMemoryLifecycle.Contradicted => 0.35,
+            _ => 1.0
+        };
+        return (score + memory.Weight * 2 + recencyBoost + planBoost) * lifecycleWeight;
     }
 
     private static HashSet<string> ExtractKeywords(string text)
@@ -1390,10 +1527,10 @@ public class DatabaseService
         return string.Join(", ", normalized);
     }
 
-    private static string NormalizeMemoryTags(string tags, string content)
+    private static string NormalizeMemoryTags(string tags, string content, bool suppressPlanDetection = false)
     {
         var normalized = new List<string>();
-        if (LooksLikePlanMemory(content) || HasTag(tags, "plan"))
+        if (!suppressPlanDetection && (LooksLikePlanMemory(content) || HasTag(tags, "plan")))
         {
             normalized.Add("plan");
         }

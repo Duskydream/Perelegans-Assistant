@@ -99,6 +99,9 @@ public partial class MainViewModel : ObservableObject
     private bool _galaxyEditIsCompleted;
 
     [ObservableProperty]
+    private bool _galaxyEditIsAbandoned;
+
+    [ObservableProperty]
     private string _currentFocusGoal = string.Empty;
 
     [ObservableProperty]
@@ -119,9 +122,22 @@ public partial class MainViewModel : ObservableObject
     public bool IsMonitorEnabled => _settingsService.Settings.MonitorEnabled;
     public string MonitorButtonText => IsMonitorEnabled ? T("Main_PauseMonitor") : T("Main_StartMonitor");
     public string MonitoringStateText => IsMonitorEnabled ? T("Main_MonitoringOn") : T("Main_MonitoringOff");
-    public string CurrentFocusGoalDisplay => string.IsNullOrWhiteSpace(CurrentFocusGoal)
-        ? T("Main_NoTask")
-        : CurrentFocusGoal;
+    public string CurrentFocusGoalDisplay
+    {
+        get
+        {
+            if (_focusModeService.IsActive && !string.IsNullOrWhiteSpace(_focusModeService.TaskTitle))
+            {
+                return _focusModeService.TaskTitle;
+            }
+
+            var latestPlan = ContextMemories
+                .Where(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+                .OrderByDescending(memory => memory.UpdatedAt)
+                .FirstOrDefault();
+            return latestPlan?.Title ?? T("Main_NoTask");
+        }
+    }
     public string ApplicationCountText => string.Format(T("Main_AppsCountFormat"), ApplicationCount);
     public string FocusTaskCountText => string.Format(T("Main_FocusTaskCountFormat"), FocusTasks.Count(t => t.Status == FocusTaskStatus.Completed), FocusTasks.Count);
     public string MemoryCountText => string.Format(T("Main_MemoryCountFormat"), ContextMemories.Count);
@@ -175,6 +191,7 @@ public partial class MainViewModel : ObservableObject
 
         _processMonitor.ForegroundFocusUpdated += OnForegroundFocusUpdated;
         _focusModeService.StateChanged += OnFocusModeStateChanged;
+        _settingsService.SettingsChanged += OnSettingsChanged;
         IsFocusModeActive = _focusModeService.IsActive;
         TranslationService.Instance.PropertyChanged += (_, e) =>
         {
@@ -439,6 +456,7 @@ public partial class MainViewModel : ObservableObject
                 .ToList();
             var insight = await CreateDesktopInsightAsync("daily_review", "每日总结：生成计划推断、鱼骨归因和星图解释", insightMemories, sessions, snapshot);
             var archivePath = await ArchiveLocalContextDigestAsync("daily", insightMemories, sessions, insight);
+            await _dbService.RefreshMemoryLifecycleForDailyReviewAsync();
             await RefreshContextMemoriesAsync();
 
             ConversationMessages.Add(ConversationMessage.Assistant(
@@ -491,11 +509,13 @@ public partial class MainViewModel : ObservableObject
             nextPrediction: SelectedGalaxyMemory.NextPrediction,
             isPlan: SelectedGalaxyMemory.IsPlan,
             isCompleted: SelectedGalaxyMemory.IsPlan && GalaxyEditIsCompleted,
+            isAbandoned: SelectedGalaxyMemory.IsPlan && GalaxyEditIsAbandoned,
+            lifecycle: SelectedGalaxyMemory.Lifecycle,
             aiWeightProfile: SelectedGalaxyMemory.AiWeightProfile);
 
         StatusText = T("Main_GalaxyTaskSaved");
         await RefreshContextMemoriesAsync(updated.Id);
-        if (updated.IsPlan && updated.IsCompleted)
+        if (updated.IsPlan && (updated.IsCompleted || updated.IsAbandoned))
         {
             EndFocusModeIfMatches(updated.Id);
         }
@@ -749,7 +769,7 @@ public partial class MainViewModel : ObservableObject
                 memory.Source.Contains("scene", StringComparison.OrdinalIgnoreCase) ||
                 memory.Source.Contains("archive", StringComparison.OrdinalIgnoreCase) ||
                 memory.Source.Contains("fishbone", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted)
+                .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
                 .ThenByDescending(memory => memory.UpdatedAt)
                 .Take(24))
             .DistinctBy(memory => memory.Id)
@@ -948,7 +968,7 @@ public partial class MainViewModel : ObservableObject
             .OrderBy(session => session.StartTime)
             .ToList();
         var openPlans = memories
-            .Where(memory => memory.IsPlan && !memory.IsCompleted)
+            .Where(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
             .OrderByDescending(memory => memory.Weight)
             .ThenByDescending(memory => memory.UpdatedAt)
             .ToList();
@@ -996,6 +1016,8 @@ public partial class MainViewModel : ObservableObject
         var token = CreateFileToken(reason);
         var jsonPath = Path.Combine(directory, $"{stamp}.{token}.json");
         var mdPath = Path.Combine(directory, $"{stamp}.{token}.md");
+        var markdownDigest = BuildMarkdownDigest(reason, insight, memories, sessions);
+        var isDailyReview = reason == "daily";
 
         var archive = new
         {
@@ -1015,6 +1037,8 @@ public partial class MainViewModel : ObservableObject
                     memory.ConstellationName,
                     memory.IsPlan,
                     memory.IsCompleted,
+                    memory.IsAbandoned,
+                    Lifecycle = memory.Lifecycle.ToString(),
                     memory.Weight,
                     memory.Content,
                     memory.AiDescription,
@@ -1039,19 +1063,21 @@ public partial class MainViewModel : ObservableObject
             jsonPath,
             JsonSerializer.Serialize(archive, new JsonSerializerOptions { WriteIndented = true }),
             Encoding.UTF8);
-        await File.WriteAllTextAsync(mdPath, BuildMarkdownDigest(reason, insight, memories, sessions), Encoding.UTF8);
+        await File.WriteAllTextAsync(mdPath, markdownDigest, Encoding.UTF8);
 
         await _dbService.UpsertContextMemoryAsync(
-            $"本地上下文摘要 {DateTime.Now:MM-dd HH:mm}",
-            BuildMarkdownDigest(reason, insight, memories, sessions),
-            ContextMemoryType.Event,
-            reason == "fishbone" ? "ai-fishbone" : "local-archive",
-            reason == "fishbone" ? "digest, rag, fishbone" : "digest, rag, scene",
+            isDailyReview ? $"今日复盘 {DateTime.Now:MM-dd HH:mm}" : $"本地上下文摘要 {DateTime.Now:MM-dd HH:mm}",
+            markdownDigest,
+            isDailyReview ? ContextMemoryType.Review : ContextMemoryType.Event,
+            reason == "fishbone" ? "ai-fishbone" : isDailyReview ? "daily-review" : "local-archive",
+            reason == "fishbone" ? "digest, rag, fishbone" : isDailyReview ? "review, daily, recap, rag, scene" : "digest, rag, scene",
             0.74,
-            memoryAxis: "event",
+            memoryAxis: isDailyReview ? "review" : "event",
             aiDescription: insight.Summary,
             aiExplanation: "这是一份从本地记忆、plan 状态和 Win32 进程切换行为压缩出的上下文摘要，用于后续 RAG 恢复现场。",
-            nextPrediction: insight.SuggestedNextAction);
+            nextPrediction: insight.SuggestedNextAction,
+            isPlan: false,
+            suppressPlanDetection: isDailyReview);
 
         return mdPath;
     }
@@ -1132,7 +1158,7 @@ public partial class MainViewModel : ObservableObject
             {
                 var memories = await _dbService.GetContextMemoriesAsync();
                 var openPlan = memories
-                    .Where(memory => memory.IsPlan && !memory.IsCompleted)
+                    .Where(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
                     .OrderByDescending(memory => CalculateProcessPlanAffinity(snapshotCopy.ProcessName, memory))
                     .FirstOrDefault();
                 if (openPlan == null)
@@ -1522,143 +1548,9 @@ public partial class MainViewModel : ObservableObject
         {
             StatusText = string.Format(T("Main_MemorySaved"), highlightId.Value);
         }
-    }
 
-    private static IEnumerable<GalaxyLinkViewModel> CreateMemoryGalaxyLinks(IReadOnlyCollection<ContextMemory> memories)
-    {
-        var ordered = memories.OrderBy(memory => memory.CreatedAt).ToList();
-        for (var i = 0; i < ordered.Count; i++)
-        {
-            for (var j = i + 1; j < ordered.Count; j++)
-            {
-                var source = ordered[i];
-                var target = ordered[j];
-                var strength = CalculateMemoryLinkStrength(source, target);
-                if (strength <= 0)
-                {
-                    continue;
-                }
-
-                yield return new GalaxyLinkViewModel(
-                    source.X + source.NodeSize / 2,
-                    source.Y + source.NodeSize / 2,
-                    target.X + target.NodeSize / 2,
-                    target.Y + target.NodeSize / 2,
-                    strength);
-            }
-        }
-    }
-
-    private static IEnumerable<FishboneBranchViewModel> CreateFishboneBranches(IReadOnlyCollection<ContextMemory> memories)
-    {
-        var groups = memories
-            .GroupBy(memory => string.IsNullOrWhiteSpace(memory.ConstellationName) ? "未归类" : memory.ConstellationName)
-            .OrderByDescending(group => group.Count(memory => memory.IsPlan && !memory.IsCompleted))
-            .ThenByDescending(group => group.Count())
-            .Take(8);
-
-        foreach (var group in groups)
-        {
-            var items = group
-                .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted)
-                .ThenByDescending(memory => memory.Weight)
-                .Take(6)
-                .Select(memory =>
-                {
-                    var status = memory.IsPlan
-                        ? memory.IsCompleted ? "done" : "open"
-                        : memory.MemoryAxis;
-                    return $"{memory.Title} [{status}]";
-                })
-                .ToList();
-            var openPlans = group.Count(memory => memory.IsPlan && !memory.IsCompleted);
-            yield return new FishboneBranchViewModel(
-                group.Key,
-                string.Join("  /  ", items),
-                string.Join(", ", group.SelectMany(memory => SplitTagsForInsight(memory.Tags)).Distinct(StringComparer.OrdinalIgnoreCase).Take(5)),
-                openPlans);
-        }
-    }
-
-    private static double CalculateMemoryLinkStrength(ContextMemory source, ContextMemory target)
-    {
-        var sameConstellation = !string.IsNullOrWhiteSpace(source.ConstellationName) &&
-            string.Equals(source.ConstellationName, target.ConstellationName, StringComparison.OrdinalIgnoreCase);
-        var sourceTags = SplitTags(source.Tags);
-        var targetTags = SplitTags(target.Tags);
-        var overlap = sourceTags.Intersect(targetTags, StringComparer.OrdinalIgnoreCase).Count();
-        var sourceTerms = ExtractMemoryLinkTerms(source);
-        var targetTerms = ExtractMemoryLinkTerms(target);
-        var termOverlap = sourceTerms.Intersect(targetTerms, StringComparer.OrdinalIgnoreCase).Count();
-
-        if (!sameConstellation && overlap == 0 && termOverlap < 2)
-        {
-            return 0;
-        }
-
-        if (sameConstellation && overlap == 0 && termOverlap == 0 && IsBroadConstellation(source.ConstellationName))
-        {
-            return 0;
-        }
-
-        return Math.Clamp((sameConstellation ? 0.34 : 0) + overlap * 0.2 + termOverlap * 0.08, 0.22, 0.88);
-    }
-
-    private static HashSet<string> SplitTags(string tags)
-    {
-        return tags
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(tag => tag.Length >= 2)
-            .Where(tag => !IsGenericLinkTerm(tag))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static HashSet<string> ExtractMemoryLinkTerms(ContextMemory memory)
-    {
-        var text = string.Join(' ', memory.Title, memory.Content, memory.Tags, memory.ConstellationName);
-        return text
-            .Split([' ', '\r', '\n', '\t', ',', '.', ';', ':', '/', '\\', '|', '，', '。', '；', '：', '、', '（', '）', '(', ')'],
-                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(term => term.Trim().TrimStart('#').ToLowerInvariant())
-            .Where(term => term.Length >= 2)
-            .Where(term => !IsGenericLinkTerm(term))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static bool IsBroadConstellation(string constellation)
-    {
-        return constellation is "开发" or "学习" or "游戏" or "写作" or "设计" or "数据" or "沟通" or "生活" or "行动" or "行动 / 学习与开发" or "笔记";
-    }
-
-    private static bool IsGenericLinkTerm(string term)
-    {
-        return term.Trim().ToLowerInvariant() is
-            "笔记" or "记录" or "记忆" or "项目" or "任务" or "工作" or "流程" or "应用" or "行动" or "星座" or
-            "note" or "notes" or "memory" or "memories" or "project" or "task" or "workflow" or "work" or
-            "app" or "application" or "action" or "focus" or
-            "开发" or "学习" or "游戏" or "写作" or "设计" or "数据" or "沟通" or "生活" or "plan";
-    }
-
-    private static IEnumerable<GalaxyLinkViewModel> CreateGalaxyLinks(
-        IReadOnlyCollection<FocusTask> tasks,
-        IEnumerable<FocusTaskLink> links)
-    {
-        var byId = tasks.ToDictionary(t => t.Id);
-        foreach (var link in links)
-        {
-            if (!byId.TryGetValue(link.SourceTaskId, out var source) ||
-                !byId.TryGetValue(link.TargetTaskId, out var target))
-            {
-                continue;
-            }
-
-            yield return new GalaxyLinkViewModel(
-                source.X + source.NodeSize / 2,
-                source.Y + source.NodeSize / 2,
-                target.X + target.NodeSize / 2,
-                target.Y + target.NodeSize / 2,
-                link.Strength);
-        }
+        OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
+        OnPropertyChanged(nameof(FocusModeStatusText));
     }
 
     private DailyReviewDraft CreateFallbackDailyReview()
@@ -1840,12 +1732,12 @@ public partial class MainViewModel : ObservableObject
         return memories
             .Where(memory => !string.IsNullOrWhiteSpace(memory.ConstellationName))
             .GroupBy(memory => memory.ConstellationName)
-            .OrderByDescending(group => group.Count(memory => memory.IsPlan && !memory.IsCompleted))
+            .OrderByDescending(group => group.Count(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned))
             .ThenByDescending(group => group.Count())
             .Take(8)
             .Select(group =>
             {
-                var open = group.Count(memory => memory.IsPlan && !memory.IsCompleted);
+                var open = group.Count(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned);
                 var completed = group.Count(memory => memory.IsPlan && memory.IsCompleted);
                 var tags = string.Join(", ", group
                     .SelectMany(memory => SplitTagsForInsight(memory.Tags))
@@ -2006,9 +1898,22 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(MonitoringStateText));
     }
 
+    private void OnSettingsChanged()
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(RefreshMonitorStateProperties);
+            return;
+        }
+
+        RefreshMonitorStateProperties();
+    }
+
     private void OnFocusModeStateChanged()
     {
         IsFocusModeActive = _focusModeService.IsActive;
+        OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
         OnPropertyChanged(nameof(FocusModeButtonText));
         OnPropertyChanged(nameof(FocusModeStatusText));
     }
@@ -2045,12 +1950,6 @@ public partial class MainViewModel : ObservableObject
     private void SeedConversation()
     {
         ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantSeed")));
-
-        if (!string.IsNullOrWhiteSpace(CurrentFocusGoal))
-        {
-            ConversationMessages.Add(ConversationMessage.Assistant(
-                string.Format(T("Main_AssistantCurrentTaskFormat"), CurrentFocusGoal)));
-        }
     }
 
     private static bool ContainsAny(string text, params string[] candidates)
@@ -2129,6 +2028,8 @@ public partial class MainViewModel : ObservableObject
     partial void OnContextMemoriesChanged(ObservableCollection<ContextMemory> value)
     {
         OnPropertyChanged(nameof(MemoryCountText));
+        OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
+        OnPropertyChanged(nameof(FocusModeStatusText));
     }
 
     partial void OnSelectedGalaxyMemoryChanged(ContextMemory? value)
@@ -2140,12 +2041,30 @@ public partial class MainViewModel : ObservableObject
             GalaxyEditTitle = string.Empty;
             GalaxyEditCreatedAtText = string.Empty;
             GalaxyEditIsCompleted = false;
+            GalaxyEditIsAbandoned = false;
             return;
         }
 
         GalaxyEditTitle = value.Title;
         GalaxyEditCreatedAtText = value.UpdatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
         GalaxyEditIsCompleted = value.IsPlan && value.IsCompleted;
+        GalaxyEditIsAbandoned = value.IsPlan && value.IsAbandoned;
+    }
+
+    partial void OnGalaxyEditIsCompletedChanged(bool value)
+    {
+        if (value && GalaxyEditIsAbandoned)
+        {
+            GalaxyEditIsAbandoned = false;
+        }
+    }
+
+    partial void OnGalaxyEditIsAbandonedChanged(bool value)
+    {
+        if (value && GalaxyEditIsCompleted)
+        {
+            GalaxyEditIsCompleted = false;
+        }
     }
 
     private static string T(string key) => TranslationService.Instance[key];
@@ -2164,59 +2083,4 @@ public partial class MainViewModel : ObservableObject
 
         return string.Format(T("Main_SecondsFormat"), Math.Max(0, (int)Math.Round(duration.TotalSeconds)));
     }
-}
-
-public partial class ConversationMessage : ObservableObject
-{
-    private static readonly TimeSpan TypingDelay = TimeSpan.FromMilliseconds(14);
-
-    private ConversationMessage(string text, bool isUser)
-    {
-        _text = isUser ? text : string.Empty;
-        IsUser = isUser;
-        Timestamp = DateTime.Now;
-        Alignment = isUser ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Left;
-
-        if (!isUser)
-        {
-            _ = StreamTextAsync(text);
-        }
-    }
-
-    [ObservableProperty]
-    private string _text;
-
-    public bool IsUser { get; }
-    public DateTime Timestamp { get; }
-    public System.Windows.HorizontalAlignment Alignment { get; }
-
-    public static ConversationMessage User(string text) => new(text, true);
-    public static ConversationMessage Assistant(string text) => new(text, false);
-
-    private async Task StreamTextAsync(string text)
-    {
-        foreach (var character in text)
-        {
-            Text += character;
-            await Task.Delay(TypingDelay);
-        }
-    }
-}
-
-public sealed class GalaxyLinkViewModel(double x1, double y1, double x2, double y2, double strength)
-{
-    public double X1 { get; } = x1;
-    public double Y1 { get; } = y1;
-    public double X2 { get; } = x2;
-    public double Y2 { get; } = y2;
-    public double Opacity { get; } = Math.Clamp(strength, 0.25, 0.85);
-}
-
-public sealed class FishboneBranchViewModel(string title, string items, string tags, int openPlanCount)
-{
-    public string Title { get; } = title;
-    public string Items { get; } = items;
-    public string Tags { get; } = tags;
-    public int OpenPlanCount { get; } = openPlanCount;
-    public string MetaText => OpenPlanCount > 0 ? $"{OpenPlanCount} open plan" : "context";
 }

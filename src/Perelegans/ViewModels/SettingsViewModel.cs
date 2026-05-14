@@ -49,6 +49,9 @@ public partial class SettingsViewModel : ObservableObject
     private string _aiModel = string.Empty;
 
     [ObservableProperty]
+    private string _aiPersonalityPrompt = string.Empty;
+
+    [ObservableProperty]
     private string _aiTestStatusText = string.Empty;
 
     [ObservableProperty]
@@ -100,7 +103,8 @@ public partial class SettingsViewModel : ObservableObject
         ContextMemoryType.Decision,
         ContextMemoryType.Workflow,
         ContextMemoryType.Application,
-        ContextMemoryType.Note
+        ContextMemoryType.Note,
+        ContextMemoryType.Review
     ];
 
     public IReadOnlyList<AppCloseBehaviorOption> CloseBehaviorOptions { get; } =
@@ -165,6 +169,7 @@ public partial class SettingsViewModel : ObservableObject
         AiApiBaseUrl = s.AiApiBaseUrl;
         AiApiKey = s.AiApiKey;
         AiModel = s.AiModel;
+        AiPersonalityPrompt = s.AiPersonalityPrompt;
         AutoSaveMemories = s.AutoSaveMemories;
         _ = RefreshMemoriesAsync();
     }
@@ -215,6 +220,23 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     private bool CanTestAi() => !IsTestingAi;
+
+    [RelayCommand]
+    private void ResetAiPersonalityPrompt()
+    {
+        var result = System.Windows.MessageBox.Show(
+            TranslationService.Instance["Settings_AiPersonalityPromptResetConfirm"],
+            TranslationService.Instance["Settings_WindowTitle"],
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question);
+
+        if (result != System.Windows.MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        AiPersonalityPrompt = AppSettings.DefaultAiPersonalityPrompt;
+    }
 
     [RelayCommand(CanExecute = nameof(CanTestAi))]
     private async Task TestAiAsync()
@@ -293,6 +315,7 @@ public partial class SettingsViewModel : ObservableObject
         s.AiApiBaseUrl = AiApiBaseUrl.Trim();
         s.AiApiKey = AiApiKey.Trim();
         s.AiModel = AiModel.Trim();
+        s.AiPersonalityPrompt = AiPersonalityPrompt.Trim();
         s.AutoSaveMemories = AutoSaveMemories;
         _settingsService.Save();
         _themeService.ApplyTheme(s.Theme);

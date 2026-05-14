@@ -107,6 +107,7 @@ public class PerelegansDbContext : DbContext
             entity.HasIndex(m => m.Type);
             entity.HasIndex(m => m.UpdatedAt);
             entity.Property(m => m.Type).HasConversion<int>();
+            entity.Property(m => m.Lifecycle).HasConversion<int>();
             entity.Property(m => m.Title).IsRequired().HasMaxLength(240);
             entity.Property(m => m.Content).IsRequired().HasMaxLength(4000);
             entity.Property(m => m.Source).HasMaxLength(240);

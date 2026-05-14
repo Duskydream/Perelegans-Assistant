@@ -848,70 +848,126 @@
                                 BorderBrush="{DynamicResource Perelegans.BorderBrush}"
                                 BorderThickness="1"
                                 Visibility="{Binding IsFishbonePreviewMode, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="170"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0"
-                                        Width="128"
-                                        Height="128"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Background="{DynamicResource Perelegans.PanelBackground}"
-                                        BorderBrush="{DynamicResource Perelegans.AccentBrush}"
-                                        BorderThickness="1">
-                                    <StackPanel VerticalAlignment="Center" Margin="12">
-                                        <TextBlock Text="{i18n:Translate Main_MemoryPreviewFishbone}"
-                                                   FontSize="18"
-                                                   FontWeight="SemiBold"
-                                                   TextAlignment="Center"/>
-                                        <TextBlock Text="{Binding MemoryCountText}"
-                                                   Margin="0,8,0,0"
-                                                   TextAlignment="Center"
-                                                   TextWrapping="Wrap"
-                                                   Style="{StaticResource QuietTextStyle}"/>
-                                    </StackPanel>
-                                </Border>
-                                <ItemsControl Grid.Column="1"
-                                              ItemsSource="{Binding FishboneBranches}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,0,0,14">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="170"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0"
-                                                           Text="{Binding Title}"
-                                                           FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis"/>
-                                                <Grid Grid.Column="1">
-                                                    <Grid.RowDefinitions>
-                                                        <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="Auto"/>
-                                                        <RowDefinition Height="Auto"/>
-                                                    </Grid.RowDefinitions>
-                                                    <Line X1="0" X2="560" Y1="10" Y2="10"
-                                                          Stroke="{DynamicResource Perelegans.BorderBrush}"
-                                                          StrokeThickness="1.1"/>
-                                                    <TextBlock Grid.Row="1"
-                                                               Text="{Binding Items}"
-                                                               Margin="0,5,0,0"
-                                                               TextWrapping="Wrap"
-                                                               Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
-                                                    <TextBlock Grid.Row="2"
-                                                               Text="{Binding Tags}"
-                                                               Margin="0,3,0,0"
-                                                               TextWrapping="Wrap"
-                                                               Foreground="{DynamicResource Perelegans.AccentBrush}"
-                                                               FontSize="11"/>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,22">
+                                        <StackPanel DockPanel.Dock="Left">
+                                            <TextBlock Text="{i18n:Translate Main_MemoryPreviewFishbone}"
+                                                       FontSize="19"
+                                                       FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding MemoryCountText}"
+                                                       Margin="0,5,0,0"
+                                                       Style="{StaticResource QuietTextStyle}"/>
+                                        </StackPanel>
+                                        <Rectangle Height="1"
+                                                   Margin="18,18,0,0"
+                                                   Fill="{DynamicResource Perelegans.BorderBrush}"
+                                                   Opacity="0.9"/>
+                                    </DockPanel>
+
+                                    <ItemsControl ItemsSource="{Binding FishboneBranches}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid MinHeight="118"
+                                                      Margin="0,0,0,18">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="82"/>
+                                                        <ColumnDefinition Width="62"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <Grid Grid.Column="0">
+                                                        <Border Width="48"
+                                                                Height="48"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"
+                                                                Background="{DynamicResource Perelegans.PanelBackground}"
+                                                                BorderBrush="{DynamicResource Perelegans.AccentBrush}"
+                                                                BorderThickness="1">
+                                                            <TextBlock Text="{Binding BranchNumber}"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       FontSize="16"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"/>
+                                                        </Border>
+                                                    </Grid>
+
+                                                    <Grid Grid.Column="1">
+                                                        <Rectangle Width="1.4"
+                                                                   HorizontalAlignment="Center"
+                                                                   Fill="{DynamicResource Perelegans.BorderBrush}"
+                                                                   Opacity="0.86"/>
+                                                        <Rectangle Height="1.4"
+                                                                   Margin="31,0,0,0"
+                                                                   VerticalAlignment="Center"
+                                                                   Fill="{DynamicResource Perelegans.BorderBrush}"
+                                                                   Opacity="0.86"/>
+                                                        <Ellipse Width="10"
+                                                                 Height="10"
+                                                                 HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center"
+                                                                 Fill="{DynamicResource Perelegans.AccentBrush}"/>
+                                                    </Grid>
+
+                                                    <Border Grid.Column="2"
+                                                            Padding="14,12"
+                                                            VerticalAlignment="Center"
+                                                            Background="{DynamicResource Perelegans.PanelBackground}"
+                                                            BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                                            BorderThickness="1">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                            </Grid.RowDefinitions>
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Text="{Binding Title}"
+                                                                           FontSize="14"
+                                                                           FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis"/>
+                                                                <Border Grid.Column="1"
+                                                                        MinWidth="74"
+                                                                        Margin="12,0,0,0"
+                                                                        Padding="7,2"
+                                                                        BorderBrush="{DynamicResource Perelegans.AccentBrush}"
+                                                                        BorderThickness="1">
+                                                                    <TextBlock Text="{Binding MetaText}"
+                                                                               FontSize="10"
+                                                                               Foreground="{DynamicResource Perelegans.AccentBrush}"
+                                                                               TextAlignment="Center"/>
+                                                                </Border>
+                                                            </Grid>
+                                                            <TextBlock Grid.Row="1"
+                                                                       Text="{Binding Items}"
+                                                                       Margin="0,8,0,0"
+                                                                       MaxHeight="42"
+                                                                       TextWrapping="Wrap"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       Foreground="{DynamicResource Perelegans.ForegroundBrush}"
+                                                                       FontSize="12"/>
+                                                            <TextBlock Grid.Row="2"
+                                                                       Text="{Binding Tags}"
+                                                                       Margin="0,7,0,0"
+                                                                       MaxHeight="32"
+                                                                       TextWrapping="Wrap"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"
+                                                                       FontSize="11"/>
+                                                        </Grid>
+                                                    </Border>
                                                 </Grid>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
                         </Border>
 
                         <Border Grid.Column="1"
@@ -948,10 +1004,15 @@
                                          Text="{Binding GalaxyEditCreatedAtText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
                                 <CheckBox Content="{i18n:Translate Main_GalaxyTaskCompleted}"
-                                          Margin="0,2,0,16"
+                                          Margin="0,2,0,8"
                                           IsEnabled="{Binding HasSelectedGalaxyTask}"
                                           Visibility="{Binding SelectedGalaxyMemory.IsPlan, Converter={StaticResource BooleanToVisibilityConverter}}"
                                           IsChecked="{Binding GalaxyEditIsCompleted, Mode=TwoWay}"/>
+                                <CheckBox Content="{i18n:Translate Main_GalaxyTaskAbandoned}"
+                                          Margin="0,0,0,16"
+                                          IsEnabled="{Binding HasSelectedGalaxyTask}"
+                                          Visibility="{Binding SelectedGalaxyMemory.IsPlan, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                          IsChecked="{Binding GalaxyEditIsAbandoned, Mode=TwoWay}"/>
 
                                  <TextBlock Text="{i18n:Translate Main_GalaxyTaskInsight}"
                                             Margin="0,0,0,5"

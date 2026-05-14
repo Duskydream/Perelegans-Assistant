@@ -25,6 +25,8 @@ public class SettingsService
 
     public AppSettings Settings { get; private set; } = new();
 
+    public event Action? SettingsChanged;
+
     /// <summary>
     /// Loads settings from disk, or creates defaults if file doesn't exist.
     /// </summary>
@@ -55,6 +57,7 @@ public class SettingsService
             Directory.CreateDirectory(SettingsDir);
             var json = JsonSerializer.Serialize(Settings, JsonOptions);
             File.WriteAllText(SettingsPath, json);
+            SettingsChanged?.Invoke();
         }
         catch (Exception ex)
         {

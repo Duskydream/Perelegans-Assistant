@@ -33,6 +33,11 @@
   <data name="Settings_AiBaseUrl" xml:space="preserve"><value>Base URL:</value></data>
   <data name="Settings_AiApiKey" xml:space="preserve"><value>API Key:</value></data>
   <data name="Settings_AiModel" xml:space="preserve"><value>Model:</value></data>
+  <data name="Settings_AiPersonalityPrompt" xml:space="preserve"><value>Assistant personality prompt:</value></data>
+  <data name="Settings_AiPersonalityPromptWatermark" xml:space="preserve"><value>I am Perelegans, your companion assistant...</value></data>
+  <data name="Settings_AiPersonalityPromptHint" xml:space="preserve"><value>Used for conversational replies. Reliability, local evidence, and JSON schemas still take priority.</value></data>
+  <data name="Settings_AiPersonalityPromptReset" xml:space="preserve"><value>Restore Default</value></data>
+  <data name="Settings_AiPersonalityPromptResetConfirm" xml:space="preserve"><value>Restore Perelegans' default personality prompt?</value></data>
   <data name="Settings_AiTestButton" xml:space="preserve"><value>Test</value></data>
   <data name="Settings_AiTestSuccess" xml:space="preserve"><value>Configuration looks ready for model: {0}</value></data>
   <data name="Settings_AiTestMissingConfig" xml:space="preserve"><value>Please fill API base URL, API key, and model first.</value></data>
@@ -70,6 +75,7 @@
   <data name="Main_GalaxyTaskTitle" xml:space="preserve"><value>Title</value></data>
   <data name="Main_GalaxyTaskTime" xml:space="preserve"><value>Updated</value></data>
   <data name="Main_GalaxyTaskCompleted" xml:space="preserve"><value>Completed</value></data>
+  <data name="Main_GalaxyTaskAbandoned" xml:space="preserve"><value>Abandoned</value></data>
   <data name="Main_GalaxyTaskInsight" xml:space="preserve"><value>AI description</value></data>
   <data name="Main_GalaxyTaskExplanation" xml:space="preserve"><value>Why it belongs here</value></data>
   <data name="Main_GalaxyTaskNextAction" xml:space="preserve"><value>Prediction / next step</value></data>
