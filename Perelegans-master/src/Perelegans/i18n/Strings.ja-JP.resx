@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Menu_File" xml:space="preserve"><value>ファイル (_F)</value></data>
+  <data name="Menu_AddFromProcess" xml:space="preserve"><value>プロセスから追加 (_P)</value></data>
+  <data name="Menu_AddFromWebsite" xml:space="preserve"><value>ウェブサイトから追加 (_W)</value></data>
+  <data name="Menu_SaveBackup" xml:space="preserve"><value>バックアップを保存 (_S)</value></data>
+  <data name="Menu_RestoreBackup" xml:space="preserve"><value>バックアップを復元 (_R)</value></data>
+  <data name="Menu_Exit" xml:space="preserve"><value>終了 (_X)</value></data>
+
+  <data name="Menu_Tool" xml:space="preserve"><value>ツール (_T)</value></data>
+  <data name="Menu_MonitorProcess" xml:space="preserve"><value>プロセス監視の設定 (_M)</value></data>
+  <data name="Menu_PlaytimeStats" xml:space="preserve"><value>プレイ時間統計 (_T)</value></data>
+  <data name="Menu_Language" xml:space="preserve"><value>言語 (_L)</value></data>
+  
+  <data name="Menu_Help" xml:space="preserve"><value>ヘルプ (_H)</value></data>
+  <data name="Menu_About" xml:space="preserve"><value>について (_A)</value></data>
+
+  <data name="Column_Title" xml:space="preserve"><value>タイトル</value></data>
+  <data name="Column_Brand" xml:space="preserve"><value>ブランド</value></data>
+  <data name="Column_ReleaseDate" xml:space="preserve"><value>発売日</value></data>
+  <data name="Column_Playtime" xml:space="preserve"><value>プレイ時間</value></data>
+  <data name="Column_Created" xml:space="preserve"><value>作成日</value></data>
+  <data name="Column_LastPlayed" xml:space="preserve"><value>最終プレイ</value></data>
+
+  <data name="Status_TotalPlaytime" xml:space="preserve"><value>総プレイ時間: </value></data>
+  <data name="Status_Completed" xml:space="preserve"><value>完了: </value></data>
+
+  <data name="Context_StartGame" xml:space="preserve"><value>プレイ</value></data>
+  <data name="Context_Metadata" xml:space="preserve"><value>メタデータ</value></data>
+  <data name="Context_FetchMetadata" xml:space="preserve"><value>メタデータの取得</value></data>
+  <data name="Context_EditMetadata" xml:space="preserve"><value>メタデータの編集</value></data>
+  <data name="Context_Open" xml:space="preserve"><value>開く</value></data>
+  <data name="Context_OpenFolder" xml:space="preserve"><value>ゲームフォルダを開く</value></data>
+  <data name="Context_OpenWebsite" xml:space="preserve"><value>ウェブサイトを開く</value></data>
+  <data name="Context_OpenGameStats" xml:space="preserve"><value>プレイ履歴を開く</value></data>
+  <data name="Context_Copy" xml:space="preserve"><value>コピー</value></data>
+  <data name="Context_CopyTitle" xml:space="preserve"><value>タイトルをコピー</value></data>
+  <data name="Context_CopyBrand" xml:space="preserve"><value>ブランドをコピー</value></data>
+  <data name="Context_Delete" xml:space="preserve"><value>削除</value></data>
+  <data name="Settings_Appearance" xml:space="preserve"><value>外観設定</value></data>
+  <data name="Settings_ThemeMode" xml:space="preserve"><value>テーマモード:</value></data>
+  <data name="Settings_Language" xml:space="preserve"><value>言語:</value></data>
+  <data name="Settings_Monitor" xml:space="preserve"><value>プロセス監視機能</value></data>
+  <data name="Settings_Enabled" xml:space="preserve"><value>監視を有効化:</value></data>
+  <data name="Settings_Interval" xml:space="preserve"><value>同期周期 (秒):</value></data>
+  <data name="Settings_Network" xml:space="preserve"><value>ネットワーク設定</value></data>
+  <data name="Settings_Proxy" xml:space="preserve"><value>プロキシ:</value></data>
+  <data name="Settings_System" xml:space="preserve"><value>起動と終了</value></data>
+  <data name="Settings_LaunchAtStartup" xml:space="preserve"><value>起動時に自動実行:</value></data>
+  <data name="Settings_CloseBehavior" xml:space="preserve"><value>ウィンドウを閉じるとき:</value></data>
+  <data name="Settings_CloseBehaviorExit" xml:space="preserve"><value>直接終了</value></data>
+  <data name="Settings_CloseBehaviorTray" xml:space="preserve"><value>トレイへ最小化</value></data>
+
+  <data name="Btn_Save" xml:space="preserve"><value>保存</value></data>
+  <data name="Btn_Cancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="Btn_Ok" xml:space="preserve"><value>OK</value></data>
+
+  <data name="Meta_Title" xml:space="preserve"><value>メタデータの管理</value></data>
+  <data name="Meta_SearchWatermark" xml:space="preserve"><value>タイトルで検索...</value></data>
+  <data name="Meta_SearchBtn" xml:space="preserve"><value>検索</value></data>
+  <data name="Meta_ApplyBtn" xml:space="preserve"><value>↓ 適用</value></data>
+  <data name="Meta_ApplyHint" xml:space="preserve"><value>選択したデータは以下の欄に入力されます。</value></data>
+  <data name="Meta_FieldTitle" xml:space="preserve"><value>タイトル:</value></data>
+  <data name="Meta_FieldBrand" xml:space="preserve"><value>ブランド:</value></data>
+  <data name="Meta_FieldDate" xml:space="preserve"><value>発売日:</value></data>
+  <data name="Meta_FieldStatus" xml:space="preserve"><value>進行状況:</value></data>
+  <data name="Meta_FieldBangumiRating" xml:space="preserve"><value>BGM 評価:</value></data>
+  <data name="Meta_FieldBangumiComment" xml:space="preserve"><value>BGM コメント:</value></data>
+  <data name="Meta_FieldWebsite" xml:space="preserve"><value>公式サイト:</value></data>
+  <data name="Meta_FieldCover" xml:space="preserve"><value>表紙:</value></data>
+  <data name="Meta_FieldTags" xml:space="preserve"><value>タグ:</value></data>
+  <data name="Meta_FieldProcess" xml:space="preserve"><value>プロセス:</value></data>
+  <data name="Meta_FieldExec" xml:space="preserve"><value>実行パス:</value></data>
+  <data name="Meta_TagsWatermark" xml:space="preserve"><value>1 行に 1 つのタグ</value></data>
+  <data name="Meta_ColSource" xml:space="preserve"><value>ソース</value></data>
+  <data name="Meta_ColTitle" xml:space="preserve"><value>タイトル</value></data>
+  <data name="Meta_ColBrand" xml:space="preserve"><value>ブランド</value></data>
+  <data name="Meta_ColDate" xml:space="preserve"><value>日付</value></data>
+  <data name="Meta_CoverPreviewEmpty" xml:space="preserve"><value>表紙はまだ設定されていません。</value></data>
+  <data name="Meta_CoverFile" xml:space="preserve"><value>ローカル:</value></data>
+  <data name="Meta_CoverUrl" xml:space="preserve"><value>画像 URL:</value></data>
+  <data name="Meta_CoverPathWatermark" xml:space="preserve"><value>C:\Images\cover.jpg</value></data>
+  <data name="Meta_CoverFetchBtn" xml:space="preserve"><value>自動取得</value></data>
+  <data name="Meta_CoverImportLocalBtn" xml:space="preserve"><value>ローカルから取り込む</value></data>
+  <data name="Meta_CoverClearBtn" xml:space="preserve"><value>表紙をクリア</value></data>
+  <data name="Meta_CoverBrowseTitle" xml:space="preserve"><value>表紙画像を選択</value></data>
+  <data name="Meta_CoverSelectedLocal" xml:space="preserve"><value>ローカル表紙を選択しました。</value></data>
+  <data name="Meta_CoverCleared" xml:space="preserve"><value>表紙をクリアしました。</value></data>
+  <data name="Meta_CoverFetchMissingInput" xml:space="preserve"><value>表紙取得の前にタイトルまたはメタデータ ID を入力してください。</value></data>
+  <data name="Meta_CoverFetchFailed" xml:space="preserve"><value>サイトから表紙を取得できませんでした。</value></data>
+  <data name="Meta_CoverFetchSuccessCached" xml:space="preserve"><value>表紙を取得し、ローカルに保存しました。</value></data>
+  <data name="Meta_CoverFetchSuccessUrl" xml:space="preserve"><value>表紙 URL を取得しました。</value></data>
+  <data name="Meta_CoverInvalidFile" xml:space="preserve"><value>選択した表紙ファイルは有効な画像ではありません。</value></data>
+  <data name="Meta_CoverInvalidUrl" xml:space="preserve"><value>表紙 URL は有効な絶対 URL である必要があります。</value></data>
+  <data name="Meta_CoverAppliedFromResult" xml:space="preserve"><value>選択したメタデータ結果から表紙 URL を適用しました。</value></data>
+  <data name="Meta_CoverAppliedFromAutoFetch" xml:space="preserve"><value>選択した表紙を適用しました。</value></data>
+  <data name="Meta_CoverPickerTitle" xml:space="preserve"><value>表紙を選択</value></data>
+  <data name="Meta_CoverPickerHint" xml:space="preserve"><value>VNDB または Bangumi から取得した表紙を選んでください。</value></data>
+  <data name="Meta_CoverPickerLoading" xml:space="preserve"><value>表紙候補を取得しています...</value></data>
+  <data name="Meta_CoverPickerApplyBtn" xml:space="preserve"><value>この表紙を使う</value></data>
+
+  <data name="AddProc_Title" xml:space="preserve"><value>稼働中のプロセスから追加</value></data>
+  <data name="AddProc_Refresh" xml:space="preserve"><value>更新</value></data>
+  <data name="AddProc_Hint" xml:space="preserve"><value>メインウィンドウを持つプロセスのみを表示します。</value></data>
+  <data name="AddProc_ColWindow" xml:space="preserve"><value>ウィンドウタイトル</value></data>
+  <data name="AddProc_ColProc" xml:space="preserve"><value>プロセス名</value></data>
+  <data name="AddProc_ColPath" xml:space="preserve"><value>実行パス</value></data>
+
+  <data name="Stats_Title" xml:space="preserve"><value>プレイ時間統計</value></data>
+  <data name="Stats_Tab7Days" xml:space="preserve"><value>過去 7 日間</value></data>
+  <data name="Stats_TabWeekly" xml:space="preserve"><value>今週</value></data>
+  <data name="Stats_TabMonthly" xml:space="preserve"><value>今月</value></data>
+  <data name="Stats_TabYearly" xml:space="preserve"><value>今年</value></data>
+  <data name="Stats_ColGame" xml:space="preserve"><value>ゲーム</value></data>
+  <data name="Stats_ColPeriod" xml:space="preserve"><value>期間</value></data>
+  <data name="Stats_ColPlaytime" xml:space="preserve"><value>プレイ時間</value></data>
+  <data name="Stats_ColSessions" xml:space="preserve"><value>セッション数</value></data>
+
+  <data name="Log_Title" xml:space="preserve"><value>プレイ履歴</value></data>
+  <data name="Log_ColSession" xml:space="preserve"><value>セッションID</value></data>
+  <data name="Log_ColStart" xml:space="preserve"><value>開始時刻</value></data>
+  <data name="Log_ColEnd" xml:space="preserve"><value>終了時刻</value></data>
+  <data name="Log_ColDate" xml:space="preserve"><value>日付</value></data>
+  <data name="Log_ColTime" xml:space="preserve"><value>時間</value></data>
+  <data name="Log_ColDuration" xml:space="preserve"><value>継続時間</value></data>
+  <data name="Msg_AppTitle" xml:space="preserve"><value>Perelegans</value></data>
+  <data name="Msg_ErrorTitle" xml:space="preserve"><value>エラー</value></data>
+  <data name="Msg_BackupSuccess" xml:space="preserve"><value>バックアップを保存しました！</value></data>
+  <data name="Msg_BackupFailed" xml:space="preserve"><value>バックアップ失敗: {0}</value></data>
+  <data name="Msg_RestoreSuccess" xml:space="preserve"><value>バックアップを復元しました！</value></data>
+  <data name="Msg_RestoreFailed" xml:space="preserve"><value>復元失敗: {0}</value></data>
+  <data name="Msg_AboutTitle" xml:space="preserve"><value>Perelegans について</value></data>
+  <data name="Msg_AboutText" xml:space="preserve"><value>Perelegans v0.2
+Game Playtime Tracker &amp; Manager
+
+Copyright 2026 gkouen. All Lolis Reserved</value></data>
+  <data name="Msg_NoExecPath" xml:space="preserve"><value>実行ファイルのパスが設定されていません。
+メタデータエディターで設定するとゲームを直接起動できます。</value></data>
+  <data name="Msg_GameStartFailed" xml:space="preserve"><value>ゲームの起動に失敗しました: {0}</value></data>
+  <data name="Msg_NoVndbId" xml:space="preserve"><value>VNDB ID が見つかりません。</value></data>
+  <data name="Msg_NoEgsId" xml:space="preserve"><value>ErogameSpace ID が見つかりません。</value></data>
+  <data name="Msg_NoBangumiId" xml:space="preserve"><value>Bangumi ID が見つかりません。</value></data>
+  <data name="Msg_DeleteConfirmTitle" xml:space="preserve"><value>削除の確認</value></data>
+  <data name="Msg_DeleteConfirmText" xml:space="preserve"><value>「{0}」を削除してもよろしいですか？</value></data>
+  <data name="Msg_SelectProcess" xml:space="preserve"><value>先にプロセスを選択してください。</value></data>
+  <data name="GameStatus_Playing" xml:space="preserve"><value>プレイ中</value></data>
+  <data name="GameStatus_Dropped" xml:space="preserve"><value>中断</value></data>
+  <data name="GameStatus_Completed" xml:space="preserve"><value>完了</value></data>
+  <data name="Tray_Show" xml:space="preserve"><value>表示</value></data>
+  <data name="Tray_Exit" xml:space="preserve"><value>終了</value></data>
+  <data name="Menu_Recommendations" xml:space="preserve"><value>おすすめ (_R)</value></data>
+  <data name="Settings_Ai" xml:space="preserve"><value>AI おすすめ</value></data>
+  <data name="Settings_Bangumi" xml:space="preserve"><value>Bangumi アカウント</value></data>
+  <data name="Settings_BangumiClientId" xml:space="preserve"><value>Client ID</value></data>
+  <data name="Settings_BangumiClientSecret" xml:space="preserve"><value>Client Secret</value></data>
+  <data name="Settings_BangumiRedirectUri" xml:space="preserve"><value>リダイレクトURI</value></data>
+  <data name="Settings_BangumiOAuthHint" xml:space="preserve"><value>最も簡単なログイン: Bangumi OAuth アプリを一度作成し、下のリダイレクトURIを設定して、client ID と secret をここに貼り付けます。その後は OAuth ログインを押すだけです。</value></data>
+  <data name="Settings_BangumiToken" xml:space="preserve"><value>アクセストークン</value></data>
+  <data name="Settings_BangumiTokenWatermark" xml:space="preserve"><value>Bangumi access token を貼り付け</value></data>
+  <data name="Settings_BangumiUser" xml:space="preserve"><value>アカウント</value></data>
+  <data name="Settings_BangumiSync" xml:space="preserve"><value>同期取得</value></data>
+  <data name="Settings_BangumiSyncMinutes" xml:space="preserve"><value>分</value></data>
+  <data name="Settings_BangumiPush" xml:space="preserve"><value>保存時に反映</value></data>
+  <data name="Settings_BangumiTestButton" xml:space="preserve"><value>ログイン確認</value></data>
+  <data name="Settings_BangumiOAuthButton" xml:space="preserve"><value>OAuth ログイン</value></data>
+  <data name="Settings_BangumiRefreshButton" xml:space="preserve"><value>更新</value></data>
+  <data name="Settings_BangumiTestMissingToken" xml:space="preserve"><value>Bangumi アクセストークンを入力してください。</value></data>
+  <data name="Settings_BangumiTestRunning" xml:space="preserve"><value>Bangumi アカウントを確認しています...</value></data>
+  <data name="Settings_BangumiTestSuccess" xml:space="preserve"><value>{0} として接続しました。</value></data>
+  <data name="Settings_BangumiTestFailed" xml:space="preserve"><value>Bangumi ログイン確認に失敗しました。</value></data>
+  <data name="Settings_BangumiTestFailedWithReason" xml:space="preserve"><value>Bangumi ログイン確認に失敗しました: {0}</value></data>
+  <data name="Settings_BangumiOAuthWaiting" xml:space="preserve"><value>Bangumi 認証のためブラウザーを開いています...</value></data>
+  <data name="Settings_BangumiOAuthSuccess" xml:space="preserve"><value>OAuth ログインに成功しました。{0} として接続しました。</value></data>
+  <data name="Settings_BangumiOAuthFailed" xml:space="preserve"><value>OAuth ログインに失敗しました: {0}</value></data>
+  <data name="Settings_BangumiOAuthRefreshing" xml:space="preserve"><value>Bangumi token を更新しています...</value></data>
+  <data name="Settings_BangumiOAuthRefreshSuccess" xml:space="preserve"><value>Bangumi token を更新しました。</value></data>
+  <data name="Settings_BangumiOAuthUnknownUser" xml:space="preserve"><value>Bangumi</value></data>
+  <data name="Settings_BangumiOAuthMissingClientId" xml:space="preserve"><value>Bangumi OAuth client ID を入力してください。</value></data>
+  <data name="Settings_BangumiOAuthMissingClientSecret" xml:space="preserve"><value>Bangumi OAuth client secret を入力してください。</value></data>
+  <data name="Settings_BangumiOAuthStateMismatch" xml:space="preserve"><value>OAuth state の検証に失敗しました。</value></data>
+  <data name="Settings_BangumiOAuthMissingCode" xml:space="preserve"><value>Bangumi から認可コードが返されませんでした。</value></data>
+  <data name="Settings_BangumiOAuthMissingRefreshToken" xml:space="preserve"><value>利用可能な Bangumi refresh token がありません。</value></data>
+  <data name="Settings_BangumiOAuthMissingAccessToken" xml:space="preserve"><value>Bangumi から access token が返されませんでした。</value></data>
+  <data name="Settings_BangumiManualRunning" xml:space="preserve"><value>Bangumi API をリクエストし、コレクション情報を同期しています...</value></data>
+  <data name="Settings_BangumiManualSuccess" xml:space="preserve"><value>Bangumi API リクエストが完了しました。ローカル Bangumi ID: {0} 件、API コレクション: {1} 件、コレクション一致: {2} 件、ローカル更新: {3} 件。</value></data>
+  <data name="Settings_BangumiManualFailed" xml:space="preserve"><value>Bangumi API リクエストに失敗しました: {0}</value></data>
+  <data name="Settings_AiBaseUrl" xml:space="preserve"><value>API ベースURL:</value></data>
+  <data name="Settings_AiApiKey" xml:space="preserve"><value>API キー:</value></data>
+  <data name="Settings_AiModel" xml:space="preserve"><value>モデル:</value></data>
+  <data name="Rec_Title" xml:space="preserve"><value>ゲームおすすめ</value></data>
+  <data name="Rec_Refresh" xml:space="preserve"><value>更新</value></data>
+  <data name="Rec_ModeLabel" xml:space="preserve"><value>モード</value></data>
+  <data name="Rec_ModeTaste" xml:space="preserve"><value>好みに合わせる</value></data>
+  <data name="Rec_ModeExplore" xml:space="preserve"><value>探索</value></data>
+  <data name="Rec_ProfileSummary" xml:space="preserve"><value>VNDB/Bangumi メタデータ付きの {1} 件中 {0} 件を使って好みを分析しています。</value></data>
+  <data name="Rec_TopTags" xml:space="preserve"><value>好みのタグ: {0}</value></data>
+  <data name="Rec_AvoidTags" xml:space="preserve"><value>避けたいタグ: {0}</value></data>
+  <data name="Rec_PreferredDevelopers" xml:space="preserve"><value>好みのブランド: {0}</value></data>
+  <data name="Rec_None" xml:space="preserve"><value>なし</value></data>
+  <data name="Rec_EmptyNeedMoreData" xml:space="preserve"><value>少なくとも 3 本のゲームに VNDB メタデータを紐づけると、おすすめを生成できます。</value></data>
+  <data name="Rec_EmptyNoResults" xml:space="preserve"><value>現在表示できるおすすめはありません。</value></data>
+  <data name="Rec_AiStatusEnabled" xml:space="preserve"><value>AI による推薦理由を表示しています。</value></data>
+  <data name="Rec_AiStatusDisabled" xml:space="preserve"><value>AI が未設定のため、ローカルの推薦理由のみ表示しています。</value></data>
+  <data name="Rec_AiStatusFallback" xml:space="preserve"><value>AI の説明を取得できなかったため、ローカルの推薦理由のみ表示しています。</value></data>
+  <data name="Rec_AiStatusFallbackWithReason" xml:space="preserve"><value>AI の説明を取得できなかったため、ローカルの推薦理由のみ表示しています。原因: {0}</value></data>
+  <data name="Rec_ColTitle" xml:space="preserve"><value>タイトル</value></data>
+  <data name="Rec_ColBrand" xml:space="preserve"><value>ブランド</value></data>
+  <data name="Rec_ColDate" xml:space="preserve"><value>発売日</value></data>
+  <data name="Rec_ColScore" xml:space="preserve"><value>スコア</value></data>
+  <data name="Rec_ColReason" xml:space="preserve"><value>理由</value></data>
+  <data name="Rec_ColActions" xml:space="preserve"><value>操作</value></data>
+  <data name="Rec_Import" xml:space="preserve"><value>追加</value></data>
+  <data name="Rec_AlreadyInLibrary" xml:space="preserve"><value>登録済み</value></data>
+  <data name="Rec_OpenVndb" xml:space="preserve"><value>VNDB を開く</value></data>
+  <data name="Rec_OpenBangumi" xml:space="preserve"><value>Bangumi を開く</value></data>
+  <data name="Rec_ImportFailed" xml:space="preserve"><value>おすすめの追加に失敗しました: {0}</value></data>
+  <data name="Rec_LocalReasonTags" xml:space="preserve"><value>好みのタグに一致: {0}。</value></data>
+  <data name="Rec_LocalReasonDeveloper" xml:space="preserve"><value>よく好むブランド: {0}。</value></data>
+  <data name="Rec_LocalReasonYear" xml:space="preserve"><value>好みの年代に近い作品です。</value></data>
+  <data name="Rec_LocalReasonFallback" xml:space="preserve"><value>ライブラリ傾向との総合相性が高い候補です。</value></data>
+  <data name="Rec_LocalCautionTags" xml:space="preserve"><value>苦手な傾向のタグを含む可能性があります: {0}。</value></data>
+  <data name="Rec_LocalCautionYear" xml:space="preserve"><value>発売時期が普段の好みからやや離れています。</value></data>
+  <data name="GameStatus_Planned" xml:space="preserve"><value>プレイ予定</value></data>
+  <data name="Msg_DeleteSelectedConfirmText" xml:space="preserve"><value>選択した {0} 本のゲームを削除してもよろしいですか？</value></data>
+  <data name="Msg_NoSelection" xml:space="preserve"><value>ゲームが選択されていません。</value></data>
+  <data name="Menu_GameManagement" xml:space="preserve"><value>ゲーム管理 (_G)</value></data>
+  <data name="GameMgmt_Title" xml:space="preserve"><value>ゲーム管理</value></data>
+  <data name="GameMgmt_SelectAll" xml:space="preserve"><value>全選択</value></data>
+  <data name="GameMgmt_DeselectAll" xml:space="preserve"><value>全解除</value></data>
+  <data name="GameMgmt_InvertSelection" xml:space="preserve"><value>選択反転</value></data>
+  <data name="GameMgmt_DeleteSelected" xml:space="preserve"><value>選択削除</value></data>
+  <data name="GameMgmt_TotalCount" xml:space="preserve"><value>合計:</value></data>
+  <data name="GameMgmt_SelectedCount" xml:space="preserve"><value>選択:</value></data>
+  <data name="GameMgmt_FilterWatermark" xml:space="preserve"><value>タイトルでフィルタ...</value></data>
+  <data name="Rec_ProfileDepth" xml:space="preserve"><value>完了率 {0}、完了作平均 {1} 時間、中断作平均 {2} 時間、プロファイル傾向: {3}。</value></data>
+  <data name="Rec_ColBreakdown" xml:space="preserve"><value>内訳</value></data>
+  <data name="Rec_FeedbackLike" xml:space="preserve"><value>好み</value></data>
+  <data name="Rec_FeedbackLiked" xml:space="preserve"><value>好み済み</value></data>
+  <data name="Rec_FeedbackDislike" xml:space="preserve"><value>見送り</value></data>
+  <data name="Rec_FeedbackDisliked" xml:space="preserve"><value>見送り済み</value></data>
+  <data name="Rec_LocalReasonSource" xml:space="preserve"><value>ライブラリ内の次の作品に近い候補です: {0}。</value></data>
+  <data name="Rec_LocalReasonFeedback" xml:space="preserve"><value>近い候補はこれまで好意的な反応を受けています。</value></data>
+  <data name="Rec_LocalCautionFeedback" xml:space="preserve"><value>近い候補は以前に否定的な反応を受けています。</value></data>
+  <data name="Settings_AiTestButton" xml:space="preserve"><value>テスト</value></data>
+  <data name="Settings_AiTestRunning" xml:space="preserve"><value>AI 接続をテストしています...</value></data>
+  <data name="Settings_AiTestSuccess" xml:space="preserve"><value>AI テストに成功しました。応答: {0}</value></data>
+  <data name="Settings_AiTestFailed" xml:space="preserve"><value>AI テストに失敗しました: {0}</value></data>
+  <data name="Settings_AiTestMissingConfig" xml:space="preserve"><value>API ベースURL、API キー、モデルを先に入力してください。</value></data>
+  <data name="Settings_AiTestInvalidUrl" xml:space="preserve"><value>API ベースURLが無効です。</value></data>
+  <data name="Settings_AiTestNoContent" xml:space="preserve"><value>AI テストに失敗しました: 応答に読み取れるテキストがありません。</value></data>
+  <data name="Workflow_Waiting" xml:space="preserve"><value>待機</value></data>
+  <data name="Workflow_Running" xml:space="preserve"><value>処理中</value></data>
+  <data name="Workflow_Done" xml:space="preserve"><value>完了</value></data>
+  <data name="Workflow_Failed" xml:space="preserve"><value>失敗</value></data>
+  <data name="Workflow_Fallback" xml:space="preserve"><value>フォールバック</value></data>
+  <data name="Workflow_Skipped" xml:space="preserve"><value>スキップ</value></data>
+  <data name="Rec_StepProfile" xml:space="preserve"><value>プロフィール生成</value></data>
+  <data name="Rec_StepBangumi" xml:space="preserve"><value>Bangumi 補完</value></data>
+  <data name="Rec_StepAi" xml:space="preserve"><value>AI 理由</value></data>
+  <data name="Meta_SourceStatusTitle" xml:space="preserve"><value>ソース状態</value></data>
+  <data name="Meta_CoverStatusTitle" xml:space="preserve"><value>カバー状態</value></data>
+  <data name="Meta_SourceReady" xml:space="preserve"><value>{0} は準備完了です。</value></data>
+  <data name="Meta_SearchingSource" xml:space="preserve"><value>{0} を検索中...</value></data>
+  <data name="Meta_SearchComplete" xml:space="preserve"><value>{0} が {1} 件返しました。</value></data>
+  <data name="Meta_SearchFailed" xml:space="preserve"><value>{0} の検索に失敗しました。</value></data>
+  <data name="Meta_SourceNoResults" xml:space="preserve"><value>結果なし</value></data>
+  <data name="Meta_SourceResultCount" xml:space="preserve"><value>{0} 件</value></data>
+  <data name="Meta_AppliedSource" xml:space="preserve"><value>{0} のメタデータを適用しました。</value></data>
+  <data name="Toolbar_Library" xml:space="preserve"><value>&#x30E9;&#x30A4;&#x30D6;&#x30E9;&#x30EA;</value></data>
+  <data name="Toolbar_LibraryCountSuffix" xml:space="preserve"><value> &#x672C;&#x306E;&#x30B2;&#x30FC;&#x30E0;</value></data>
+  <data name="Toolbar_AddGame" xml:space="preserve"><value>ゲーム追加</value></data>
+  <data name="Toolbar_Recommendations" xml:space="preserve"><value>おすすめ</value></data>
+  <data name="Toolbar_Stats" xml:space="preserve"><value>統計</value></data>
+  <data name="Toolbar_AiAssistant" xml:space="preserve"><value>アシスタント</value></data>
+  <data name="Toolbar_Settings" xml:space="preserve"><value>設定</value></data>
+  <data name="Assistant_Title" xml:space="preserve"><value>ライブラリアシスタント</value></data>
+  <data name="Assistant_Hint" xml:space="preserve"><value>ローカルライブラリについて質問できます。保存済みのゲームデータのみを使用します。</value></data>
+  <data name="Assistant_Welcome" xml:space="preserve"><value>ライブラリ、メタデータ、表紙不足、プレイ時間、タグ、特定の作品について質問できます。</value></data>
+  <data name="Assistant_Send" xml:space="preserve"><value>送信</value></data>
+  <data name="Assistant_SearchingLibrary" xml:space="preserve"><value>ローカルライブラリを検索中...</value></data>
+  <data name="Assistant_Thinking" xml:space="preserve"><value>考えています...</value></data>
+  <data name="Assistant_NotConfigured" xml:space="preserve"><value>AI が設定されていません。設定で API URL、キー、モデルを入力してください。</value></data>
+  <data name="Assistant_NoAnswer" xml:space="preserve"><value>AI から利用可能な回答が返されませんでした。</value></data>
+  <data name="Toolbar_ManageGames" xml:space="preserve"><value>ゲーム管理</value></data>
+  <data name="Rec_ProfileStyleDeveloperStrong" xml:space="preserve"><value>ブランド嗜好が強く、同じまたは近いブランドに適度な加点</value></data>
+  <data name="Rec_ProfileStyleDeveloperBalanced" xml:space="preserve"><value>ブランド嗜好とテーマ傾向の両方を重視</value></data>
+  <data name="Rec_ProfileStyleTagDiverse" xml:space="preserve"><value>テーマ主導で興味範囲は広め</value></data>
+  <data name="Rec_ProfileStyleTagFocused" xml:space="preserve"><value>テーマと構成の好みが比較的集中</value></data>
+</root>

@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Perelegans 是一款面向视觉小说玩家的 Windows 桌面应用，用来管理游戏库、自动追踪游玩时长、补全元数据，并通过 AI 理解你的本地收藏。" />
+<title>Perelegans - 视觉小说游玩时间与游戏库管理工具</title>
+<style>
+    :root {
+        --bg: #f6f8fb;
+        --surface: #ffffff;
+        --surface-muted: #eef2f7;
+        --surface-strong: #e4eaf2;
+        --ink: #171a20;
+        --muted: #626b7a;
+        --soft: #8792a2;
+        --line: #d9e0ea;
+        --line-strong: #c5cfdb;
+        --accent: #e66c8f;
+        --accent-strong: #bd416d;
+        --accent-soft: #ffe7ef;
+        --teal: #2b8c8c;
+        --teal-soft: #ddf4f2;
+        --gold: #a56d00;
+        --gold-soft: #fff0ca;
+        --dark: #17191f;
+        --dark-2: #24262d;
+        --shadow: 0 18px 48px rgba(23, 26, 32, 0.12);
+        --shadow-soft: 0 10px 28px rgba(23, 26, 32, 0.08);
+        --radius: 8px;
+        --radius-sm: 5px;
+        --wrap: 1160px;
+        color-scheme: light;
+        --header-bg: rgba(255, 255, 255, 0.84);
+        --header-border: rgba(23, 26, 32, 0.1);
+        --header-ink: #171a20;
+        --header-muted: #4f5a69;
+        --header-hover-bg: rgba(230, 108, 143, 0.1);
+        --header-hover-border: rgba(230, 108, 143, 0.22);
+        --hero-text: #171a20;
+        --hero-muted: #2e3744;
+        --hero-overlay-start: rgba(246, 248, 251, 0.94);
+        --hero-overlay-mid: rgba(246, 248, 251, 0.82);
+        --hero-overlay-end: rgba(246, 248, 251, 0.18);
+        --hero-bottom-start: rgba(246, 248, 251, 0.88);
+        --hero-bottom-end: rgba(246, 248, 251, 0.06);
+        --hero-chip-bg: rgba(255, 255, 255, 0.72);
+        --hero-chip-border: rgba(189, 65, 109, 0.24);
+        --hero-chip-text: #303846;
+        --hero-dot-shadow: rgba(230, 108, 143, 0.18);
+        --hero-action-bg: rgba(255, 255, 255, 0.68);
+        --hero-action-border: rgba(23, 26, 32, 0.14);
+        --hero-action-text: #171a20;
+        --hero-action-hover-bg: rgba(255, 255, 255, 0.9);
+        --hero-action-shadow: 0 12px 30px rgba(23, 26, 32, 0.12);
+        --hero-card-bg: rgba(255, 255, 255, 0.72);
+        --hero-card-border: rgba(23, 26, 32, 0.13);
+        --hero-card-title: #171a20;
+        --hero-card-muted: #596474;
+        --experience-bg: #f1f5fa;
+        --experience-ink: #171a20;
+        --experience-muted: #626b7a;
+        --experience-label: var(--accent-strong);
+        --experience-detail-bg: rgba(255, 255, 255, 0.76);
+        --experience-detail-border: rgba(23, 26, 32, 0.12);
+        --experience-detail-title: #171a20;
+        --experience-detail-text: #626b7a;
+        --mock-window-bg: #ffffff;
+        --mock-window-border: rgba(23, 26, 32, 0.14);
+        --mock-titlebar-bg: #f7f0f3;
+        --mock-titlebar-text: #252b36;
+        --mock-titlebar-border: rgba(23, 26, 32, 0.1);
+        --mock-side-bg: #eef2f7;
+        --mock-side-border: rgba(23, 26, 32, 0.08);
+        --mock-side-text: #5d6878;
+        --mock-side-item-bg: rgba(23, 26, 32, 0.04);
+        --mock-side-active-text: #171a20;
+        --mock-side-active-bg: rgba(230, 108, 143, 0.14);
+        --mock-toolbar-bg: rgba(23, 26, 32, 0.08);
+        --mock-window-shadow: 0 18px 48px rgba(23, 26, 32, 0.12);
+    }
+
+    [data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #17191f;
+        --surface: #23262e;
+        --surface-muted: #1e2128;
+        --surface-strong: #30343d;
+        --ink: #f3f5f8;
+        --muted: #b5bdca;
+        --soft: #8993a4;
+        --line: #353a45;
+        --line-strong: #464d5a;
+        --accent-soft: #432433;
+        --teal-soft: #173c3b;
+        --gold-soft: #403417;
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+        --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.22);
+        --header-bg: rgba(23, 25, 31, 0.86);
+        --header-border: rgba(255, 255, 255, 0.14);
+        --header-ink: #f6f8fb;
+        --header-muted: rgba(246, 248, 251, 0.76);
+        --header-hover-bg: rgba(255, 255, 255, 0.08);
+        --header-hover-border: rgba(255, 255, 255, 0.16);
+        --hero-text: #ffffff;
+        --hero-muted: rgba(255, 255, 255, 0.82);
+        --hero-overlay-start: rgba(15, 16, 20, 0.95);
+        --hero-overlay-mid: rgba(15, 16, 20, 0.76);
+        --hero-overlay-end: rgba(15, 16, 20, 0.2);
+        --hero-bottom-start: rgba(15, 16, 20, 0.86);
+        --hero-bottom-end: rgba(15, 16, 20, 0.12);
+        --hero-chip-bg: rgba(255, 255, 255, 0.1);
+        --hero-chip-border: rgba(255, 255, 255, 0.24);
+        --hero-chip-text: rgba(255, 255, 255, 0.84);
+        --hero-dot-shadow: rgba(255, 184, 202, 0.18);
+        --hero-action-bg: rgba(255, 255, 255, 0.1);
+        --hero-action-border: rgba(255, 255, 255, 0.22);
+        --hero-action-text: #ffffff;
+        --hero-action-hover-bg: rgba(255, 255, 255, 0.16);
+        --hero-action-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+        --hero-card-bg: rgba(19, 20, 25, 0.68);
+        --hero-card-border: rgba(255, 255, 255, 0.16);
+        --hero-card-title: #ffffff;
+        --hero-card-muted: rgba(255, 255, 255, 0.68);
+        --experience-bg: #202229;
+        --experience-ink: #f6f8fb;
+        --experience-muted: #c4ccd8;
+        --experience-label: #ffb8ca;
+        --experience-detail-bg: rgba(255, 255, 255, 0.06);
+        --experience-detail-border: rgba(255, 255, 255, 0.14);
+        --experience-detail-title: #ffffff;
+        --experience-detail-text: #c4ccd8;
+        --mock-window-bg: #17191f;
+        --mock-window-border: rgba(255, 255, 255, 0.18);
+        --mock-titlebar-bg: #292b32;
+        --mock-titlebar-text: #dfe5ee;
+        --mock-titlebar-border: rgba(255, 255, 255, 0.1);
+        --mock-side-bg: #202229;
+        --mock-side-border: rgba(255, 255, 255, 0.08);
+        --mock-side-text: #b9c1ce;
+        --mock-side-item-bg: rgba(255, 255, 255, 0.04);
+        --mock-side-active-text: #ffffff;
+        --mock-side-active-bg: rgba(255, 184, 202, 0.18);
+        --mock-toolbar-bg: rgba(255, 255, 255, 0.09);
+        --mock-window-shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--bg);
+        font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", Arial, sans-serif;
+        font-size: 15px;
+        line-height: 1.7;
+        overflow-x: clip;
+        transition: background-color 180ms ease, color 180ms ease;
+    }
+
+    a {
+        color: inherit;
+    }
+
+    img {
+        display: block;
+        max-width: 100%;
+    }
+
+    .demo-strip,
+    .demo-showcase,
+    .demo-showcase-top,
+    .demo-showcase-bottom,
+    .section.alt,
+    .quote-panel,
+    .feature-card,
+    .workflow-step,
+    .source-card,
+    .tech-card,
+    .experience-band,
+    .detail-item,
+    .mock-window,
+    .mock-titlebar,
+    .mock-side,
+    .mock-side span,
+    .download-panel,
+    pre {
+        transition:
+            background-color 180ms ease,
+            border-color 180ms ease,
+            color 180ms ease,
+            box-shadow 180ms ease;
+    }
+
+    .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-bottom: 1px solid var(--header-border);
+        background: var(--header-bg);
+        color: var(--header-ink);
+        backdrop-filter: blur(16px);
+        transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+    }
+
+    .nav-wrap {
+        width: min(var(--wrap), calc(100% - 32px));
+        height: 58px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+    }
+
+    .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .brand-mark {
+        width: 27px;
+        height: 27px;
+        border: 2px solid #ffb8ca;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffb8ca;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: auto;
+    }
+
+    .nav-links a,
+    .theme-toggle {
+        min-height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 0 11px;
+        color: var(--header-muted);
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        text-decoration: none;
+        font: inherit;
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    .nav-links a:hover,
+    .theme-toggle:hover {
+        color: var(--header-ink);
+        border-color: var(--header-hover-border);
+        background: var(--header-hover-bg);
+    }
+
+    .theme-toggle {
+        position: relative;
+        width: 36px;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .theme-icon {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transform: rotate(-90deg) scale(0.62);
+        transition:
+            opacity 220ms ease,
+            transform 260ms cubic-bezier(.2,.8,.2,1);
+    }
+
+    .theme-icon-sun {
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+    }
+
+    [data-theme="dark"] .theme-icon-sun {
+        opacity: 0;
+        transform: rotate(90deg) scale(0.62);
+    }
+
+    [data-theme="dark"] .theme-icon-moon {
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+    }
+
+    .theme-toggle.is-switching .theme-icon {
+        animation: theme-icon-pop 320ms ease;
+    }
+
+    @keyframes theme-icon-pop {
+        0% { filter: blur(0); }
+        45% { transform: rotate(18deg) scale(0.82); filter: blur(1px); }
+        100% { filter: blur(0); }
+    }
+
+    .theme-toggle svg,
+    .link-icon svg,
+    .button svg,
+    .mini-link svg {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
+        flex: 0 0 auto;
+    }
+
+    .hero {
+        min-height: min(760px, calc(88vh - 58px));
+        max-height: 900px;
+        position: relative;
+        display: flex;
+        align-items: end;
+        overflow: hidden;
+        color: var(--hero-text);
+        background:
+            linear-gradient(90deg, var(--hero-overlay-start) 0%, var(--hero-overlay-mid) 42%, var(--hero-overlay-end) 100%),
+            linear-gradient(0deg, var(--hero-bottom-start) 0%, var(--hero-bottom-end) 42%),
+            url("images/image_01.png") center top / cover no-repeat;
+        transition: color 180ms ease;
+    }
+
+    .hero-inner {
+        width: min(var(--wrap), calc(100% - 32px));
+        margin: 0 auto;
+        padding: 72px 0 54px;
+    }
+
+    .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 28px;
+        padding: 0 10px;
+        border: 1px solid var(--hero-chip-border);
+        border-radius: 999px;
+        background: var(--hero-chip-bg);
+        color: var(--hero-chip-text);
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .eyebrow::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #ffb8ca;
+        box-shadow: 0 0 0 4px var(--hero-dot-shadow);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+        margin-top: 0;
+    }
+
+    h1 {
+        max-width: 760px;
+        margin: 18px 0 16px;
+        font-size: 60px;
+        line-height: 1.04;
+        font-weight: 800;
+    }
+
+    .hero-copy {
+        max-width: 660px;
+        margin-bottom: 28px;
+        color: var(--hero-muted);
+        font-size: 18px;
+        line-height: 1.85;
+    }
+
+    .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 26px;
+    }
+
+    .button {
+        min-height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 0 17px;
+        border: 1px solid var(--hero-action-border);
+        border-radius: var(--radius-sm);
+        color: var(--hero-action-text);
+        background: var(--hero-action-bg);
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 14px;
+        box-shadow: var(--hero-action-shadow);
+        transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+    }
+
+    .button:hover {
+        transform: translateY(-1px);
+        background: var(--hero-action-hover-bg);
+    }
+
+    .button.primary {
+        border-color: #ffb8ca;
+        background: #f39ab2;
+        color: #32141f;
+    }
+
+    .button.primary:hover {
+        background: #ffb8ca;
+    }
+
+    .demo-strip {
+        padding: 56px 0 42px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+    }
+
+    .demo-showcase {
+        width: min(var(--wrap), calc(100% - 32px));
+        margin: 0 auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: var(--surface-muted);
+        box-shadow: var(--shadow);
+    }
+
+    .demo-showcase-top,
+    .demo-showcase-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 16px 18px;
+    }
+
+    .demo-showcase-top {
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+    }
+
+    .demo-showcase-title {
+        min-width: 0;
+    }
+
+    .demo-showcase-title strong {
+        display: block;
+        margin-bottom: 2px;
+        font-size: 18px;
+        line-height: 1.35;
+    }
+
+    .demo-showcase-title span,
+    .demo-showcase-bottom span {
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .demo-showcase-frame {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        max-height: 620px;
+        overflow: hidden;
+        background: #050507;
+    }
+
+    .demo-showcase-frame iframe {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+    }
+
+    .demo-showcase-bottom {
+        border-top: 1px solid var(--line);
+        background: var(--surface);
+    }
+
+    .demo-showcase-link {
+        color: var(--accent-strong);
+        font-weight: 800;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .demo-showcase-link:hover {
+        color: var(--teal);
+    }
+
+    .hero-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+        gap: 10px;
+        max-width: 760px;
+    }
+
+    .hero-stat {
+        min-height: 74px;
+        padding: 12px 14px;
+        border: 1px solid var(--hero-card-border);
+        border-radius: var(--radius);
+        background: var(--hero-card-bg);
+        backdrop-filter: blur(10px);
+        transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+    }
+
+    .hero-stat strong {
+        display: block;
+        color: var(--hero-card-title);
+        font-size: 18px;
+        line-height: 1.2;
+    }
+
+    .hero-stat span {
+        display: block;
+        margin-top: 5px;
+        color: var(--hero-card-muted);
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    .section {
+        padding: 76px 0;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .section.alt {
+        background: var(--surface);
+    }
+
+    .wrap {
+        width: min(var(--wrap), calc(100% - 32px));
+        margin: 0 auto;
+    }
+
+    .section-heading {
+        max-width: 780px;
+        margin-bottom: 34px;
+    }
+
+    .section-label {
+        margin-bottom: 8px;
+        color: var(--accent-strong);
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .section h2 {
+        margin-bottom: 12px;
+        font-size: 34px;
+        line-height: 1.22;
+    }
+
+    .section-lead {
+        color: var(--muted);
+        font-size: 17px;
+        line-height: 1.85;
+    }
+
+    .problem-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
+        gap: 28px;
+        align-items: center;
+    }
+
+    .quote-panel {
+        min-height: 300px;
+        padding: 28px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow-soft);
+    }
+
+    .quote-panel h2 {
+        margin-bottom: 18px;
+    }
+
+    .quote-panel p {
+        color: var(--muted);
+        font-size: 17px;
+    }
+
+    .proof-image {
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: var(--dark);
+        box-shadow: var(--shadow);
+    }
+
+    .proof-image img {
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        object-fit: cover;
+        object-position: top left;
+    }
+
+    .proof-caption {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 13px 15px;
+        color: #dfe5ee;
+        background: #202229;
+        font-size: 13px;
+    }
+
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .feature-card,
+    .workflow-step,
+    .source-card,
+    .tech-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow-soft);
+    }
+
+    .feature-card {
+        min-height: 240px;
+        padding: 22px;
+    }
+
+    .feature-card:hover,
+    .source-card:hover,
+    .tech-card:hover {
+        border-color: var(--line-strong);
+        transform: translateY(-2px);
+        transition: transform 160ms ease, border-color 160ms ease;
+    }
+
+    .feature-icon {
+        width: 38px;
+        height: 38px;
+        margin-bottom: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius);
+        color: var(--accent-strong);
+        background: var(--accent-soft);
+    }
+
+    .feature-card:nth-child(3n + 2) .feature-icon {
+        color: var(--teal);
+        background: var(--teal-soft);
+    }
+
+    .feature-card:nth-child(3n) .feature-icon {
+        color: var(--gold);
+        background: var(--gold-soft);
+    }
+
+    .feature-icon svg {
+        width: 21px;
+        height: 21px;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
+    }
+
+    .feature-card h3,
+    .workflow-step h3,
+    .source-card h3,
+    .tech-card h3 {
+        margin-bottom: 9px;
+        font-size: 18px;
+        line-height: 1.34;
+    }
+
+    .feature-card p,
+    .workflow-step p,
+    .source-card p,
+    .tech-card p {
+        margin-bottom: 0;
+        color: var(--muted);
+    }
+
+    .workflow {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .workflow-step {
+        min-height: 220px;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        margin-bottom: 18px;
+        border-radius: 50%;
+        background: var(--dark);
+        color: #fff;
+        font-weight: 800;
+        font-size: 13px;
+    }
+
+    [data-theme="dark"] .step-number {
+        background: #f39ab2;
+        color: #32141f;
+    }
+
+    .integrations {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .source-card {
+        min-height: 180px;
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .mini-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        width: fit-content;
+        color: var(--accent-strong);
+        font-weight: 800;
+        text-decoration: none;
+        font-size: 14px;
+    }
+
+    .mini-link:hover {
+        color: var(--teal);
+    }
+
+    .experience-band {
+        background: var(--experience-bg);
+        color: var(--experience-ink);
+    }
+
+    .experience-band .section-label {
+        color: var(--experience-label);
+    }
+
+    .experience-band .section-lead {
+        color: var(--experience-muted);
+    }
+
+    .experience-grid {
+        display: grid;
+        grid-template-columns: 0.95fr 1.05fr;
+        gap: 26px;
+        align-items: start;
+    }
+
+    .mock-window {
+        border: 1px solid var(--mock-window-border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: var(--mock-window-bg);
+        box-shadow: var(--mock-window-shadow);
+    }
+
+    .mock-titlebar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 42px;
+        padding: 0 14px;
+        color: var(--mock-titlebar-text);
+        border-bottom: 1px solid var(--mock-titlebar-border);
+        background: var(--mock-titlebar-bg);
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .mock-dots {
+        display: flex;
+        gap: 6px;
+    }
+
+    .mock-dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #7a8290;
+    }
+
+    .mock-body {
+        display: grid;
+        grid-template-columns: 116px 1fr;
+        min-height: 340px;
+    }
+
+    .mock-side {
+        padding: 16px 12px;
+        background: var(--mock-side-bg);
+        border-right: 1px solid var(--mock-side-border);
+    }
+
+    .mock-side span {
+        display: block;
+        height: 30px;
+        margin-bottom: 7px;
+        padding: 5px 9px;
+        border-radius: var(--radius-sm);
+        color: var(--mock-side-text);
+        background: var(--mock-side-item-bg);
+        font-size: 12px;
+    }
+
+    .mock-side span:first-child {
+        color: var(--mock-side-active-text);
+        background: var(--mock-side-active-bg);
+        border-left: 2px solid #ffb8ca;
+    }
+
+    .mock-content {
+        padding: 16px;
+    }
+
+    .mock-toolbar {
+        display: flex;
+        gap: 9px;
+        margin-bottom: 14px;
+    }
+
+    .mock-toolbar span {
+        height: 28px;
+        border-radius: var(--radius-sm);
+        background: var(--mock-toolbar-bg);
+    }
+
+    .mock-toolbar span:nth-child(1) {
+        width: 110px;
+        background: #f39ab2;
+    }
+
+    .mock-toolbar span:nth-child(2) {
+        width: 82px;
+    }
+
+    .mock-toolbar span:nth-child(3) {
+        width: 64px;
+    }
+
+    .mock-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .mock-card {
+        min-height: 122px;
+        border-radius: var(--radius-sm);
+        background:
+            linear-gradient(0deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.06)),
+            linear-gradient(135deg, #ec8ca5, #6aa6b2);
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: end;
+    }
+
+    .mock-card:nth-child(2) {
+        background:
+            linear-gradient(0deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.06)),
+            linear-gradient(135deg, #7ea2e5, #b86a92);
+    }
+
+    .mock-card:nth-child(3) {
+        background:
+            linear-gradient(0deg, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.06)),
+            linear-gradient(135deg, #ffc773, #5c8e9b);
+    }
+
+    .mock-card b,
+    .mock-card span {
+        display: block;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.88);
+    }
+
+    .mock-card b {
+        width: 76%;
+        margin-bottom: 8px;
+    }
+
+    .mock-card span {
+        width: 48%;
+        opacity: 0.68;
+    }
+
+    .detail-list {
+        display: grid;
+        gap: 12px;
+    }
+
+    .detail-item {
+        padding: 18px 20px;
+        border: 1px solid var(--experience-detail-border);
+        border-radius: var(--radius);
+        background: var(--experience-detail-bg);
+    }
+
+    .detail-item strong {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--experience-detail-title);
+        font-size: 16px;
+    }
+
+    .detail-item span {
+        color: var(--experience-detail-text);
+    }
+
+    .download-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+
+    .download-panel {
+        padding: 26px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow-soft);
+    }
+
+    .download-panel h3 {
+        margin-bottom: 10px;
+        font-size: 21px;
+    }
+
+    .download-panel p {
+        color: var(--muted);
+    }
+
+    .download-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .download-panel .button {
+        color: var(--ink);
+        border-color: var(--line);
+        background: var(--surface-muted);
+        box-shadow: none;
+    }
+
+    .download-panel .button.primary {
+        color: #32141f;
+        border-color: #f39ab2;
+        background: #f39ab2;
+    }
+
+    pre {
+        margin: 16px 0 0;
+        padding: 16px;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+        color: var(--ink);
+        font: 13px/1.7 "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    }
+
+    .tech-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .tech-card {
+        min-height: 128px;
+        padding: 20px;
+    }
+
+    .site-footer {
+        padding: 34px 0;
+        color: #c4ccd8;
+        background: #17191f;
+    }
+
+    .footer-wrap {
+        width: min(var(--wrap), calc(100% - 32px));
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+    }
+
+    .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .footer-links a {
+        color: #f6f8fb;
+        text-decoration: none;
+    }
+
+    .footer-links a:hover {
+        color: #ffb8ca;
+    }
+
+    @media (max-width: 960px) {
+        .nav-links a {
+            display: none;
+        }
+
+        h1 {
+            font-size: 46px;
+        }
+
+        .hero-stats,
+        .feature-grid,
+        .workflow,
+        .integrations,
+        .tech-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .problem-layout,
+        .experience-grid,
+        .download-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .nav-wrap {
+            width: min(var(--wrap), calc(100% - 24px));
+            height: 54px;
+        }
+
+        .brand-mark {
+            width: 25px;
+            height: 25px;
+            border-radius: 7px;
+        }
+
+        .hero {
+            min-height: auto;
+            padding: 0 12px;
+        }
+
+        .hero-inner {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            margin: 0;
+            padding: 76px 0 34px;
+        }
+
+        h1 {
+            font-size: 36px;
+        }
+
+        .hero-copy,
+        .section-lead {
+            font-size: 16px;
+        }
+
+        .eyebrow,
+        .hero-copy {
+            max-width: 100%;
+            overflow-wrap: anywhere;
+        }
+
+        .hero-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .hero-actions .button {
+            width: 100%;
+        }
+
+        .feature-grid,
+        .workflow,
+        .integrations,
+        .tech-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .hero-stats,
+        .demo-showcase,
+        .hero-stat,
+        .feature-card,
+        .workflow-step,
+        .source-card,
+        .tech-card,
+        .download-panel {
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        .hero-stat span {
+            overflow-wrap: anywhere;
+        }
+
+        .demo-strip {
+            padding: 34px 0 30px;
+        }
+
+        .demo-showcase {
+            width: calc(100% - 24px);
+        }
+
+        .demo-showcase-top,
+        .demo-showcase-bottom {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 6px;
+            padding: 14px;
+        }
+
+        .demo-showcase-title strong {
+            font-size: 17px;
+        }
+
+        .demo-showcase-title span,
+        .demo-showcase-bottom span {
+            font-size: 12px;
+        }
+
+        .section {
+            padding: 54px 0;
+        }
+
+        .section h2 {
+            font-size: 27px;
+        }
+
+        .mock-body {
+            grid-template-columns: 1fr;
+        }
+
+        .mock-side {
+            display: none;
+        }
+
+        .mock-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .footer-wrap {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+    }
+</style>
+</head>
+<body>
+<header class="site-header">
+    <div class="nav-wrap">
+        <a class="brand" href="#top" aria-label="Perelegans 首页">
+            <span class="brand-mark">P</span>
+            <span>Perelegans</span>
+        </a>
+        <nav class="nav-links" aria-label="主要导航">
+            <a href="#why">定位</a>
+            <a href="#features">能力</a>
+            <a href="#workflow">流程</a>
+            <a href="#download">下载</a>
+            <a class="link-icon" href="https://github.com/Shizuku-in/Perelegans" target="_blank" rel="noreferrer" aria-label="打开 GitHub 仓库">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.4-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6A4.6 4.6 0 0 0 18.7 6c.1-.4.6-1.9-.1-3.5 0 0-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.2 5.4 2.5 5.4 2.5c-.7 1.6-.2 3.1-.1 3.5A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21" /></svg>
+                GitHub
+            </a>
+            <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">
+                <span class="theme-icon theme-icon-sun" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.4-6.4-.7.7M6.3 17.7l-.7.7m12.1 0-.7-.7M6.3 6.3l-.7-.7" /><circle cx="12" cy="12" r="4" /></svg>
+                </span>
+                <span class="theme-icon theme-icon-moon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M21 14.2A7.5 7.5 0 0 1 9.8 3a8 8 0 1 0 11.2 11.2Z" /></svg>
+                </span>
+            </button>
+        </nav>
+    </div>
+</header>
+
+<main id="top">
+    <section class="hero" aria-label="Perelegans 介绍">
+        <div class="hero-inner">
+            <span class="eyebrow">Windows 桌面应用 · 视觉小说玩家的本地游戏库</span>
+            <h1>Perelegans</h1>
+            <p class="hero-copy">
+                把视觉小说的封面、元数据、状态和游玩时长收进一个安静可靠的桌面应用里。启动游戏后它在后台自动记录，想回顾进度、整理收藏或让 AI 帮你读懂自己的偏好时，再打开它就好。
+            </p>
+            <div class="hero-actions">
+                <a class="button primary" href="https://github.com/Shizuku-in/Perelegans/releases" target="_blank" rel="noreferrer">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
+                    下载 Release
+                </a>
+                <a class="button" href="https://github.com/Shizuku-in/Perelegans" target="_blank" rel="noreferrer">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 18 6-6-6-6" /><path d="m8 6-6 6 6 6" /><path d="m14.5 4-5 16" /></svg>
+                    查看源码
+                </a>
+                <a class="button" href="#workflow">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
+                    使用教程
+                </a>
+            </div>
+            <div class="hero-stats" aria-label="功能摘要">
+                <div class="hero-stat">
+                    <strong>自动追踪</strong>
+                    <span>基于进程监控记录游玩时长</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>三方元数据</strong>
+                    <span>VNDB、Bangumi、ErogameSpace</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>AI 助手</strong>
+                    <span>用自然语言查询本地游戏库</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>多语言 UI</strong>
+                    <span>简体中文、English、日本語</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="demo-strip" id="demo" aria-label="Perelegans 演示视频">
+        <div class="demo-showcase">
+            <div class="demo-showcase-top">
+                <div class="demo-showcase-title">
+                    <strong>演示视频</strong>
+                </div>
+                <a class="demo-showcase-link" href="https://github.com/Shizuku-in/Perelegans" target="_blank" rel="noreferrer">查看源码</a>
+            </div>
+            <div class="demo-showcase-frame">
+                <iframe
+                    src="https://player.bilibili.com/player.html?bvid=BV1t49fB7ERs&page=1&high_quality=1&danmaku=0"
+                    title="Perelegans 演示视频"
+                    loading="lazy"
+                    allow="fullscreen; picture-in-picture"
+                    allowfullscreen>
+                </iframe>
+            </div>
+            <div class="demo-showcase-bottom">
+                <span>快速浏览 Perelegans 的核心体验：游戏库管理、游玩时长追踪与 AI 助手。</span>
+                <a class="demo-showcase-link" href="#why">继续了解 Perelegans</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="section alt" id="why">
+        <div class="wrap problem-layout">
+            <div class="quote-panel">
+                <div class="section-label">WHY IT EXISTS</div>
+                <h2>它不是另一个清单，而是你的视觉小说游玩记录台。</h2>
+                <p>
+                    视觉小说玩家常常会同时面对多部作品、补丁目录、不同元数据站点和断断续续的游玩节奏。Perelegans 做的事情很克制：把作品整理好，把时间记清楚，把状态留在本地。
+                </p>
+                <p>
+                    当库里的内容越来越多，它还可以根据已保存的元数据和游玩记录生成推荐，或者用对话方式回答“我最近在玩什么”“哪些作品还没补封面”“类似某部作品的下一部该看哪一部”。
+                </p>
+            </div>
+            <figure class="proof-image">
+                <img src="images/image_01.png" alt="Perelegans 主界面截图，展示视觉小说封面墙和游玩时长" />
+                <figcaption class="proof-caption">
+                    <span>主界面以封面墙为中心，适合快速扫视收藏。</span>
+                    <span>本地截图</span>
+                </figcaption>
+            </figure>
+        </div>
+    </section>
+
+    <section class="section" id="features">
+        <div class="wrap">
+            <div class="section-heading">
+                <div class="section-label">CORE FEATURES</div>
+                <h2>围绕“整理、记录、回顾、发现”搭起来的功能。</h2>
+                <p class="section-lead">
+                    介绍页不需要把 README 的每个配置项摊开。真正重要的是：Perelegans 能让你的本地游戏库从零散文件变成可检索、可统计、可提问的收藏。
+                </p>
+            </div>
+            <div class="feature-grid">
+                <article class="feature-card">
+                    <span class="feature-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                    </span>
+                    <h3>后台记录游玩时长</h3>
+                    <p>应用通过进程监控判断游戏运行状态，自动累计总时长和会话历史；不用手动点开始，也不用事后回忆。</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2Z" /><path d="M8 7h6" /><path d="M8 11h7" /></svg>
+                    </span>
+                    <h3>游戏库管理</h3>
+                    <p>从运行中的进程添加游戏，标记待玩、游玩中、已通关或已弃坑，并支持数据库备份与恢复。</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /><path d="M8 11h6" /></svg>
+                    </span>
+                    <h3>元数据与封面补全</h3>
+                    <p>接入 VNDB、Bangumi 和 ErogameSpace，抓取标题、厂商、发售日、标签、官网与封面候选，让卡片信息更完整。</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8" /><rect x="4" y="8" width="16" height="12" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M9 13v.01" /><path d="M15 13v.01" /></svg>
+                    </span>
+                    <h3>AI 推荐</h3>
+                    <p>根据你已经补全的元数据和状态记录生成玩家画像，结合 VNDB 候选作品，给出带理由的新作推荐。</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 10h8" /><path d="M8 14h5" /></svg>
+                    </span>
+                    <h3>自然语言库助手</h3>
+                    <p>直接问本地游戏库：缺哪些封面、最近玩了什么、某个标签下有哪些作品。回答基于你保存的数据，不需要先学复杂筛选。</p>
+                </article>
+                <article class="feature-card">
+                    <span class="feature-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 16v-5" /><path d="M12 16V8" /><path d="M17 16v-9" /></svg>
+                    </span>
+                    <h3>统计与回顾</h3>
+                    <p>查看每部作品的累计时长、游玩会话和时间分布。适合复盘长篇作品，也适合找回搁置已久的进度。</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section alt" id="workflow">
+        <div class="wrap">
+            <div class="section-heading">
+                <div class="section-label">WORKFLOW</div>
+                <h2>第一次使用时，只需要四步。</h2>
+                <p class="section-lead">
+                    Perelegans 的主流程围绕“先把作品纳入库，再让应用持续记录”设计。配置项可以之后慢慢调，核心体验不应该被设置面板拦住。
+                </p>
+            </div>
+            <div class="workflow">
+                <article class="workflow-step">
+                    <span class="step-number">1</span>
+                    <h3>启动游戏</h3>
+                    <p>先运行你要记录的视觉小说，让 Perelegans 能在进程列表里识别它。</p>
+                </article>
+                <article class="workflow-step">
+                    <span class="step-number">2</span>
+                    <h3>从进程添加</h3>
+                    <p>在应用里选择对应进程，保存为游戏条目。之后它就有了可监控的启动路径。</p>
+                </article>
+                <article class="workflow-step">
+                    <span class="step-number">3</span>
+                    <h3>补全资料</h3>
+                    <p>用 VNDB、Bangumi 或 ErogameSpace 搜索元数据和封面，整理标题、厂商、标签和发售时间。</p>
+                </article>
+                <article class="workflow-step">
+                    <span class="step-number">4</span>
+                    <h3>放到后台</h3>
+                    <p>开启托盘或开机自启后，应用会静默监控。你只需要偶尔回来查看统计和推荐。</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section experience-band" id="experience">
+        <div class="wrap experience-grid">
+            <div>
+                <div class="section-label">DESKTOP FEEL</div>
+                <h2>保留桌面应用应有的稳定感。</h2>
+                <p class="section-lead">
+                    Perelegans 基于 .NET 8 与 WPF 构建，使用 MahApps.Metro 风格。它偏向工具应用：信息密度高、操作路径短、能长期放在系统托盘里工作。
+                </p>
+                <div class="detail-list">
+                    <div class="detail-item">
+                        <strong>本地优先</strong>
+                        <span>游戏库、游玩记录、封面缓存和设置都围绕本地桌面体验组织。</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>可配置网络</strong>
+                        <span>支持 HTTP 代理，适合需要访问外部元数据源或兼容 AI API 的网络环境。</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>亮色、暗色、跟随系统</strong>
+                        <span>界面主题可以按你的桌面环境切换，同时支持简体中文、英文和日文。</span>
+                    </div>
+                </div>
+            </div>
+            <div class="mock-window" aria-label="界面结构示意图">
+                <div class="mock-titlebar">
+                    <span>Perelegans</span>
+                    <div class="mock-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+                </div>
+                <div class="mock-body">
+                    <div class="mock-side" aria-hidden="true">
+                        <span>游戏库</span>
+                        <span>助手</span>
+                        <span>推荐</span>
+                        <span>统计</span>
+                        <span>设置</span>
+                    </div>
+                    <div class="mock-content" aria-hidden="true">
+                        <div class="mock-toolbar"><span></span><span></span><span></span></div>
+                        <div class="mock-grid">
+                            <div class="mock-card"><b></b><span></span></div>
+                            <div class="mock-card"><b></b><span></span></div>
+                            <div class="mock-card"><b></b><span></span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section alt" id="sources">
+        <div class="wrap">
+            <div class="section-heading">
+                <div class="section-label">DATA SOURCES</div>
+                <h2>从玩家熟悉的数据源获得作品信息。</h2>
+                <p class="section-lead">
+                    元数据源不是单纯的链接堆砌。它们让 Perelegans 可以把一个只有进程路径的条目，变成带封面、标签、厂商和关联页面的作品卡。
+                </p>
+            </div>
+            <div class="integrations">
+                <article class="source-card">
+                    <div>
+                        <h3>VNDB</h3>
+                        <p>适合获取视觉小说条目、标签、发售信息与相关作品数据，也是推荐画像的重要来源。</p>
+                    </div>
+                    <a class="mini-link" href="https://vndb.org/" target="_blank" rel="noreferrer">
+                        打开 VNDB
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7" /><path d="M7 7h10v10" /></svg>
+                    </a>
+                </article>
+                <article class="source-card">
+                    <div>
+                        <h3>Bangumi</h3>
+                        <p>可连接个人账号进行收藏同步，支持 Access Token 与 OAuth 两种授权方式。</p>
+                    </div>
+                    <a class="mini-link" href="https://bangumi.tv/" target="_blank" rel="noreferrer">
+                        打开 Bangumi
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7" /><path d="M7 7h10v10" /></svg>
+                    </a>
+                </article>
+                <article class="source-card">
+                    <div>
+                        <h3>ErogameSpace</h3>
+                        <p>用于补充批评空间相关信息，让条目可以覆盖更贴近日系作品社区的资料维度。</p>
+                    </div>
+                    <a class="mini-link" href="https://erogamescape.dyndns.org" target="_blank" rel="noreferrer">
+                        打开站点
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7" /><path d="M7 7h10v10" /></svg>
+                    </a>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="download">
+        <div class="wrap">
+            <div class="section-heading">
+                <div class="section-label">GET STARTED</div>
+                <h2>直接下载，或从源码运行。</h2>
+                <p class="section-lead">
+                    普通使用推荐从 GitHub Releases 下载压缩包。开发者可以用 .NET 8 SDK 构建源码。
+                </p>
+            </div>
+            <div class="download-layout">
+                <article class="download-panel">
+                    <h3>下载发布版</h3>
+                    <p>适合只想使用应用的玩家。下载 Release 压缩包后运行 `Perelegans.exe`，再从进程添加游戏即可。</p>
+                    <div class="download-actions">
+                        <a class="button primary" href="https://github.com/Shizuku-in/Perelegans/releases" target="_blank" rel="noreferrer">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
+                            前往 Releases
+                        </a>
+                        <a class="button" href="https://gitblog.cya.moe/Perelegans/" target="_blank" rel="noreferrer">
+                            查看说明文档
+                        </a>
+                    </div>
+                </article>
+                <article class="download-panel">
+                    <h3>从源码构建</h3>
+                    <p>需要先安装 .NET 8 SDK。仓库采用 WPF + MVVM 结构，主项目位于 `src/Perelegans`。</p>
+<pre><code>git clone https://github.com/Shizuku-in/Perelegans.git
+cd Perelegans
+dotnet build src/Perelegans/Perelegans.csproj
+dotnet run --project src/Perelegans/Perelegans.csproj</code></pre>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="section alt" id="tech">
+        <div class="wrap">
+            <div class="section-heading">
+                <div class="section-label">TECH STACK</div>
+                <h2>桌面端、数据库、图表与服务集成各司其职。</h2>
+            </div>
+            <div class="tech-grid">
+                <article class="tech-card">
+                    <h3>.NET 8 / WPF</h3>
+                    <p>承担 Windows 桌面应用主体。</p>
+                </article>
+                <article class="tech-card">
+                    <h3>MahApps.Metro</h3>
+                    <p>提供现代化桌面 UI 基础。</p>
+                </article>
+                <article class="tech-card">
+                    <h3>EF Core + SQLite</h3>
+                    <p>保存本地游戏库与游玩记录。</p>
+                </article>
+                <article class="tech-card">
+                    <h3>LiveCharts2</h3>
+                    <p>用于游玩时间统计可视化。</p>
+                </article>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="site-footer">
+    <div class="footer-wrap">
+        <div>
+            <strong>Perelegans</strong><br />
+            MIT Licensed · 面向视觉小说玩家的本地游戏库工具
+        </div>
+        <div class="footer-links">
+            <a href="https://github.com/Shizuku-in/Perelegans" target="_blank" rel="noreferrer">GitHub</a>
+            <a href="https://github.com/Shizuku-in/Perelegans/releases" target="_blank" rel="noreferrer">Releases</a>
+            <a href="LICENSE" target="_blank" rel="noreferrer">License</a>
+        </div>
+    </div>
+</footer>
+
+<script>
+    (function () {
+        const root = document.documentElement;
+        const toggle = document.getElementById("themeToggle");
+        const key = "perelegans-site-theme";
+        let animationTimer;
+
+        function applyTheme(theme) {
+            if (theme === "dark") {
+                root.setAttribute("data-theme", "dark");
+                toggle.setAttribute("aria-label", "当前暗色模式，切换主题");
+                toggle.setAttribute("title", "当前暗色模式，切换主题");
+            } else {
+                root.removeAttribute("data-theme");
+                toggle.setAttribute("aria-label", "当前亮色模式，切换主题");
+                toggle.setAttribute("title", "当前亮色模式，切换主题");
+            }
+        }
+
+        function animateToggle() {
+            clearTimeout(animationTimer);
+            toggle.classList.remove("is-switching");
+            void toggle.offsetWidth;
+            toggle.classList.add("is-switching");
+            animationTimer = setTimeout(function () {
+                toggle.classList.remove("is-switching");
+            }, 340);
+        }
+
+        const saved = localStorage.getItem(key);
+        if (saved) {
+            applyTheme(saved);
+        } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            applyTheme("dark");
+        }
+
+        toggle.addEventListener("click", function () {
+            const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+            localStorage.setItem(key, next);
+            animateToggle();
+            applyTheme(next);
+        });
+    })();
+</script>
+</body>
+</html>

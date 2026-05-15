@@ -582,4 +582,76 @@
   <data name="Main_AssistantThinking2" xml:space="preserve">
     <value>正在把线索串起来...</value>
   </data>
+  <data name="Main_Statistics" xml:space="preserve">
+    <value>统计</value>
+  </data>
+  <data name="Main_CloseStatistics" xml:space="preserve">
+    <value>返回</value>
+  </data>
+  <data name="Main_UsageStatsDaily" xml:space="preserve">
+    <value>每日</value>
+  </data>
+  <data name="Main_UsageStatsMonthly" xml:space="preserve">
+    <value>每月</value>
+  </data>
+  <data name="Main_UsageStatsDailyTitle" xml:space="preserve">
+    <value>今日进程时间</value>
+  </data>
+  <data name="Main_UsageStatsMonthlyTitle" xml:space="preserve">
+    <value>本月进程时间</value>
+  </data>
+  <data name="Main_UsageStatsReviewTitle" xml:space="preserve">
+    <value>最近 24 小时</value>
+  </data>
+  <data name="Main_UsageStatsDailySubtitleFormat" xml:space="preserve">
+    <value>{0} 的进程时间分布</value>
+  </data>
+  <data name="Main_UsageStatsMonthlySubtitleFormat" xml:space="preserve">
+    <value>{0} 的进程时间分布</value>
+  </data>
+  <data name="Main_UsageStatsReviewSubtitle" xml:space="preserve">
+    <value>随今日复盘一起整理出来的桌面时间分布</value>
+  </data>
+  <data name="Main_UsageStatsTotal" xml:space="preserve">
+    <value>总时长</value>
+  </data>
+  <data name="Main_UsageStatsProcesses" xml:space="preserve">
+    <value>进程数</value>
+  </data>
+  <data name="Main_UsageStatsTotalFormat" xml:space="preserve">
+    <value>共 {0}</value>
+  </data>
+  <data name="Main_UsageStatsNoTime" xml:space="preserve">
+    <value>暂无记录</value>
+  </data>
+  <data name="Main_UsageStatsEmpty" xml:space="preserve">
+    <value>这个时间范围内还没有可统计的进程停留记录。</value>
+  </data>
+  <data name="Main_UsageStatsOther" xml:space="preserve">
+    <value>其他</value>
+  </data>
+  <data name="Main_DailyReviewFallbackEncouragement" xml:space="preserve">
+    <value>今天依然留下了可以接住的线索。哪怕推进得不多，它也不是空白的一天，我会帮你把这些痕迹好好保存下来。</value>
+  </data>
+  <data name="Main_DailyReviewEncouragement" xml:space="preserve">
+    <value>给你的一点确认</value>
+  </data>
+  <data name="Main_DailyReviewOverview" xml:space="preserve">
+    <value>复盘概览</value>
+  </data>
+  <data name="Main_ChatDelete" xml:space="preserve">
+    <value>删除</value>
+  </data>
+  <data name="Main_ChatRewind" xml:space="preserve">
+    <value>回溯</value>
+  </data>
+  <data name="Main_ChatStop" xml:space="preserve">
+    <value>停止</value>
+  </data>
+  <data name="Main_ConversationRewound" xml:space="preserve">
+    <value>已回溯到这条对话。</value>
+  </data>
+  <data name="Main_AssistantStopped" xml:space="preserve">
+    <value>已停止 AI 输出。</value>
+  </data>
 </root>

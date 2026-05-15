@@ -19,6 +19,9 @@ public partial class MainWindow : MetroWindow
     private System.Windows.Point _dragStartPoint;
     private System.Windows.Point _dragStartOffset;
     private bool _isDraggingGalaxyTask;
+    private System.Windows.Point _galaxyMapPanStartPoint;
+    private System.Windows.Point _galaxyMapPanStartOffset;
+    private bool _isPanningGalaxyMap;
 
     public MainWindow()
     {
@@ -126,6 +129,79 @@ public partial class MainWindow : MetroWindow
         GalaxyScaleTransform.ScaleX = nextScale;
         GalaxyScaleTransform.ScaleY = nextScale;
         e.Handled = true;
+    }
+
+    private void UsagePieChart_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        _viewModel?.ClearUsagePieHover();
+    }
+
+    private void UsageSlicePath_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: UsageStatsSliceViewModel slice })
+        {
+            _viewModel?.SetHoveredUsageSlice(slice);
+        }
+    }
+
+    private void GalaxyMapScrollViewer_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not ScrollViewer scrollViewer)
+        {
+            return;
+        }
+
+        if (FindAncestor<ContentPresenter>(e.OriginalSource as DependencyObject)?.DataContext is ContextMemory)
+        {
+            return;
+        }
+
+        _isPanningGalaxyMap = true;
+        _galaxyMapPanStartPoint = e.GetPosition(scrollViewer);
+        _galaxyMapPanStartOffset = new System.Windows.Point(GalaxyMapPanTransform.X, GalaxyMapPanTransform.Y);
+        scrollViewer.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void GalaxyMapScrollViewer_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_isPanningGalaxyMap ||
+            sender is not ScrollViewer scrollViewer ||
+            e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        var current = e.GetPosition(scrollViewer);
+        var delta = current - _galaxyMapPanStartPoint;
+        GalaxyMapPanTransform.X = _galaxyMapPanStartOffset.X + delta.X;
+        GalaxyMapPanTransform.Y = _galaxyMapPanStartOffset.Y + delta.Y;
+        e.Handled = true;
+    }
+
+    private void GalaxyMapScrollViewer_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        EndGalaxyMapPan(sender as ScrollViewer);
+        e.Handled = true;
+    }
+
+    private void GalaxyMapScrollViewer_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            EndGalaxyMapPan(sender as ScrollViewer);
+        }
+    }
+
+    private void EndGalaxyMapPan(ScrollViewer? scrollViewer)
+    {
+        if (!_isPanningGalaxyMap)
+        {
+            return;
+        }
+
+        _isPanningGalaxyMap = false;
+        scrollViewer?.ReleaseMouseCapture();
     }
 
     private void GalaxyTask_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

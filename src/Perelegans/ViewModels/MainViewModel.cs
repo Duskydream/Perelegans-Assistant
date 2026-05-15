@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
@@ -34,6 +35,7 @@ public partial class MainViewModel : ObservableObject
     private int _assistantThinkingIndex;
     private DateTime _lastSceneCheckpointAt = DateTime.MinValue;
     private string _lastSceneCheckpointProcess = string.Empty;
+    private CancellationTokenSource? _assistantResponseCancellation;
 
     [ObservableProperty]
     private ObservableCollection<ApplicationUsage> _applications = new();
@@ -241,6 +243,10 @@ public partial class MainViewModel : ObservableObject
                 (await _dbService.GetAllApplicationUsageSessionsAsync()).Take(80));
             StatusText = string.Format(T("Main_LastRefreshedFormat"), DateTime.Now.ToString("HH:mm:ss"));
             RefreshComputedStats();
+            if (IsStatisticsVisible)
+            {
+                await RefreshUsageStatisticsAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -421,6 +427,10 @@ public partial class MainViewModel : ObservableObject
     private void ToggleGalaxy()
     {
         IsGalaxyVisible = !IsGalaxyVisible;
+        if (IsGalaxyVisible)
+        {
+            IsStatisticsVisible = false;
+        }
     }
 
     [RelayCommand]
@@ -428,6 +438,9 @@ public partial class MainViewModel : ObservableObject
     {
         HasConversationStarted = true;
         StartAssistantThinking();
+        _assistantResponseCancellation?.Cancel();
+        using var responseCancellation = new CancellationTokenSource();
+        _assistantResponseCancellation = responseCancellation;
         StatusText = T("Main_DailyReviewGenerating");
         try
         {
@@ -439,7 +452,12 @@ public partial class MainViewModel : ObservableObject
             {
                 try
                 {
-                    review = await _focusClient.CreateDailyReviewAsync(FocusTasks, memories, sessions);
+                    review = await _focusClient.CreateDailyReviewAsync(FocusTasks, memories, sessions, responseCancellation.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    StatusText = T("Main_AssistantStopped");
+                    return;
                 }
                 catch (Exception ex)
                 {
@@ -454,23 +472,31 @@ public partial class MainViewModel : ObservableObject
                     .Take(12))
                 .DistinctBy(memory => memory.Id)
                 .ToList();
-            var insight = await CreateDesktopInsightAsync("daily_review", "每日总结：生成计划推断、鱼骨归因和星图解释", insightMemories, sessions, snapshot);
+            var insight = await CreateDesktopInsightAsync("daily_review", "每日总结：生成计划推断、鱼骨归因和星图解释", insightMemories, sessions, snapshot, responseCancellation.Token);
             var archivePath = await ArchiveLocalContextDigestAsync("daily", insightMemories, sessions, insight);
             await _dbService.RefreshMemoryLifecycleForDailyReviewAsync();
             await RefreshContextMemoriesAsync();
 
-            ConversationMessages.Add(ConversationMessage.Assistant(
+            var reviewText =
                 (review != null
                     ? FormatDailyReview(review)
                     : CreateLocalContextReply(memories, snapshot)) +
                 "\n\n" +
                 FormatDesktopInsight(insight) +
-                "\n\n已写入本地摘要：" + archivePath));
+                "\n\n已写入本地摘要：" + archivePath;
+            var statsSnapshot = CreateDailyReviewUsageStatsSnapshot(sessions);
+            ConversationMessages.Add(statsSnapshot.HasSlices
+                ? ConversationMessage.AssistantWithUsageStats(reviewText, statsSnapshot)
+                : ConversationMessage.Assistant(reviewText));
             StatusText = T("Main_DailyReviewReady");
         }
         finally
         {
             StopAssistantThinking();
+            if (_assistantResponseCancellation == responseCancellation)
+            {
+                _assistantResponseCancellation = null;
+            }
         }
     }
 
@@ -580,6 +606,69 @@ public partial class MainViewModel : ObservableObject
     private bool CanSendConversationMessage()
     {
         return !string.IsNullOrWhiteSpace(ConversationInput);
+    }
+
+    [RelayCommand]
+    private void DeleteConversationMessage(ConversationMessage? message)
+    {
+        if (message == null)
+        {
+            return;
+        }
+
+        message.StopStreaming();
+        ConversationMessages.Remove(message);
+        HasConversationStarted = ConversationMessages.Count > 0;
+    }
+
+    [RelayCommand]
+    private void RewindConversationTo(ConversationMessage? message)
+    {
+        if (message == null)
+        {
+            return;
+        }
+
+        var index = ConversationMessages.IndexOf(message);
+        if (index < 0)
+        {
+            return;
+        }
+
+        StopAssistantOutput();
+        if (message.IsUser)
+        {
+            ConversationInput = message.Text;
+            while (ConversationMessages.Count > index)
+            {
+                ConversationMessages[^1].StopStreaming();
+                ConversationMessages.RemoveAt(ConversationMessages.Count - 1);
+            }
+        }
+        else
+        {
+            while (ConversationMessages.Count > index + 1)
+            {
+                ConversationMessages[^1].StopStreaming();
+                ConversationMessages.RemoveAt(ConversationMessages.Count - 1);
+            }
+        }
+
+        HasConversationStarted = ConversationMessages.Count > 0;
+        StatusText = T("Main_ConversationRewound");
+    }
+
+    [RelayCommand]
+    private void StopAssistantOutput()
+    {
+        _assistantResponseCancellation?.Cancel();
+        foreach (var message in ConversationMessages)
+        {
+            message.StopStreaming();
+        }
+
+        StopAssistantThinking();
+        StatusText = T("Main_AssistantStopped");
     }
 
     private async Task DispatchConversationAsync(string text)
@@ -724,13 +813,16 @@ public partial class MainViewModel : ObservableObject
     {
         HasConversationStarted = true;
         StartAssistantThinking();
+        _assistantResponseCancellation?.Cancel();
+        using var responseCancellation = new CancellationTokenSource();
+        _assistantResponseCancellation = responseCancellation;
         StatusText = T("Main_ContextThinking");
         try
         {
             var snapshot = _processMonitor.SampleForegroundWindowFocus();
             var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(DateTime.Now - lookback);
             var memories = await GetInsightMemoriesAsync(userInput, snapshot);
-            var insight = await CreateDesktopInsightAsync(mode, userInput, memories, sessions, snapshot);
+            var insight = await CreateDesktopInsightAsync(mode, userInput, memories, sessions, snapshot, responseCancellation.Token);
 
             string? archivePath = null;
             if (saveArchive || mode == "digest")
@@ -748,9 +840,17 @@ public partial class MainViewModel : ObservableObject
             ConversationMessages.Add(ConversationMessage.Assistant(response));
             StatusText = T("Main_ContextReady");
         }
+        catch (OperationCanceledException)
+        {
+            StatusText = T("Main_AssistantStopped");
+        }
         finally
         {
             StopAssistantThinking();
+            if (_assistantResponseCancellation == responseCancellation)
+            {
+                _assistantResponseCancellation = null;
+            }
         }
     }
 
@@ -782,7 +882,8 @@ public partial class MainViewModel : ObservableObject
         string userInput,
         IReadOnlyCollection<ContextMemory> memories,
         IReadOnlyCollection<ApplicationUsageSession> sessions,
-        ForegroundFocusSnapshot? snapshot)
+        ForegroundFocusSnapshot? snapshot,
+        CancellationToken cancellationToken = default)
     {
         if (_focusClient?.IsConfigured == true)
         {
@@ -793,7 +894,8 @@ public partial class MainViewModel : ObservableObject
                     userInput,
                     memories,
                     sessions,
-                    snapshot);
+                    snapshot,
+                    cancellationToken);
                 if (insight != null && !string.IsNullOrWhiteSpace(insight.Summary))
                 {
                     return insight;
@@ -811,6 +913,9 @@ public partial class MainViewModel : ObservableObject
     private async Task DispatchContextAssistantAsync(string text)
     {
         StartAssistantThinking();
+        _assistantResponseCancellation?.Cancel();
+        using var responseCancellation = new CancellationTokenSource();
+        _assistantResponseCancellation = responseCancellation;
         StatusText = T("Main_ContextRetrieving");
         try
         {
@@ -852,7 +957,12 @@ public partial class MainViewModel : ObservableObject
             try
             {
                 StatusText = T("Main_ContextThinking");
-                reply = await _focusClient.CreatePersonalizedReplyAsync(text, contextPack, snapshot);
+                reply = await _focusClient.CreatePersonalizedReplyAsync(text, contextPack, snapshot, responseCancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                StatusText = T("Main_AssistantStopped");
+                return;
             }
             catch (Exception ex)
             {
@@ -908,6 +1018,10 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             StopAssistantThinking();
+            if (_assistantResponseCancellation == responseCancellation)
+            {
+                _assistantResponseCancellation = null;
+            }
         }
     }
 
@@ -1564,6 +1678,7 @@ public partial class MainViewModel : ObservableObject
         return new DailyReviewDraft
         {
             Review = string.Format(T("Main_FallbackDailyReviewFormat"), completed, active),
+            Encouragement = T("Main_DailyReviewFallbackEncouragement"),
             Highlights = todayTasks
                 .Where(task => task.Status == FocusTaskStatus.Completed)
                 .Select(task => task.Title)
@@ -1585,6 +1700,9 @@ public partial class MainViewModel : ObservableObject
 
     private static string FormatDailyReview(DailyReviewDraft review)
     {
+        var encouragement = string.IsNullOrWhiteSpace(review.Encouragement)
+            ? string.Empty
+            : T("Main_DailyReviewEncouragement") + "\n" + review.Encouragement.Trim() + "\n\n";
         var highlights = review.Highlights.Count == 0
             ? string.Empty
             : "\n" + T("Main_DailyReviewHighlights") + "\n" + string.Join("\n", review.Highlights.Select(item => $"• {item}"));
@@ -1595,7 +1713,7 @@ public partial class MainViewModel : ObservableObject
             ? string.Empty
             : "\n" + T("Main_DailyReviewNextAction") + "\n" + review.SuggestedNextAction.Trim();
 
-        return $"{review.Review.Trim()}{highlights}{risks}{next}";
+        return $"{encouragement}{T("Main_DailyReviewOverview")}\n{review.Review.Trim()}{highlights}{risks}{next}";
     }
 
     private static string CreateReplaySummary(

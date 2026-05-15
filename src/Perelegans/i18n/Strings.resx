@@ -194,4 +194,28 @@
   <data name="Main_AssistantNoMemoryMatched" xml:space="preserve"><value>I do not have matching local memory yet. You can say "remember that..." to save one.</value></data>
   <data name="Main_AssistantMemoryMatched" xml:space="preserve"><value>I found these local memories:</value></data>
   <data name="Main_CurrentContext" xml:space="preserve"><value>Current context</value></data>
+  <data name="Main_Statistics" xml:space="preserve"><value>Statistics</value></data>
+  <data name="Main_CloseStatistics" xml:space="preserve"><value>Back</value></data>
+  <data name="Main_UsageStatsDaily" xml:space="preserve"><value>Daily</value></data>
+  <data name="Main_UsageStatsMonthly" xml:space="preserve"><value>Monthly</value></data>
+  <data name="Main_UsageStatsDailyTitle" xml:space="preserve"><value>Today's Process Time</value></data>
+  <data name="Main_UsageStatsMonthlyTitle" xml:space="preserve"><value>This Month's Process Time</value></data>
+  <data name="Main_UsageStatsReviewTitle" xml:space="preserve"><value>Last 24 Hours</value></data>
+  <data name="Main_UsageStatsDailySubtitleFormat" xml:space="preserve"><value>Process time distribution for {0}</value></data>
+  <data name="Main_UsageStatsMonthlySubtitleFormat" xml:space="preserve"><value>Process time distribution for {0}</value></data>
+  <data name="Main_UsageStatsReviewSubtitle" xml:space="preserve"><value>Attached from the daily review context</value></data>
+  <data name="Main_UsageStatsTotal" xml:space="preserve"><value>Total</value></data>
+  <data name="Main_UsageStatsProcesses" xml:space="preserve"><value>Processes</value></data>
+  <data name="Main_UsageStatsTotalFormat" xml:space="preserve"><value>Total {0}</value></data>
+  <data name="Main_UsageStatsNoTime" xml:space="preserve"><value>No recorded time</value></data>
+  <data name="Main_UsageStatsEmpty" xml:space="preserve"><value>No process time has been recorded for this period.</value></data>
+  <data name="Main_UsageStatsOther" xml:space="preserve"><value>Other</value></data>
+  <data name="Main_DailyReviewFallbackEncouragement" xml:space="preserve"><value>You still left traces that can be picked up again. Even a quiet day can become useful context when it is saved gently.</value></data>
+  <data name="Main_DailyReviewEncouragement" xml:space="preserve"><value>A gentle note</value></data>
+  <data name="Main_DailyReviewOverview" xml:space="preserve"><value>Overview</value></data>
+  <data name="Main_ChatDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Main_ChatRewind" xml:space="preserve"><value>Rewind</value></data>
+  <data name="Main_ChatStop" xml:space="preserve"><value>Stop</value></data>
+  <data name="Main_ConversationRewound" xml:space="preserve"><value>Conversation rewound.</value></data>
+  <data name="Main_AssistantStopped" xml:space="preserve"><value>Assistant output stopped.</value></data>
 </root>

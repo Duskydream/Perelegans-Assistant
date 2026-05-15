@@ -4,6 +4,8 @@ public sealed class DailyReviewDraft
 {
     public string Review { get; set; } = string.Empty;
 
+    public string Encouragement { get; set; } = string.Empty;
+
     public List<string> Highlights { get; set; } = [];
 
     public List<string> Risks { get; set; } = [];

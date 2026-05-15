@@ -1,0 +1,81 @@
+<mah:MetroWindow x:Class="Perelegans.Views.AddFromProcessWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mah="http://metro.mahapps.com/winfx/xaml/controls"
+        xmlns:i18n="clr-namespace:Perelegans.i18n"
+        Title="{i18n:Translate AddProc_Title}"
+        Height="450" Width="600"
+        WindowStartupLocation="CenterOwner"
+        ShowTitleBar="True"
+        TitleBarHeight="28"
+        BorderThickness="1"
+        WindowTitleBrush="#FFC0CB"
+        NonActiveWindowTitleBrush="#FFC0CB"
+        GlowBrush="{DynamicResource MahApps.Brushes.Accent}"
+        Background="{DynamicResource Perelegans.WindowBackground}"
+        Foreground="{DynamicResource Perelegans.ForegroundBrush}">
+
+    <mah:MetroWindow.Resources>
+        <Style x:Key="AddFromProcessSelectedTextCellStyle"
+               TargetType="DataGridCell"
+               BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource Perelegans.DataGridSelectedPrimaryForegroundBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </mah:MetroWindow.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button Content="{i18n:Translate AddProc_Refresh}" Width="80" Height="26" FontSize="11"
+                    BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
+                    Style="{DynamicResource MahApps.Styles.Button.Square.Accent}"
+                    Command="{Binding RefreshProcessesCommand}"/>
+            <TextBlock Text="{i18n:Translate AddProc_Hint}" Margin="10,0,0,0" VerticalAlignment="Center" 
+                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}" FontSize="11"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding Processes}"
+                  SelectedItem="{Binding SelectedProcess, Mode=TwoWay}"
+                  CellStyle="{StaticResource AddFromProcessSelectedTextCellStyle}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  RowHeight="22"
+                  ColumnHeaderHeight="24"
+                  FontSize="11"
+                  BorderThickness="1"
+                  BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                  Background="Transparent"
+                  RowBackground="{DynamicResource Perelegans.WindowBackground}"
+                  AlternatingRowBackground="{DynamicResource Perelegans.DataGridAltRowBrush}"
+                  HorizontalGridLinesBrush="{DynamicResource Perelegans.BorderBrush}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="{i18n:Translate AddProc_ColWindow}" Binding="{Binding WindowTitle}" Width="150"/>
+                <DataGridTextColumn Header="{i18n:Translate AddProc_ColProc}" Binding="{Binding ProcessName}" Width="100"/>
+                <DataGridTextColumn Header="{i18n:Translate AddProc_ColPath}" Binding="{Binding ExecutablePath}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="{i18n:Translate Btn_Ok}" Width="80" Height="28" FontSize="12" Margin="0,0,8,0"
+                    BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
+                    Style="{DynamicResource MahApps.Styles.Button.Square.Accent}"
+                    Click="BtnOk_Click"/>
+            <Button Content="{i18n:Translate Btn_Cancel}" Width="80" Height="28" FontSize="12" Margin="0,0,8,0"
+                    BorderBrush="{DynamicResource Perelegans.ButtonBorderBrush}"
+                    Style="{DynamicResource MahApps.Styles.Button.Square.Accent}"
+                    Click="BtnCancel_Click"/>
+        </StackPanel>
+    </Grid>
+</mah:MetroWindow>
