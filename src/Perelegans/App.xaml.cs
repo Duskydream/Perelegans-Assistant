@@ -36,6 +36,7 @@ public partial class App : System.Windows.Application
     private ContextRetrievalService? _contextRetrievalService;
     private MemoryExtractionService? _memoryExtractionService;
     private FocusModeService? _focusModeService;
+    private BreakpointSnapshotService? _breakpointSnapshotService;
 
     private async void App_OnStartup(object sender, StartupEventArgs e)
     {
@@ -70,6 +71,7 @@ public partial class App : System.Windows.Application
         _contextRetrievalService = new ContextRetrievalService(dbService);
         _memoryExtractionService = new MemoryExtractionService(dbService, _focusClassificationClient);
         _focusModeService = new FocusModeService();
+        _breakpointSnapshotService = new BreakpointSnapshotService(dbService, settingsService, _processMonitor);
 
         var mainVm = new MainViewModel(
             dbService,
@@ -99,7 +101,9 @@ public partial class App : System.Windows.Application
                 dbService,
                 settingsService,
                 _focusModeService,
+                _breakpointSnapshotService,
                 ShowDashboard,
+                ShowBreakpointSnapshot,
                 OpenSettingsFromAgent,
                 RequestShutdown)
         };
@@ -108,6 +112,7 @@ public partial class App : System.Windows.Application
 
         // Initialize async data (DB creation, focus history, start monitor)
         await mainVm.InitializeAsync();
+        _breakpointSnapshotService.Start();
 
         if (_pendingActivationRequest)
         {
@@ -130,6 +135,9 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _breakpointSnapshotService?.Dispose();
+        _breakpointSnapshotService = null;
+
         if (_activationListenerCts != null)
         {
             _activationListenerCts.Cancel();
@@ -168,6 +176,16 @@ public partial class App : System.Windows.Application
         _processMonitor?.Stop();
         _themeService?.Dispose();
         base.OnExit(e);
+    }
+
+    private void ShowBreakpointSnapshot(BreakpointSnapshot snapshot)
+    {
+        if (_mainWindow?.DataContext is MainViewModel viewModel)
+        {
+            viewModel.ShowBreakpointSnapshot(snapshot);
+        }
+
+        ShowDashboard();
     }
 
     public static void WriteCrashLog(Exception ex)

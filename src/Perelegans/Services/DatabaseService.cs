@@ -18,6 +18,7 @@ public class DatabaseService
         await EnsureApplicationUsageSchemaAsync();
         await EnsureFocusTaskSchemaAsync();
         await EnsureContextMemorySchemaAsync();
+        await EnsureBreakpointSnapshotSchemaAsync();
         await RepairFocusTaskGalaxyLayoutAsync();
         await RepairContextMemoryGalaxyLayoutAsync();
         await RebuildSemanticTaskLinksAsync();
@@ -271,6 +272,42 @@ public class DatabaseService
             memory.LastUsedAt = DateTime.Now;
         }
 
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<BreakpointSnapshot> SaveBreakpointSnapshotAsync(BreakpointSnapshot snapshot)
+    {
+        await using var db = new PerelegansDbContext();
+        snapshot.CreatedAt = DateTime.Now;
+        db.BreakpointSnapshots.Add(snapshot);
+        await db.SaveChangesAsync();
+        return snapshot;
+    }
+
+    public async Task MarkBreakpointSnapshotShownAsync(int id, DateTime returnedAt)
+    {
+        await using var db = new PerelegansDbContext();
+        var snapshot = await db.BreakpointSnapshots.FirstOrDefaultAsync(item => item.Id == id);
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        snapshot.WasShown = true;
+        snapshot.ReturnedAt = returnedAt;
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DismissBreakpointSnapshotAsync(int id)
+    {
+        await using var db = new PerelegansDbContext();
+        var snapshot = await db.BreakpointSnapshots.FirstOrDefaultAsync(item => item.Id == id);
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        snapshot.IsDismissed = true;
         await db.SaveChangesAsync();
     }
 
@@ -838,6 +875,50 @@ public class DatabaseService
         await EnsureColumnAsync(connection, "ContextMemories", "X", "REAL NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "Y", "REAL NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "NodeSize", "REAL NOT NULL DEFAULT 18");
+    }
+
+    private async Task EnsureBreakpointSnapshotSchemaAsync()
+    {
+        await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            CREATE TABLE IF NOT EXISTS "BreakpointSnapshots" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_BreakpointSnapshots" PRIMARY KEY AUTOINCREMENT,
+                "CreatedAt" TEXT NOT NULL,
+                "LeftAt" TEXT NOT NULL,
+                "ReturnedAt" TEXT NULL,
+                "ProcessName" TEXT NOT NULL DEFAULT '',
+                "WindowTitle" TEXT NOT NULL DEFAULT '',
+                "ExecutablePath" TEXT NOT NULL DEFAULT '',
+                "RelatedPlanTitle" TEXT NOT NULL DEFAULT '',
+                "RelatedMemoryId" INTEGER NULL,
+                "Summary" TEXT NOT NULL DEFAULT '',
+                "Evidence" TEXT NOT NULL DEFAULT '',
+                "NextStep" TEXT NOT NULL DEFAULT '',
+                "WasShown" INTEGER NOT NULL DEFAULT 0,
+                "IsDismissed" INTEGER NOT NULL DEFAULT 0
+            );
+
+            CREATE INDEX IF NOT EXISTS "IX_BreakpointSnapshots_CreatedAt"
+            ON "BreakpointSnapshots" ("CreatedAt");
+
+            CREATE INDEX IF NOT EXISTS "IX_BreakpointSnapshots_WasShown"
+            ON "BreakpointSnapshots" ("WasShown");
+            """;
+        await command.ExecuteNonQueryAsync();
+
+        await EnsureColumnAsync(connection, "BreakpointSnapshots", "ReturnedAt", "TEXT NULL");
+        await EnsureColumnAsync(connection, "BreakpointSnapshots", "WindowTitle", "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(connection, "BreakpointSnapshots", "RelatedPlanTitle", "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(connection, "BreakpointSnapshots", "RelatedMemoryId", "INTEGER NULL");
+        await EnsureColumnAsync(connection, "BreakpointSnapshots", "Summary", "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(connection, "BreakpointSnapshots", "Evidence", "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(connection, "BreakpointSnapshots", "NextStep", "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(connection, "BreakpointSnapshots", "WasShown", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "BreakpointSnapshots", "IsDismissed", "INTEGER NOT NULL DEFAULT 0");
     }
 
     private static async Task EnsureColumnAsync(

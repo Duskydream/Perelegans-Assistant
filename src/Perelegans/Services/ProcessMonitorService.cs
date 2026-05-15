@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Threading;
 using Perelegans.Models;
 
@@ -101,6 +102,7 @@ public class ProcessMonitorService
             }
 
             var executablePath = NormalizeExecutablePath(TryGetExecutablePath(process));
+            var windowTitle = NormalizeWindowTitle(TryGetForegroundWindowTitle());
             var isProductivityApp = _productivityProcessNames.Contains(processName);
 
             if (_foregroundFocusSession == null ||
@@ -117,6 +119,7 @@ public class ProcessMonitorService
                     ProcessId = process.Id,
                     ProcessName = processName,
                     ExecutablePath = executablePath,
+                    WindowTitle = windowTitle,
                     StartedAt = now,
                     LastSeenAt = now,
                     IsProductivityApp = isProductivityApp
@@ -126,6 +129,7 @@ public class ProcessMonitorService
             {
                 _foregroundFocusSession.LastSeenAt = now;
                 _foregroundFocusSession.ExecutablePath = executablePath;
+                _foregroundFocusSession.WindowTitle = windowTitle;
                 _foregroundFocusSession.IsProductivityApp = isProductivityApp;
             }
 
@@ -133,6 +137,7 @@ public class ProcessMonitorService
                 _foregroundFocusSession.ProcessId,
                 _foregroundFocusSession.ProcessName,
                 _foregroundFocusSession.ExecutablePath,
+                _foregroundFocusSession.WindowTitle,
                 _foregroundFocusSession.StartedAt,
                 now - _foregroundFocusSession.StartedAt,
                 _foregroundFocusSession.IsProductivityApp);
@@ -203,6 +208,7 @@ public class ProcessMonitorService
         public int ProcessId { get; set; }
         public string ProcessName { get; set; } = string.Empty;
         public string ExecutablePath { get; set; } = string.Empty;
+        public string WindowTitle { get; set; } = string.Empty;
         public DateTime StartedAt { get; set; }
         public DateTime LastSeenAt { get; set; }
         public bool IsProductivityApp { get; set; }
@@ -282,17 +288,51 @@ public class ProcessMonitorService
         }
     }
 
+    private static string NormalizeWindowTitle(string? title)
+    {
+        return string.IsNullOrWhiteSpace(title)
+            ? string.Empty
+            : title.Trim();
+    }
+
+    private static string TryGetForegroundWindowTitle()
+    {
+        var hwnd = GetForegroundWindow();
+        if (hwnd == IntPtr.Zero)
+        {
+            return string.Empty;
+        }
+
+        var length = GetWindowTextLength(hwnd);
+        if (length <= 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(length + 1);
+        return GetWindowText(hwnd, builder, builder.Capacity) > 0
+            ? builder.ToString()
+            : string.Empty;
+    }
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowTextLength(IntPtr hWnd);
 }
 
 public sealed record ForegroundFocusSnapshot(
     int ProcessId,
     string ProcessName,
     string ExecutablePath,
+    string WindowTitle,
     DateTime StartedAt,
     TimeSpan Duration,
     bool IsKnownProductivityApp);

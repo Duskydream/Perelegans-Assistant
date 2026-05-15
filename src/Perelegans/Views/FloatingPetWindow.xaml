@@ -13,6 +13,7 @@
         SizeToContent="Manual"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <DropShadowEffect x:Key="SoftShadow"
                           BlurRadius="18"
                           ShadowDepth="3"
@@ -43,35 +44,48 @@
                 Background="#F7FFFFFF"
                 CornerRadius="8"
                 Effect="{StaticResource SoftShadow}">
-            <TextBlock Text="{Binding BubbleText}"
-                       Foreground="#252A31"
-                       FontSize="12"
-                       TextWrapping="Wrap"
-                       TextAlignment="Center"
-                       LineHeight="17"/>
+            <StackPanel>
+                <TextBlock Text="{Binding BubbleText}"
+                           Foreground="#252A31"
+                           FontSize="12"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           LineHeight="17"/>
+                <Button Content="{Binding BreakpointContinueText}"
+                        Command="{Binding ContinueBreakpointCommand}"
+                        Margin="0,7,0,0"
+                        Padding="10,3"
+                        HorizontalAlignment="Center"
+                        FontSize="11"
+                        Visibility="{Binding HasBreakpointPrompt, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            </StackPanel>
         </Border>
 
-        <Border Width="96"
-                Height="96"
-                Margin="0,72,0,0"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Top"
-                Background="#E9FFFFFF"
-                CornerRadius="48"
-                Effect="{StaticResource SoftShadow}">
-            <Grid>
-                <Ellipse Fill="#44A7E3D2"
-                         Width="80"
-                         Height="80"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"/>
-                <Image Source="/Images/sho02A_101.png"
-                       Width="86"
-                       Height="86"
+        <Grid Width="118"
+              Height="112"
+              Margin="0,68,0,0"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Top"
+              Effect="{StaticResource SoftShadow}"
+              RenderOptions.BitmapScalingMode="NearestNeighbor">
+            <Ellipse Width="84"
+                     Height="18"
+                     Margin="0,84,0,0"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top"
+                     Fill="#30FF9BB9"/>
+            <Border Width="112"
+                    Height="104"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top"
+                    ClipToBounds="True">
+                <Image x:Name="PetSpriteImage"
+                       Width="112"
+                       Height="112"
                        Stretch="Uniform"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
-            </Grid>
-        </Border>
+                       SnapsToDevicePixels="True"
+                       RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

@@ -2070,6 +2070,30 @@ public partial class MainViewModel : ObservableObject
         ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantSeed")));
     }
 
+    public void ShowBreakpointSnapshot(BreakpointSnapshot snapshot)
+    {
+        HasConversationStarted = true;
+        IsGalaxyVisible = false;
+        var returned = snapshot.ReturnedAt?.ToString("HH:mm", CultureInfo.CurrentCulture)
+            ?? DateTime.Now.ToString("HH:mm", CultureInfo.CurrentCulture);
+        var title = string.IsNullOrWhiteSpace(snapshot.WindowTitle)
+            ? snapshot.ProcessName
+            : snapshot.WindowTitle;
+        var planLine = string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle)
+            ? "没有强行写进星图，我只把这次断点留在本地卡点记录里。"
+            : $"相关计划：{snapshot.RelatedPlanTitle}";
+
+        var message =
+            $"欢迎回来。你大约在 {snapshot.LeftAt:HH:mm} 离开，{returned} 回来。\n\n" +
+            $"断点：{title}\n" +
+            $"{planLine}\n\n" +
+            $"我保留的线索：\n{snapshot.Evidence}\n\n" +
+            $"建议第一步：{snapshot.NextStep}";
+
+        ConversationMessages.Add(ConversationMessage.Assistant(message));
+        StatusText = "已唤出刚才的卡点提示";
+    }
+
     private static bool ContainsAny(string text, params string[] candidates)
     {
         return candidates.Any(text.Contains);

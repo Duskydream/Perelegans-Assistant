@@ -12,6 +12,7 @@ public class PerelegansDbContext : DbContext
     public DbSet<FocusTask> FocusTasks => Set<FocusTask>();
     public DbSet<FocusTaskLink> FocusTaskLinks => Set<FocusTaskLink>();
     public DbSet<ContextMemory> ContextMemories => Set<ContextMemory>();
+    public DbSet<BreakpointSnapshot> BreakpointSnapshots => Set<BreakpointSnapshot>();
 
     private readonly string _dbPath;
 
@@ -118,6 +119,20 @@ public class PerelegansDbContext : DbContext
             entity.Property(m => m.NextPrediction).HasMaxLength(1200);
             entity.Property(m => m.AiWeightProfile).HasMaxLength(1200);
             entity.Property(m => m.ConstellationName).HasMaxLength(240);
+        });
+
+        modelBuilder.Entity<BreakpointSnapshot>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.HasIndex(s => s.CreatedAt);
+            entity.HasIndex(s => s.WasShown);
+            entity.Property(s => s.ProcessName).HasMaxLength(240);
+            entity.Property(s => s.WindowTitle).HasMaxLength(500);
+            entity.Property(s => s.ExecutablePath).HasMaxLength(1000);
+            entity.Property(s => s.RelatedPlanTitle).HasMaxLength(500);
+            entity.Property(s => s.Summary).HasMaxLength(1200);
+            entity.Property(s => s.Evidence).HasMaxLength(1600);
+            entity.Property(s => s.NextStep).HasMaxLength(800);
         });
     }
 }

@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <Resource Include="Images\sho02A_101.png" />
+    <Resource Include="Images\Pet\pixel_cat_idle.png" />
   </ItemGroup>
 
 </Project>

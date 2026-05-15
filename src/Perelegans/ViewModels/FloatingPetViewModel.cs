@@ -1,6 +1,7 @@
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Perelegans.Models;
 using Perelegans.Services;
 
 namespace Perelegans.ViewModels;
@@ -12,10 +13,13 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private readonly DatabaseService _databaseService;
     private readonly SettingsService _settingsService;
     private readonly FocusModeService _focusModeService;
+    private readonly BreakpointSnapshotService _breakpointSnapshotService;
     private readonly Action _showDashboard;
+    private readonly Action<BreakpointSnapshot> _showBreakpointSnapshot;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _timer;
+    private BreakpointSnapshot? _activeBreakpointSnapshot;
 
     [ObservableProperty]
     private string _bubbleText = "Perelegans 正在待命";
@@ -29,13 +33,20 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isProductive;
 
+    [ObservableProperty]
+    private bool _hasBreakpointPrompt;
+
+    public string BreakpointContinueText => "继续";
+
     public FloatingPetViewModel(
         ProcessMonitorService processMonitor,
         FocusClassificationClient focusClassificationClient,
         DatabaseService databaseService,
         SettingsService settingsService,
         FocusModeService focusModeService,
+        BreakpointSnapshotService breakpointSnapshotService,
         Action showDashboard,
+        Action<BreakpointSnapshot> showBreakpointSnapshot,
         Action openSettings,
         Action exitApplication)
     {
@@ -44,7 +55,9 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _databaseService = databaseService;
         _settingsService = settingsService;
         _focusModeService = focusModeService;
+        _breakpointSnapshotService = breakpointSnapshotService;
         _showDashboard = showDashboard;
+        _showBreakpointSnapshot = showBreakpointSnapshot;
         _openSettings = openSettings;
         _exitApplication = exitApplication;
 
@@ -56,6 +69,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _timer.Start();
         _focusModeService.StateChanged += OnFocusModeStateChanged;
         _settingsService.SettingsChanged += OnSettingsChanged;
+        _breakpointSnapshotService.BreakpointReady += OnBreakpointReady;
 
         _ = SampleNowAsync();
     }
@@ -78,6 +92,21 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private void OpenSettings()
     {
         _openSettings();
+    }
+
+    [RelayCommand]
+    private void ContinueBreakpoint()
+    {
+        if (_activeBreakpointSnapshot == null)
+        {
+            _showDashboard();
+            return;
+        }
+
+        var snapshot = _activeBreakpointSnapshot;
+        _activeBreakpointSnapshot = null;
+        HasBreakpointPrompt = false;
+        _showBreakpointSnapshot(snapshot);
     }
 
     [RelayCommand]
@@ -127,6 +156,11 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
     private async Task ApplySnapshotAsync(ForegroundFocusSnapshot? snapshot)
     {
+        if (HasBreakpointPrompt)
+        {
+            return;
+        }
+
         if (!_settingsService.Settings.MonitorEnabled)
         {
             BubbleText = "Perelegans 先歇一会";
@@ -209,6 +243,15 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _ = SampleNowAsync();
     }
 
+    private void OnBreakpointReady(BreakpointSnapshot snapshot)
+    {
+        _activeBreakpointSnapshot = snapshot;
+        HasBreakpointPrompt = true;
+        BubbleText = string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle)
+            ? $"欢迎回来。你离开前停在 {snapshot.ProcessName}，要不要接着刚才的思路？"
+            : $"欢迎回来。你离开前可能在推进「{snapshot.RelatedPlanTitle}」，要不要继续？";
+    }
+
     private static bool IsProcessRelevantToFocus(string processName, string tags)
     {
         var process = processName.ToLowerInvariant();
@@ -256,5 +299,6 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _timer.Tick -= OnTimerTick;
         _focusModeService.StateChanged -= OnFocusModeStateChanged;
         _settingsService.SettingsChanged -= OnSettingsChanged;
+        _breakpointSnapshotService.BreakpointReady -= OnBreakpointReady;
     }
 }
