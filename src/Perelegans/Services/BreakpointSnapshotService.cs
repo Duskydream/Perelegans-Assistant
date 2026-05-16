@@ -18,6 +18,7 @@ public sealed class BreakpointSnapshotService : IDisposable
     private bool _capturedThisIdle;
     private bool _isSaving;
 
+    public event Action? AwayDetected;
     public event Action<BreakpointSnapshot>? BreakpointReady;
 
     public BreakpointSnapshotService(
@@ -131,6 +132,7 @@ public sealed class BreakpointSnapshotService : IDisposable
             };
 
             _pendingSnapshot = await _databaseService.SaveBreakpointSnapshotAsync(breakpoint);
+            AwayDetected?.Invoke();
         }
         finally
         {

@@ -20,6 +20,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _timer;
     private BreakpointSnapshot? _activeBreakpointSnapshot;
+    private bool _isAway;
 
     [ObservableProperty]
     private string _bubbleText = "Perelegans 正在待命";
@@ -35,6 +36,9 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _hasBreakpointPrompt;
+
+    [ObservableProperty]
+    private string _petMood = "idle";
 
     public string BreakpointContinueText => "继续";
 
@@ -70,6 +74,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _focusModeService.StateChanged += OnFocusModeStateChanged;
         _settingsService.SettingsChanged += OnSettingsChanged;
         _breakpointSnapshotService.BreakpointReady += OnBreakpointReady;
+        _breakpointSnapshotService.AwayDetected += OnAwayDetected;
 
         _ = SampleNowAsync();
     }
@@ -106,6 +111,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         var snapshot = _activeBreakpointSnapshot;
         _activeBreakpointSnapshot = null;
         HasBreakpointPrompt = false;
+        UpdatePetMood();
         _showBreakpointSnapshot(snapshot);
     }
 
@@ -121,6 +127,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         if (_focusModeService.IsActive)
         {
             _focusModeService.Stop();
+            UpdatePetMood();
             BubbleText = "专注模式已结束。";
             return;
         }
@@ -134,6 +141,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
         _focusModeService.Start(memory);
         SetMonitorEnabled(true);
+        UpdatePetMood();
         BubbleText = $"已为「{memory.Title}」开启专注模式，我会轻轻提醒。";
     }
 
@@ -156,6 +164,11 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
     private async Task ApplySnapshotAsync(ForegroundFocusSnapshot? snapshot)
     {
+        if (_isAway)
+        {
+            return;
+        }
+
         if (HasBreakpointPrompt)
         {
             return;
@@ -163,6 +176,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
         if (!_settingsService.Settings.MonitorEnabled)
         {
+            PetMood = "sleep";
             BubbleText = "Perelegans 先歇一会";
             return;
         }
@@ -207,13 +221,14 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
         BubbleText = minutes >= 3
             ? $"我先轻轻提醒一下：你在 {snapshot.ProcessName} 停了 {minutes} 分钟。要不要回到「{_focusModeService.TaskTitle}」？可以先做它的下一步。"
-            : $"专注模式中：「{_focusModeService.TaskTitle}」。";
+            : $"专注模式中：\n「{_focusModeService.TaskTitle}」。";
     }
 
     private void OnFocusModeStateChanged()
     {
         OnPropertyChanged(nameof(IsFocusModeActive));
         OnPropertyChanged(nameof(FocusModeMenuText));
+        UpdatePetMood();
         _ = SampleNowAsync();
     }
 
@@ -221,6 +236,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(IsMonitorEnabled));
         OnPropertyChanged(nameof(MonitorMenuText));
+        UpdatePetMood();
         _ = SampleNowAsync();
     }
 
@@ -240,13 +256,24 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(IsMonitorEnabled));
         OnPropertyChanged(nameof(MonitorMenuText));
+        UpdatePetMood();
         _ = SampleNowAsync();
+    }
+
+    private void OnAwayDetected()
+    {
+        _isAway = true;
+        HasBreakpointPrompt = false;
+        PetMood = "sleep";
+        BubbleText = "我先替你守住刚才的思路，等你回来。";
     }
 
     private void OnBreakpointReady(BreakpointSnapshot snapshot)
     {
+        _isAway = false;
         _activeBreakpointSnapshot = snapshot;
         HasBreakpointPrompt = true;
+        UpdatePetMood();
         BubbleText = string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle)
             ? $"欢迎回来。你离开前停在 {snapshot.ProcessName}，要不要接着刚才的思路？"
             : $"欢迎回来。你离开前可能在推进「{snapshot.RelatedPlanTitle}」，要不要继续？";
@@ -288,6 +315,23 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         return false;
     }
 
+    private void UpdatePetMood()
+    {
+        if (_isAway)
+        {
+            PetMood = "sleep";
+            return;
+        }
+
+        if (!_settingsService.Settings.MonitorEnabled)
+        {
+            PetMood = "sleep";
+            return;
+        }
+
+        PetMood = _focusModeService.IsActive ? "focus" : "idle";
+    }
+
     private static bool ContainsAny(string text, params string[] terms)
     {
         return terms.Any(term => text.Contains(term, StringComparison.OrdinalIgnoreCase));
@@ -300,5 +344,6 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _focusModeService.StateChanged -= OnFocusModeStateChanged;
         _settingsService.SettingsChanged -= OnSettingsChanged;
         _breakpointSnapshotService.BreakpointReady -= OnBreakpointReady;
+        _breakpointSnapshotService.AwayDetected -= OnAwayDetected;
     }
 }

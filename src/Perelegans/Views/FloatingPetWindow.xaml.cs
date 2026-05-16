@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
@@ -17,6 +18,7 @@ public partial class FloatingPetWindow : Window
         Interval = TimeSpan.FromMilliseconds(180)
     };
     private BitmapSource? _spriteSheet;
+    private string _currentPetMood = "idle";
     private int _spriteFrameIndex;
 
     public FloatingPetWindow()
@@ -24,6 +26,7 @@ public partial class FloatingPetWindow : Window
         InitializeComponent();
         Loaded += OnLoaded;
         Closed += OnClosed;
+        DataContextChanged += OnDataContextChanged;
         _spriteTimer.Tick += OnSpriteTimerTick;
     }
 
@@ -51,6 +54,12 @@ public partial class FloatingPetWindow : Window
         _spriteTimer.Stop();
         _spriteTimer.Tick -= OnSpriteTimerTick;
         Loaded -= OnLoaded;
+        DataContextChanged -= OnDataContextChanged;
+
+        if (DataContext is FloatingPetViewModel vm)
+        {
+            vm.PropertyChanged -= OnViewModelPropertyChanged;
+        }
 
         if (DataContext is IDisposable disposable)
         {
@@ -60,9 +69,31 @@ public partial class FloatingPetWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        _spriteSheet ??= LoadPetSpriteSheet();
-        UpdateSpriteFrame();
+        SetPetMood(DataContext is FloatingPetViewModel vm ? vm.PetMood : "idle");
         _spriteTimer.Start();
+    }
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.OldValue is FloatingPetViewModel oldVm)
+        {
+            oldVm.PropertyChanged -= OnViewModelPropertyChanged;
+        }
+
+        if (e.NewValue is FloatingPetViewModel newVm)
+        {
+            newVm.PropertyChanged += OnViewModelPropertyChanged;
+            SetPetMood(newVm.PetMood);
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(FloatingPetViewModel.PetMood) &&
+            sender is FloatingPetViewModel vm)
+        {
+            SetPetMood(vm.PetMood);
+        }
     }
 
     private void OnSpriteTimerTick(object? sender, EventArgs e)
@@ -92,11 +123,32 @@ public partial class FloatingPetWindow : Window
                 SpriteFrameHeight));
     }
 
-    private static BitmapSource LoadPetSpriteSheet()
+    private void SetPetMood(string? mood)
     {
+        var normalizedMood = mood is "focus" or "sleep" ? mood : "idle";
+        if (_spriteSheet != null && _currentPetMood == normalizedMood)
+        {
+            return;
+        }
+
+        _currentPetMood = normalizedMood;
+        _spriteFrameIndex = 0;
+        _spriteSheet = LoadPetSpriteSheet(normalizedMood);
+        UpdateSpriteFrame();
+    }
+
+    private static BitmapSource LoadPetSpriteSheet(string mood)
+    {
+        var fileName = mood switch
+        {
+            "focus" => "pixel_cat_focus.png",
+            "sleep" => "pixel_cat_sleep.png",
+            _ => "pixel_cat_idle.png"
+        };
+
         var image = new BitmapImage();
         image.BeginInit();
-        image.UriSource = new Uri("pack://application:,,,/Images/Pet/pixel_cat_idle.png", UriKind.Absolute);
+        image.UriSource = new Uri($"pack://application:,,,/Images/Pet/{fileName}", UriKind.Absolute);
         image.CacheOption = BitmapCacheOption.OnLoad;
         image.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
         image.EndInit();
