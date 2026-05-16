@@ -64,6 +64,21 @@ public class AppSettings
     public bool MonitorEnabled { get; set; } = true;
 
     /// <summary>
+    /// Whether coding client activity can drive the floating pet state.
+    /// </summary>
+    public bool CodingClientMonitorEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Whether Codex Desktop activity should be monitored.
+    /// </summary>
+    public bool CodexDesktopMonitorEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Whether Claude Desktop activity should be monitored.
+    /// </summary>
+    public bool ClaudeDesktopMonitorEnabled { get; set; } = true;
+
+    /// <summary>
     /// UI Language code (e.g. zh-Hans, en-US).
     /// </summary>
     public string Language { get; set; } = "zh-Hans";

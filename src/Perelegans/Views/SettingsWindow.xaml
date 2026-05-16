@@ -454,11 +454,33 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="14"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="14"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Text="{i18n:Translate Settings_LaunchAtStartup}" Style="{StaticResource FieldLabelStyle}"/>
                             <CheckBox Grid.Row="0" Grid.Column="1" IsChecked="{Binding LaunchAtStartup, Mode=TwoWay}" VerticalAlignment="Center"/>
                             <TextBlock Grid.Row="2" Text="{i18n:Translate Settings_CloseBehavior}" Style="{StaticResource FieldLabelStyle}"/>
                             <ComboBox Grid.Row="2" Grid.Column="1" Style="{StaticResource SettingsComboBoxStyle}" ItemsSource="{Binding CloseBehaviorOptions}" ItemTemplate="{StaticResource OptionLabelTemplate}" SelectedValuePath="Value" SelectedValue="{Binding SelectedCloseBehavior, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="4" Text="Coding clients:" Style="{StaticResource FieldLabelStyle}"/>
+                            <StackPanel Grid.Row="4" Grid.Column="1">
+                                <CheckBox Content="Enable coding client monitor"
+                                          IsChecked="{Binding CodingClientMonitorEnabled, Mode=TwoWay}"
+                                          VerticalAlignment="Center"/>
+                                <CheckBox Content="Codex Desktop"
+                                          Margin="0,9,0,0"
+                                          IsChecked="{Binding CodexDesktopMonitorEnabled, Mode=TwoWay}"
+                                          IsEnabled="{Binding CodingClientMonitorEnabled}"
+                                          VerticalAlignment="Center"/>
+                                <CheckBox Content="Claude Desktop"
+                                          Margin="0,9,0,0"
+                                          IsChecked="{Binding ClaudeDesktopMonitorEnabled, Mode=TwoWay}"
+                                          IsEnabled="{Binding CodingClientMonitorEnabled}"
+                                          VerticalAlignment="Center"/>
+                                <TextBlock Text="Uses client process activity, local state timestamps, Windows notifications, and active workspace file changes when available."
+                                           Margin="0,8,0,0"
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource QuietTextStyle}"/>
+                            </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Border>

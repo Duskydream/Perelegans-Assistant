@@ -125,15 +125,21 @@ public partial class FloatingPetWindow : Window
 
     private void SetPetMood(string? mood)
     {
-        var normalizedMood = mood is "focus" or "sleep" ? mood : "idle";
-        if (_spriteSheet != null && _currentPetMood == normalizedMood)
+        var spriteMood = mood switch
+        {
+            "focus" or "coding" => "focus",
+            "sleep" => "sleep",
+            _ => "idle"
+        };
+
+        if (_spriteSheet != null && _currentPetMood == spriteMood)
         {
             return;
         }
 
-        _currentPetMood = normalizedMood;
+        _currentPetMood = spriteMood;
         _spriteFrameIndex = 0;
-        _spriteSheet = LoadPetSpriteSheet(normalizedMood);
+        _spriteSheet = LoadPetSpriteSheet(spriteMood);
         UpdateSpriteFrame();
     }
 

@@ -64,27 +64,399 @@
                 </StackPanel>
             </Border>
 
-            <Grid Width="128"
-                  Height="138"
-                  Margin="0,30,0,0"
+            <Grid Width="156"
+                  Height="160"
+                  Margin="0,24,0,0"
                   HorizontalAlignment="Center"
                   Effect="{StaticResource SoftShadow}"
                   RenderOptions.BitmapScalingMode="NearestNeighbor">
                 <Ellipse Width="86"
                          Height="18"
-                         Margin="0,104,0,0"
+                         Margin="0,130,0,0"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Top"
                          Fill="#30FF9BB9"/>
+                <Canvas Panel.ZIndex="1"
+                        IsHitTestVisible="False"
+                        Visibility="{Binding ShowCodingKeyboard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock Text="async"
+                               Canvas.Left="5"
+                               Canvas.Top="38"
+                               Opacity="0"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               Foreground="#FF82B6FF">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowCodingKeyboard}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="CodeFloatAsync">
+                                                <Storyboard BeginTime="0:0:0.1" RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="0.85" Duration="0:0:0.28" AutoReverse="True"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="12" To="-18" Duration="0:0:1.35"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="CodeFloatAsync"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="{}{ }"
+                               Canvas.Left="38"
+                               Canvas.Top="18"
+                               Opacity="0"
+                               FontFamily="Consolas"
+                               FontSize="16"
+                               FontWeight="Bold"
+                               Foreground="#FFE979B3">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowCodingKeyboard}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="CodeFloatBraces">
+                                                <Storyboard BeginTime="0:0:0.45" RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="0.8" Duration="0:0:0.32" AutoReverse="True"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="14" To="-15" Duration="0:0:1.45"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="CodeFloatBraces"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="&amp;&amp;"
+                               Canvas.Left="95"
+                               Canvas.Top="56"
+                               Opacity="0"
+                               FontFamily="Consolas"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               Foreground="#FF9AD18B">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowCodingKeyboard}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="CodeFloatAnd">
+                                                <Storyboard BeginTime="0:0:0.75" RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="0.78" Duration="0:0:0.24" AutoReverse="True"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="10" To="-20" Duration="0:0:1.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="CodeFloatAnd"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="[]"
+                               Canvas.Left="18"
+                               Canvas.Top="69"
+                               Opacity="0"
+                               FontFamily="Consolas"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               Foreground="#FFFFCE64">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowCodingKeyboard}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="CodeFloatArray">
+                                                <Storyboard BeginTime="0:0:0.95" RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="0.72" Duration="0:0:0.26" AutoReverse="True"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="9" To="-17" Duration="0:0:1.55"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="CodeFloatArray"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Canvas>
                 <Image x:Name="PetSpriteImage"
                        Width="120"
                        Height="120"
-                       Margin="0,0,0,8"
+                       Margin="0,14,0,0"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Top"
+                       Panel.ZIndex="2"
                        Stretch="Uniform"
                        SnapsToDevicePixels="True"
-                       RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                       RenderTransformOrigin="0.5,0.5"
+                       RenderOptions.BitmapScalingMode="NearestNeighbor">
+                    <Image.RenderTransform>
+                        <TranslateTransform/>
+                    </Image.RenderTransform>
+                    <Image.Style>
+                        <Style TargetType="Image">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding PetMood}" Value="celebrate">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard x:Name="PetCelebrateBounce">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                 From="0"
+                                                                 To="-10"
+                                                                 Duration="0:0:0.22"
+                                                                 AutoReverse="True"
+                                                                 RepeatBehavior="Forever"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <StopStoryboard BeginStoryboardName="PetCelebrateBounce"/>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding PetMood}" Value="coding">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard x:Name="PetCodingTap">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                 From="0"
+                                                                 To="2"
+                                                                 Duration="0:0:0.14"
+                                                                 AutoReverse="True"
+                                                                 RepeatBehavior="Forever"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <StopStoryboard BeginStoryboardName="PetCodingTap"/>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Style>
+                </Image>
+                <Canvas Panel.ZIndex="4"
+                        IsHitTestVisible="False"
+                        Visibility="{Binding ShowCodingKeyboard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Canvas Width="30"
+                            Height="30"
+                            Canvas.Left="119"
+                            Canvas.Top="15"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Canvas.RenderTransform>
+                            <RotateTransform/>
+                        </Canvas.RenderTransform>
+                        <Canvas.Style>
+                            <Style TargetType="Canvas">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowCodingKeyboard}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="GearSpin">
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                     From="-8"
+                                                                     To="18"
+                                                                     Duration="0:0:1.4"
+                                                                     AutoReverse="True"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="GearSpin"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Canvas.Style>
+
+                        <Rectangle Canvas.Left="12" Canvas.Top="3" Width="8" Height="5" Fill="#FF59636E"/>
+                        <Rectangle Canvas.Left="21" Canvas.Top="6" Width="5" Height="6" Fill="#FF59636E"/>
+                        <Rectangle Canvas.Left="25" Canvas.Top="14" Width="5" Height="7" Fill="#FF59636E"/>
+                        <Rectangle Canvas.Left="21" Canvas.Top="23" Width="5" Height="5" Fill="#FF59636E"/>
+                        <Rectangle Canvas.Left="12" Canvas.Top="26" Width="8" Height="4" Fill="#FF59636E"/>
+                        <Rectangle Canvas.Left="5" Canvas.Top="23" Width="6" Height="5" Fill="#FF59636E"/>
+                        <Rectangle Canvas.Left="1" Canvas.Top="14" Width="5" Height="7" Fill="#FF59636E"/>
+                        <Rectangle Canvas.Left="5" Canvas.Top="6" Width="6" Height="6" Fill="#FF59636E"/>
+                        <Rectangle Canvas.Left="8" Canvas.Top="9" Width="17" Height="17" Fill="#FF59636E"/>
+
+                        <Rectangle Canvas.Left="11" Canvas.Top="1" Width="8" Height="5" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="20" Canvas.Top="4" Width="5" Height="6" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="24" Canvas.Top="12" Width="5" Height="7" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="20" Canvas.Top="21" Width="5" Height="5" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="11" Canvas.Top="24" Width="8" Height="5" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="4" Canvas.Top="21" Width="6" Height="5" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="1" Canvas.Top="12" Width="5" Height="7" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="4" Canvas.Top="4" Width="6" Height="6" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="8" Canvas.Top="6" Width="14" Height="3" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="6" Canvas.Top="9" Width="19" Height="4" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="5" Canvas.Top="13" Width="21" Height="8" Fill="#FFCAD2DA"/>
+                        <Rectangle Canvas.Left="6" Canvas.Top="21" Width="19" Height="3" Fill="#FFCAD2DA"/>
+
+                        <Rectangle Canvas.Left="10" Canvas.Top="8" Width="12" Height="3" Fill="#FFEAF0F5"/>
+                        <Rectangle Canvas.Left="7" Canvas.Top="12" Width="4" Height="7" Fill="#FFEAF0F5"/>
+                        <Rectangle Canvas.Left="11" Canvas.Top="11" Width="10" Height="10" Fill="#FF8793A0"/>
+                        <Rectangle Canvas.Left="13" Canvas.Top="13" Width="6" Height="6" Fill="#FFE5EBF0"/>
+                        <Rectangle Canvas.Left="15" Canvas.Top="15" Width="2" Height="2" Fill="#FF59636E"/>
+                        <Rectangle Canvas.Left="13" Canvas.Top="13" Width="2" Height="2" Fill="#FFF7FBFF"/>
+                    </Canvas>
+
+                    <StackPanel Canvas.Left="119"
+                                Canvas.Top="62"
+                                Orientation="Horizontal">
+                        <Border Width="8"
+                                Height="8"
+                                Margin="0,0,5,0"
+                                Background="#FFFF8FBD"
+                                CornerRadius="4">
+                            <Border.RenderTransform>
+                                <TranslateTransform/>
+                            </Border.RenderTransform>
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowCodingKeyboard}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard x:Name="ThinkingDotOne">
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                         From="0"
+                                                                         To="-7"
+                                                                         Duration="0:0:0.32"
+                                                                         AutoReverse="True"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="ThinkingDotOne"/>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+                        <Border Width="8"
+                                Height="8"
+                                Margin="0,0,5,0"
+                                Background="#FFFFA6CC"
+                                CornerRadius="4">
+                            <Border.RenderTransform>
+                                <TranslateTransform/>
+                            </Border.RenderTransform>
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowCodingKeyboard}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard x:Name="ThinkingDotTwo">
+                                                    <Storyboard BeginTime="0:0:0.12" RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                         From="0"
+                                                                         To="-7"
+                                                                         Duration="0:0:0.32"
+                                                                         AutoReverse="True"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="ThinkingDotTwo"/>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+                        <Border Width="8"
+                                Height="8"
+                                Background="#FFFFB8D7"
+                                CornerRadius="4">
+                            <Border.RenderTransform>
+                                <TranslateTransform/>
+                            </Border.RenderTransform>
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ShowCodingKeyboard}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard x:Name="ThinkingDotThree">
+                                                    <Storyboard BeginTime="0:0:0.24" RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                         From="0"
+                                                                         To="-7"
+                                                                         Duration="0:0:0.32"
+                                                                         AutoReverse="True"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="ThinkingDotThree"/>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                        </Border>
+                    </StackPanel>
+                </Canvas>
+                <Border Width="27"
+                        Height="27"
+                        Margin="0,-2,-4,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Panel.ZIndex="4"
+                        Background="#FFFFF7FB"
+                        BorderBrush="#FFFF78A6"
+                        BorderThickness="1"
+                        CornerRadius="13.5"
+                        Visibility="{Binding ShowQuestionBadge, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock Text="?"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="#FFBA315F"
+                               FontSize="18"
+                               FontWeight="Bold"/>
+                </Border>
+                <Grid Panel.ZIndex="4"
+                      IsHitTestVisible="False"
+                      Visibility="{Binding ShowCelebrationMarks, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock Text="!"
+                               Margin="14,-6,0,0"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Top"
+                               Foreground="#FFFF78A6"
+                               FontSize="24"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="!"
+                               Margin="0,-2,14,0"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Top"
+                               Foreground="#FF66A8FF"
+                               FontSize="20"
+                               FontWeight="Bold"/>
+                </Grid>
                 <Image Width="24"
                        Height="24"
                        Margin="0,2,0,0"

@@ -37,6 +37,15 @@ public partial class SettingsViewModel : ObservableObject
     private AppCloseBehavior _selectedCloseBehavior;
 
     [ObservableProperty]
+    private bool _codingClientMonitorEnabled;
+
+    [ObservableProperty]
+    private bool _codexDesktopMonitorEnabled;
+
+    [ObservableProperty]
+    private bool _claudeDesktopMonitorEnabled;
+
+    [ObservableProperty]
     private AiProvider _selectedAiProvider;
 
     [ObservableProperty]
@@ -165,6 +174,9 @@ public partial class SettingsViewModel : ObservableObject
         SelectedLanguage = TranslationService.NormalizeLanguageCode(s.Language);
         LaunchAtStartup = s.LaunchAtStartup;
         SelectedCloseBehavior = s.CloseBehavior;
+        CodingClientMonitorEnabled = s.CodingClientMonitorEnabled;
+        CodexDesktopMonitorEnabled = s.CodexDesktopMonitorEnabled;
+        ClaudeDesktopMonitorEnabled = s.ClaudeDesktopMonitorEnabled;
         SelectedAiProvider = s.AiProvider;
         AiApiBaseUrl = s.AiApiBaseUrl;
         AiApiKey = s.AiApiKey;
@@ -311,6 +323,9 @@ public partial class SettingsViewModel : ObservableObject
         s.Language = TranslationService.NormalizeLanguageCode(SelectedLanguage);
         s.LaunchAtStartup = LaunchAtStartup;
         s.CloseBehavior = SelectedCloseBehavior;
+        s.CodingClientMonitorEnabled = CodingClientMonitorEnabled;
+        s.CodexDesktopMonitorEnabled = CodexDesktopMonitorEnabled;
+        s.ClaudeDesktopMonitorEnabled = ClaudeDesktopMonitorEnabled;
         s.AiProvider = SelectedAiProvider;
         s.AiApiBaseUrl = AiApiBaseUrl.Trim();
         s.AiApiKey = AiApiKey.Trim();

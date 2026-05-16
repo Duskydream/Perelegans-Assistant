@@ -14,12 +14,14 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private readonly SettingsService _settingsService;
     private readonly FocusModeService _focusModeService;
     private readonly BreakpointSnapshotService _breakpointSnapshotService;
+    private readonly CodingClientMonitorService _codingClientMonitorService;
     private readonly Action _showDashboard;
     private readonly Action<BreakpointSnapshot> _showBreakpointSnapshot;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _timer;
     private BreakpointSnapshot? _activeBreakpointSnapshot;
+    private CodingClientActivitySnapshot? _codingClientSnapshot;
     private bool _isAway;
 
     [ObservableProperty]
@@ -40,6 +42,15 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _petMood = "idle";
 
+    [ObservableProperty]
+    private bool _showCodingKeyboard;
+
+    [ObservableProperty]
+    private bool _showQuestionBadge;
+
+    [ObservableProperty]
+    private bool _showCelebrationMarks;
+
     public string BreakpointContinueText => "继续";
 
     public FloatingPetViewModel(
@@ -49,6 +60,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         SettingsService settingsService,
         FocusModeService focusModeService,
         BreakpointSnapshotService breakpointSnapshotService,
+        CodingClientMonitorService codingClientMonitorService,
         Action showDashboard,
         Action<BreakpointSnapshot> showBreakpointSnapshot,
         Action openSettings,
@@ -60,6 +72,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _settingsService = settingsService;
         _focusModeService = focusModeService;
         _breakpointSnapshotService = breakpointSnapshotService;
+        _codingClientMonitorService = codingClientMonitorService;
         _showDashboard = showDashboard;
         _showBreakpointSnapshot = showBreakpointSnapshot;
         _openSettings = openSettings;
@@ -75,6 +88,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _settingsService.SettingsChanged += OnSettingsChanged;
         _breakpointSnapshotService.BreakpointReady += OnBreakpointReady;
         _breakpointSnapshotService.AwayDetected += OnAwayDetected;
+        _codingClientMonitorService.ActivityChanged += OnCodingClientActivityChanged;
 
         _ = SampleNowAsync();
     }
@@ -176,8 +190,14 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
         if (!_settingsService.Settings.MonitorEnabled)
         {
+            ResetCodingClientAdornments();
             PetMood = "sleep";
             BubbleText = "Perelegans 先歇一会";
+            return;
+        }
+
+        if (TryApplyCodingClientSnapshot())
+        {
             return;
         }
 
@@ -240,6 +260,25 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _ = SampleNowAsync();
     }
 
+    private void OnCodingClientActivityChanged(CodingClientActivitySnapshot snapshot)
+    {
+        _codingClientSnapshot = snapshot;
+        if (snapshot.State == CodingClientActivityState.Idle)
+        {
+            ResetCodingClientAdornments();
+            UpdatePetMood();
+            _ = SampleNowAsync();
+            return;
+        }
+
+        if (_isAway || HasBreakpointPrompt || !_settingsService.Settings.MonitorEnabled)
+        {
+            return;
+        }
+
+        TryApplyCodingClientSnapshot();
+    }
+
     private void SetMonitorEnabled(bool enabled)
     {
         _settingsService.Settings.MonitorEnabled = enabled;
@@ -251,6 +290,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         }
         else
         {
+            _focusModeService.Stop();
             _processMonitor.Stop();
         }
 
@@ -264,6 +304,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     {
         _isAway = true;
         HasBreakpointPrompt = false;
+        ResetCodingClientAdornments();
         PetMood = "sleep";
         BubbleText = "我先替你守住刚才的思路，等你回来。";
     }
@@ -319,17 +360,74 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     {
         if (_isAway)
         {
+            ResetCodingClientAdornments();
             PetMood = "sleep";
             return;
         }
 
         if (!_settingsService.Settings.MonitorEnabled)
         {
+            ResetCodingClientAdornments();
             PetMood = "sleep";
             return;
         }
 
+        if (TryApplyCodingClientSnapshot())
+        {
+            return;
+        }
+
         PetMood = _focusModeService.IsActive ? "focus" : "idle";
+    }
+
+    private bool TryApplyCodingClientSnapshot()
+    {
+        if (!IsCodingClientSnapshotActive(_codingClientSnapshot))
+        {
+            ResetCodingClientAdornments();
+            return false;
+        }
+
+        ShowCodingKeyboard = false;
+        ShowQuestionBadge = false;
+        ShowCelebrationMarks = false;
+
+        switch (_codingClientSnapshot!.State)
+        {
+            case CodingClientActivityState.Coding:
+                PetMood = "coding";
+                ShowCodingKeyboard = true;
+                BubbleText = _codingClientSnapshot.Message;
+                return true;
+            case CodingClientActivityState.WaitingForConfirmation:
+                PetMood = "question";
+                ShowQuestionBadge = true;
+                BubbleText = _codingClientSnapshot.Message;
+                return true;
+            case CodingClientActivityState.Completed:
+                PetMood = "celebrate";
+                ShowCelebrationMarks = true;
+                BubbleText = _codingClientSnapshot.Message;
+                return true;
+            default:
+                ResetCodingClientAdornments();
+                return false;
+        }
+    }
+
+    private bool IsCodingClientSnapshotActive(CodingClientActivitySnapshot? snapshot)
+    {
+        return snapshot != null &&
+               _settingsService.Settings.CodingClientMonitorEnabled &&
+               _settingsService.Settings.CodexDesktopMonitorEnabled &&
+               snapshot.State != CodingClientActivityState.Idle;
+    }
+
+    private void ResetCodingClientAdornments()
+    {
+        ShowCodingKeyboard = false;
+        ShowQuestionBadge = false;
+        ShowCelebrationMarks = false;
     }
 
     private static bool ContainsAny(string text, params string[] terms)
@@ -345,5 +443,6 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _settingsService.SettingsChanged -= OnSettingsChanged;
         _breakpointSnapshotService.BreakpointReady -= OnBreakpointReady;
         _breakpointSnapshotService.AwayDetected -= OnAwayDetected;
+        _codingClientMonitorService.ActivityChanged -= OnCodingClientActivityChanged;
     }
 }
