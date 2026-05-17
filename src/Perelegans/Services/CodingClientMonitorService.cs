@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Threading;
@@ -34,14 +35,25 @@ public sealed record CodingClientActivitySnapshot(
 
 public sealed class CodingClientMonitorService : IDisposable
 {
+    private enum CodexLifecycleEventKind
+    {
+        None,
+        Started,
+        Active,
+        Completed
+    }
+
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan CodexSignalWindow = TimeSpan.FromSeconds(16);
     private static readonly TimeSpan WorkspaceWriteWindow = TimeSpan.FromSeconds(7);
     private static readonly TimeSpan CompletionVisibleWindow = TimeSpan.FromSeconds(9);
-    private static readonly TimeSpan RecentCodingNotificationWindow = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan NotificationWaitingVisibleWindow = TimeSpan.FromSeconds(45);
-    private static readonly TimeSpan WaitingQuietWindow = TimeSpan.FromSeconds(35);
     private static readonly TimeSpan WorkspaceRefreshInterval = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan CodexLifecycleActiveWindow = TimeSpan.FromHours(2);
+    private static readonly TimeSpan ClaudeLifecycleActiveWindow = TimeSpan.FromHours(2);
+    private const int CodexRolloutTailLineCount = 1000;
+    private const int CodexRecentRolloutFileLimit = 4;
+    private const int ClaudeMainLogTailLineCount = 1000;
 
     private static readonly string[] CodexSignalFileNames =
     [
@@ -132,15 +144,22 @@ public sealed class CodingClientMonitorService : IDisposable
     private DateTime _lastCodexSignalAt = DateTime.MinValue;
     private DateTime _lastClaudeSignalAt = DateTime.MinValue;
     private DateTime _lastWorkspaceChangeAt = DateTime.MinValue;
-    private DateTime _lastCodingActivityAt = DateTime.MinValue;
     private DateTime _lastWorkspaceRefreshAt = DateTime.MinValue;
     private DateTime _lastNotificationStateAt = DateTime.MinValue;
+    private DateTime _lastCodexLifecycleEventAt = DateTime.MinValue;
+    private DateTime _lastCodexLifecycleCompletedAt = DateTime.MinValue;
+    private DateTime _lastClaudeLifecycleEventAt = DateTime.MinValue;
+    private DateTime _lastClaudeLifecycleCompletedAt = DateTime.MinValue;
     private CodingClientKind _lastNotificationClientKind = CodingClientKind.CodexDesktop;
     private CodingClientActivityState _lastNotificationState = CodingClientActivityState.Idle;
     private UserNotificationListener? _notificationListener;
     private string _lastNotificationMessage = string.Empty;
     private string _lastChangedPath = string.Empty;
+    private string _lastCodexLifecycleSignature = string.Empty;
+    private string _lastClaudeLifecycleSignature = string.Empty;
     private readonly HashSet<uint> _processedNotificationIds = [];
+    private bool _isCodexLifecycleRunning;
+    private bool _isClaudeLifecycleRunning;
     private bool _disposed;
 
     public event Action<CodingClientActivitySnapshot>? ActivityChanged;
@@ -214,8 +233,8 @@ public sealed class CodingClientMonitorService : IDisposable
             return;
         }
 
-        var codexRunning = IsCodexProcessRunning();
         var hasCodexSignal = UpdateCodexSignalFiles(now, baselineOnly: false);
+        var hasCodexLifecycleActivity = UpdateCodexLifecycleState(now);
         if (hasCodexSignal || now - _lastWorkspaceRefreshAt >= WorkspaceRefreshInterval)
         {
             RefreshWorkspaceWatchers();
@@ -237,10 +256,9 @@ public sealed class CodingClientMonitorService : IDisposable
 
         var hasRecentCodexSignal = now - _lastCodexSignalAt <= CodexSignalWindow;
         var hasRecentWorkspaceChange = now - lastWorkspaceChangeAt <= WorkspaceWriteWindow;
-        var hasClientContext = codexRunning || hasRecentCodexSignal;
-        if ((hasRecentWorkspaceChange && hasClientContext) || hasRecentCodexSignal)
+        if (hasCodexLifecycleActivity ||
+            (hasRecentWorkspaceChange && hasRecentCodexSignal))
         {
-            _lastCodingActivityAt = now;
             Publish(CreateSnapshot(
                 CodingClientActivityState.Coding,
                 now,
@@ -249,14 +267,12 @@ public sealed class CodingClientMonitorService : IDisposable
             return;
         }
 
-        if (codexRunning &&
-            _lastCodingActivityAt != DateTime.MinValue &&
-            now - _lastCodingActivityAt >= WaitingQuietWindow)
+        if (now - _lastCodexLifecycleCompletedAt <= CompletionVisibleWindow)
         {
             Publish(CreateSnapshot(
-                CodingClientActivityState.WaitingForConfirmation,
+                CodingClientActivityState.Completed,
                 now,
-                "Codex Desktop 可能在等你确认。",
+                "Codex Desktop 刚完成生成，去看看吧。",
                 lastChangedPath));
             return;
         }
@@ -277,10 +293,10 @@ public sealed class CodingClientMonitorService : IDisposable
 
         var codexEnabled = _settingsService.Settings.CodexDesktopMonitorEnabled;
         var claudeEnabled = _settingsService.Settings.ClaudeDesktopMonitorEnabled;
-        var codexRunning = codexEnabled && IsCodexProcessRunning();
-        var claudeRunning = claudeEnabled && IsClaudeProcessRunning();
         var hasCodexSignal = codexEnabled && UpdateCodexSignalFiles(now, baselineOnly: false);
+        var hasCodexLifecycleActivity = codexEnabled && UpdateCodexLifecycleState(now);
         var hasClaudeSignal = claudeEnabled && UpdateClaudeSignalFiles(now, baselineOnly: false);
+        var hasClaudeLifecycleActivity = claudeEnabled && UpdateClaudeLifecycleState(now);
         if (hasCodexSignal || now - _lastWorkspaceRefreshAt >= WorkspaceRefreshInterval)
         {
             RefreshWorkspaceWatchers();
@@ -303,11 +319,10 @@ public sealed class CodingClientMonitorService : IDisposable
         var hasRecentCodexSignal = now - _lastCodexSignalAt <= CodexSignalWindow;
         var hasRecentClaudeSignal = now - _lastClaudeSignalAt <= CodexSignalWindow;
         var hasRecentWorkspaceChange = now - lastWorkspaceChangeAt <= WorkspaceWriteWindow;
-        var hasCodexClientContext = codexRunning || hasRecentCodexSignal;
         if (codexEnabled &&
-            ((hasRecentWorkspaceChange && hasCodexClientContext) || hasRecentCodexSignal))
+            (hasCodexLifecycleActivity ||
+             (hasRecentWorkspaceChange && hasRecentCodexSignal)))
         {
-            _lastCodingActivityAt = now;
             Publish(CreateSnapshot(
                 CodingClientKind.CodexDesktop,
                 CodingClientActivityState.Coding,
@@ -317,9 +332,10 @@ public sealed class CodingClientMonitorService : IDisposable
             return;
         }
 
-        if (claudeEnabled && hasRecentClaudeSignal)
+        if (claudeEnabled &&
+            (hasClaudeLifecycleActivity ||
+             (hasRecentWorkspaceChange && hasRecentClaudeSignal)))
         {
-            _lastCodingActivityAt = now;
             Publish(CreateSnapshot(
                 CodingClientKind.ClaudeDesktop,
                 CodingClientActivityState.Coding,
@@ -330,30 +346,25 @@ public sealed class CodingClientMonitorService : IDisposable
         }
 
         if (codexEnabled &&
-            codexRunning &&
-            _lastCodingActivityAt != DateTime.MinValue &&
-            now - _lastCodingActivityAt >= WaitingQuietWindow)
+            now - _lastCodexLifecycleCompletedAt <= CompletionVisibleWindow)
         {
             Publish(CreateSnapshot(
                 CodingClientKind.CodexDesktop,
-                CodingClientActivityState.WaitingForConfirmation,
+                CodingClientActivityState.Completed,
                 now,
-                "Codex Desktop 可能在等你确认。",
+                "Codex Desktop 刚完成生成，去看看吧。",
                 lastChangedPath));
             return;
         }
 
         if (claudeEnabled &&
-            claudeRunning &&
-            _lastClaudeSignalAt != DateTime.MinValue &&
-            now - _lastClaudeSignalAt >= WaitingQuietWindow &&
-            now - _lastClaudeSignalAt <= RecentCodingNotificationWindow)
+            now - _lastClaudeLifecycleCompletedAt <= CompletionVisibleWindow)
         {
             Publish(CreateSnapshot(
                 CodingClientKind.ClaudeDesktop,
-                CodingClientActivityState.WaitingForConfirmation,
+                CodingClientActivityState.Completed,
                 now,
-                "Claude Desktop 可能在等你继续。",
+                "Claude Desktop 刚完成回复，去看看吧。",
                 lastChangedPath));
             return;
         }
@@ -529,7 +540,6 @@ public sealed class CodingClientMonitorService : IDisposable
             _lastNotificationState = state;
             _lastNotificationMessage = message;
             _lastNotificationStateAt = now;
-            _lastCodingActivityAt = now;
         }
 
         _ = _timer.Dispatcher.InvokeAsync(() =>
@@ -651,6 +661,412 @@ public sealed class CodingClientMonitorService : IDisposable
                 yield return file;
             }
         }
+    }
+
+    private bool UpdateCodexLifecycleState(DateTime now)
+    {
+        if (!TryGetLatestCodexLifecycleEvent(out var isRunning, out var eventAt, out var signature))
+        {
+            return _isCodexLifecycleRunning &&
+                   now - _lastCodexLifecycleEventAt <= CodexLifecycleActiveWindow;
+        }
+
+        if (!string.Equals(signature, _lastCodexLifecycleSignature, StringComparison.Ordinal))
+        {
+            var wasRunning = _isCodexLifecycleRunning;
+            _isCodexLifecycleRunning = isRunning;
+            _lastCodexLifecycleEventAt = eventAt;
+            _lastCodexLifecycleSignature = signature;
+
+            if (wasRunning && !isRunning)
+            {
+                _lastCodexLifecycleCompletedAt = now;
+            }
+        }
+
+        return _isCodexLifecycleRunning &&
+               now - _lastCodexLifecycleEventAt <= CodexLifecycleActiveWindow;
+    }
+
+    private bool TryGetLatestCodexLifecycleEvent(
+        out bool isRunning,
+        out DateTime eventAt,
+        out string signature)
+    {
+        isRunning = false;
+        eventAt = DateTime.MinValue;
+        signature = string.Empty;
+
+        foreach (var path in EnumerateRecentCodexRolloutFiles())
+        {
+            var fileRunning = false;
+            DateTime fileEventAt = DateTime.MinValue;
+            var fileSignature = string.Empty;
+
+            foreach (var line in ReadRecentLines(path, CodexRolloutTailLineCount))
+            {
+                if (!TryParseCodexLifecycleLine(line, out var kind, out var lineAt))
+                {
+                    continue;
+                }
+
+                switch (kind)
+                {
+                    case CodexLifecycleEventKind.Started:
+                        fileRunning = true;
+                        fileEventAt = lineAt;
+                        fileSignature = $"{path}|{line}";
+                        break;
+                    case CodexLifecycleEventKind.Active:
+                        if (fileRunning || nowIsRecent(lineAt))
+                        {
+                            fileRunning = true;
+                            fileEventAt = lineAt;
+                            fileSignature = $"{path}|{line}";
+                        }
+
+                        break;
+                    case CodexLifecycleEventKind.Completed:
+                        fileRunning = false;
+                        fileEventAt = lineAt;
+                        fileSignature = $"{path}|{line}";
+                        break;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(fileSignature) || fileEventAt < eventAt)
+            {
+                continue;
+            }
+
+            isRunning = fileRunning;
+            eventAt = fileEventAt;
+            signature = fileSignature;
+        }
+
+        return !string.IsNullOrWhiteSpace(signature);
+
+        bool nowIsRecent(DateTime lineAt)
+        {
+            return DateTime.Now - lineAt <= CodexSignalWindow;
+        }
+    }
+
+    private IEnumerable<string> EnumerateRecentCodexRolloutFiles()
+    {
+        var sessionsDir = Path.Combine(_codexHome, "sessions");
+        if (!Directory.Exists(sessionsDir))
+        {
+            yield break;
+        }
+
+        FileInfo[] files;
+        try
+        {
+            files = Directory
+                .EnumerateFiles(sessionsDir, "rollout-*.jsonl", SearchOption.AllDirectories)
+                .Select(path => new FileInfo(path))
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .Take(CodexRecentRolloutFileLimit)
+                .ToArray();
+        }
+        catch
+        {
+            yield break;
+        }
+
+        foreach (var file in files)
+        {
+            yield return file.FullName;
+        }
+    }
+
+    private static bool TryParseCodexLifecycleLine(
+        string line,
+        out CodexLifecycleEventKind kind,
+        out DateTime eventAt)
+    {
+        kind = CodexLifecycleEventKind.None;
+        eventAt = DateTime.MinValue;
+
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(line);
+            var root = document.RootElement;
+            if (!TryGetCodexEventTimestamp(root, out eventAt))
+            {
+                return false;
+            }
+
+            var rootType = TryGetStringProperty(root, "type");
+            var payloadType = string.Empty;
+            if (root.TryGetProperty("payload", out var payload) &&
+                payload.ValueKind == JsonValueKind.Object)
+            {
+                payloadType = TryGetStringProperty(payload, "type");
+            }
+
+            if (IsCodexCompletedEvent(rootType, payloadType))
+            {
+                kind = CodexLifecycleEventKind.Completed;
+                return true;
+            }
+
+            if (IsCodexStartedEvent(rootType, payloadType))
+            {
+                kind = CodexLifecycleEventKind.Started;
+                return true;
+            }
+
+            if (IsCodexActiveEvent(rootType, payloadType))
+            {
+                kind = CodexLifecycleEventKind.Active;
+                return true;
+            }
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetCodexEventTimestamp(JsonElement root, out DateTime eventAt)
+    {
+        eventAt = DateTime.MinValue;
+        if (!root.TryGetProperty("timestamp", out var timestampElement) ||
+            timestampElement.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        var rawTimestamp = timestampElement.GetString();
+        if (string.IsNullOrWhiteSpace(rawTimestamp) ||
+            !DateTimeOffset.TryParse(
+                rawTimestamp,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var timestamp))
+        {
+            return false;
+        }
+
+        eventAt = timestamp.LocalDateTime;
+        return true;
+    }
+
+    private static bool IsCodexStartedEvent(string rootType, string payloadType)
+    {
+        return rootType.Equals("turn_context", StringComparison.OrdinalIgnoreCase) ||
+               payloadType.Equals("task_started", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsCodexCompletedEvent(string rootType, string payloadType)
+    {
+        return payloadType.Equals("task_complete", StringComparison.OrdinalIgnoreCase) ||
+               payloadType.Equals("task_cancelled", StringComparison.OrdinalIgnoreCase) ||
+               payloadType.Equals("task_failed", StringComparison.OrdinalIgnoreCase) ||
+               payloadType.Equals("turn_cancelled", StringComparison.OrdinalIgnoreCase) ||
+               payloadType.Equals("turn_aborted", StringComparison.OrdinalIgnoreCase) ||
+               payloadType.Equals("error", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsCodexActiveEvent(string rootType, string payloadType)
+    {
+        return rootType.Equals("response_item", StringComparison.OrdinalIgnoreCase) ||
+               rootType.Equals("event_msg", StringComparison.OrdinalIgnoreCase) &&
+               ContainsAny(
+                   payloadType,
+                   "agent_message",
+                   "token_count",
+                   "patch",
+                   "tool",
+                   "exec",
+                   "shell",
+                   "approval",
+                   "user_message");
+    }
+
+    private static string TryGetStringProperty(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var property) &&
+               property.ValueKind == JsonValueKind.String
+            ? property.GetString() ?? string.Empty
+            : string.Empty;
+    }
+
+    private bool UpdateClaudeLifecycleState(DateTime now)
+    {
+        if (!TryGetLatestClaudeLifecycleEvent(out var isRunning, out var eventAt, out var signature))
+        {
+            return _isClaudeLifecycleRunning &&
+                   now - _lastClaudeLifecycleEventAt <= ClaudeLifecycleActiveWindow;
+        }
+
+        if (!string.Equals(signature, _lastClaudeLifecycleSignature, StringComparison.Ordinal))
+        {
+            var wasRunning = _isClaudeLifecycleRunning;
+            _isClaudeLifecycleRunning = isRunning;
+            _lastClaudeLifecycleEventAt = eventAt;
+            _lastClaudeLifecycleSignature = signature;
+
+            if (wasRunning && !isRunning)
+            {
+                _lastClaudeLifecycleCompletedAt = now;
+            }
+        }
+
+        return _isClaudeLifecycleRunning &&
+               now - _lastClaudeLifecycleEventAt <= ClaudeLifecycleActiveWindow;
+    }
+
+    private bool TryGetLatestClaudeLifecycleEvent(
+        out bool isRunning,
+        out DateTime eventAt,
+        out string signature)
+    {
+        isRunning = false;
+        eventAt = DateTime.MinValue;
+        signature = string.Empty;
+
+        foreach (var path in EnumerateClaudeMainLogFiles())
+        {
+            foreach (var line in ReadRecentLines(path, ClaudeMainLogTailLineCount))
+            {
+                if (!TryParseClaudeLifecycleLine(line, out var lineIsRunning, out var lineAt))
+                {
+                    continue;
+                }
+
+                if (lineAt < eventAt)
+                {
+                    continue;
+                }
+
+                isRunning = lineIsRunning;
+                eventAt = lineAt;
+                signature = $"{path}|{line}";
+            }
+        }
+
+        return !string.IsNullOrWhiteSpace(signature);
+    }
+
+    private IEnumerable<string> EnumerateClaudeMainLogFiles()
+    {
+        var roamingMainLog = Path.Combine(_claudeRoamingDir, "logs", "main.log");
+        if (File.Exists(roamingMainLog))
+        {
+            yield return roamingMainLog;
+        }
+
+        var local3pMainLog = Path.Combine(_claudeLocal3pDir, "logs", "main.log");
+        if (File.Exists(local3pMainLog))
+        {
+            yield return local3pMainLog;
+        }
+    }
+
+    private static bool TryParseClaudeLifecycleLine(string line, out bool isRunning, out DateTime eventAt)
+    {
+        isRunning = false;
+        eventAt = DateTime.MinValue;
+
+        if (!TryParseLogTimestamp(line, out eventAt))
+        {
+            return false;
+        }
+
+        if (line.Contains("[Result]", StringComparison.OrdinalIgnoreCase) &&
+            line.Contains("Turn", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!line.Contains("[Lifecycle]", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (ContainsStateTransition(line, "running", "idle"))
+        {
+            return true;
+        }
+
+        if (ContainsStateTransition(line, "idle", "initializing") ||
+            ContainsStateTransition(line, "initializing", "running"))
+        {
+            isRunning = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryParseLogTimestamp(string line, out DateTime timestamp)
+    {
+        timestamp = DateTime.MinValue;
+        return line.Length >= 19 &&
+               DateTime.TryParseExact(
+                   line.AsSpan(0, 19),
+                   "yyyy-MM-dd HH:mm:ss",
+                   CultureInfo.InvariantCulture,
+                   DateTimeStyles.AssumeLocal,
+                   out timestamp);
+    }
+
+    private static bool ContainsStateTransition(string line, string from, string to)
+    {
+        var fromIndex = line.IndexOf(from, StringComparison.OrdinalIgnoreCase);
+        if (fromIndex < 0)
+        {
+            return false;
+        }
+
+        var toIndex = line.IndexOf(to, fromIndex + from.Length, StringComparison.OrdinalIgnoreCase);
+        return toIndex > fromIndex;
+    }
+
+    private static string[] ReadRecentLines(string path, int maxLines)
+    {
+        if (maxLines <= 0 || !File.Exists(path))
+        {
+            return [];
+        }
+
+        Queue<string> lines = new(maxLines);
+        try
+        {
+            using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream);
+
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (lines.Count == maxLines)
+                {
+                    lines.Dequeue();
+                }
+
+                lines.Enqueue(line);
+            }
+        }
+        catch
+        {
+            return [];
+        }
+
+        return lines.ToArray();
     }
 
     private bool UpdateClaudeSignalFiles(DateTime now, bool baselineOnly)
