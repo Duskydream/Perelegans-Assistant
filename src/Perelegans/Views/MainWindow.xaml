@@ -419,16 +419,34 @@
                                             <StackPanel Orientation="Horizontal"
                                                         HorizontalAlignment="Right"
                                                         Margin="0,8,0,0">
-                                                <Button Content="{i18n:Translate Main_ChatRewind}"
+                                                <Button Width="30"
+                                                        Height="30"
                                                         Command="{Binding DataContext.RewindConversationToCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
                                                         CommandParameter="{Binding}"
-                                                        Style="{StaticResource PresetButtonStyle}"
-                                                        Margin="0,0,6,0"/>
-                                                <Button Content="{i18n:Translate Main_ChatDelete}"
+                                                        Style="{StaticResource IconButtonStyle}"
+                                                        ToolTip="{i18n:Translate Main_ChatRewind}"
+                                                        Margin="0,0,4,0">
+                                                    <Viewbox Width="15"
+                                                             Height="15">
+                                                        <Path Data="M 13,4 L 6,11 L 13,18 M 7,11 L 19,11"
+                                                              Stroke="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                              Style="{StaticResource LineIconPathStyle}"/>
+                                                    </Viewbox>
+                                                </Button>
+                                                <Button Width="30"
+                                                        Height="30"
                                                         Command="{Binding DataContext.DeleteConversationMessageCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
                                                         CommandParameter="{Binding}"
-                                                        Style="{StaticResource PresetButtonStyle}"
-                                                        Margin="0,0,6,0"/>
+                                                        Style="{StaticResource IconButtonStyle}"
+                                                        ToolTip="{i18n:Translate Main_ChatDelete}"
+                                                        Margin="0,0,4,0">
+                                                    <Viewbox Width="13"
+                                                             Height="13">
+                                                        <Path Data="M 6,6 L 18,18 M 18,6 L 6,18"
+                                                              Stroke="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                              Style="{StaticResource LineIconPathStyle}"/>
+                                                    </Viewbox>
+                                                </Button>
                                                 <Button Content="{i18n:Translate Main_ChatStop}"
                                                         Command="{Binding DataContext.StopAssistantOutputCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
                                                         Style="{StaticResource PresetButtonStyle}"
@@ -801,87 +819,188 @@
                                 </Border>
                             </Grid>
 
-                            <Border Grid.Row="1"
-                                    Width="208"
-                                    Height="208"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Top"
-                                    Margin="0,22,0,14"
-                                    MouseLeave="UsagePieChart_MouseLeave"
-                                    ClipToBounds="True">
-                                <Grid ClipToBounds="True">
-                                    <Grid.Clip>
-                                        <RectangleGeometry Rect="0,0,208,208"/>
-                                    </Grid.Clip>
-                                    <Viewbox Stretch="Uniform">
-                                        <ItemsControl Width="100"
-                                                      Height="100"
-                                                      ItemsSource="{Binding UsageStatsSlices}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <Canvas Width="100" Height="100"/>
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemContainerStyle>
-                                                <Style TargetType="ContentPresenter">
-                                                    <Setter Property="Canvas.Left" Value="0"/>
-                                                    <Setter Property="Canvas.Top" Value="0"/>
-                                                </Style>
-                                            </ItemsControl.ItemContainerStyle>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Path Data="{Binding PieGeometry}"
-                                                          Fill="{Binding Fill}"
-                                                          Stroke="{DynamicResource Perelegans.StatsChartSliceBorderBrush}"
-                                                          StrokeThickness="0.85"
-                                                          RenderTransformOrigin="0.5,0.5"
-                                                          MouseEnter="UsageSlicePath_MouseEnter">
-                                                        <Path.Style>
-                                                            <Style TargetType="Path">
-                                                                <Setter Property="Opacity" Value="0.92"/>
-                                                                <Setter Property="RenderTransform">
-                                                                    <Setter.Value>
-                                                                        <ScaleTransform ScaleX="1" ScaleY="1"/>
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
-                                                                        <Setter Property="Opacity" Value="1"/>
-                                                                        <Setter Property="StrokeThickness" Value="1.2"/>
+                            <Grid Grid.Row="1"
+                                  Margin="0,22,0,14"
+                                  MouseLeave="UsagePieChart_MouseLeave">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="310"/>
+                                    <ColumnDefinition Width="18"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0"
+                                        Height="248"
+                                        Padding="8"
+                                        ClipToBounds="True">
+                                    <Grid ClipToBounds="True">
+                                        <Viewbox Stretch="Uniform">
+                                            <Canvas Width="100" Height="100">
+                                                <ItemsControl ItemsSource="{Binding UsageStatsSlices}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <Canvas Width="100" Height="100"/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemContainerStyle>
+                                                        <Style TargetType="ContentPresenter">
+                                                            <Setter Property="Canvas.Left" Value="0"/>
+                                                            <Setter Property="Canvas.Top" Value="0"/>
+                                                        </Style>
+                                                    </ItemsControl.ItemContainerStyle>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Path Data="{Binding PieGeometry}"
+                                                                  Fill="{Binding Fill}"
+                                                                  Stroke="{DynamicResource Perelegans.WindowBackground}"
+                                                                  StrokeThickness="0.7"
+                                                                  RenderTransformOrigin="0.5,0.5"
+                                                                  MouseEnter="UsageSlicePath_MouseEnter">
+                                                                <Path.Style>
+                                                                    <Style TargetType="Path">
+                                                                        <Setter Property="Opacity" Value="0.96"/>
                                                                         <Setter Property="RenderTransform">
                                                                             <Setter.Value>
-                                                                                <ScaleTransform ScaleX="1.035" ScaleY="1.035"/>
+                                                                                <ScaleTransform ScaleX="1" ScaleY="1"/>
                                                                             </Setter.Value>
                                                                         </Setter>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Path.Style>
-                                                    </Path>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </Viewbox>
-                                    <TextBlock Text="{Binding UsageStatsEmptyText}"
-                                           VerticalAlignment="Center"
-                                           HorizontalAlignment="Center"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap"
-                                           FontSize="14"
-                                           Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding HasUsageStatsSlices}" Value="False">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                    </TextBlock>
-                                </Grid>
-                            </Border>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
+                                                                                <Setter Property="Opacity" Value="1"/>
+                                                                                <Setter Property="StrokeThickness" Value="1.2"/>
+                                                                                <Setter Property="RenderTransform">
+                                                                                    <Setter.Value>
+                                                                                        <ScaleTransform ScaleX="1.035" ScaleY="1.035"/>
+                                                                                    </Setter.Value>
+                                                                                </Setter>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Path.Style>
+                                                            </Path>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="{Binding UsageStatsEmptyText}"
+                                                   VerticalAlignment="Center"
+                                                   HorizontalAlignment="Center"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="14"
+                                                   Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasUsageStatsSlices}" Value="False">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </Border>
+
+                                <Border Grid.Column="2"
+                                        Height="248"
+                                        Padding="12,12,12,10"
+                                        Background="{DynamicResource Perelegans.StatsChartMetricBackground}"
+                                        BorderBrush="{DynamicResource Perelegans.StatsChartPanelBorderBrush}"
+                                        BorderThickness="1"
+                                        ClipToBounds="True">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="{Binding UsageStatsTimelineTitle}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
+                                        <ScrollViewer Grid.Row="1"
+                                                      Margin="0,10,0,8"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled">
+                                            <ItemsControl ItemsSource="{Binding UsageTimelineRows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Height="18">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="88"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding ProcessName}"
+                                                                       FontSize="10"
+                                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       VerticalAlignment="Center"/>
+                                                            <Border Grid.Column="1"
+                                                                    Height="1"
+                                                                    Background="{DynamicResource Perelegans.StatsChartPanelBorderBrush}"
+                                                                    VerticalAlignment="Center"
+                                                                    Opacity="0.65"/>
+                                                            <Viewbox Grid.Column="1"
+                                                                     Height="12"
+                                                                     Stretch="Fill"
+                                                                     VerticalAlignment="Center">
+                                                                <ItemsControl Width="100"
+                                                                              Height="12"
+                                                                              ItemsSource="{Binding Segments}">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate>
+                                                                            <Canvas Width="100" Height="12"/>
+                                                                        </ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemContainerStyle>
+                                                                        <Style TargetType="ContentPresenter">
+                                                                            <Setter Property="Canvas.Left" Value="{Binding Left}"/>
+                                                                            <Setter Property="Canvas.Top" Value="2"/>
+                                                                        </Style>
+                                                                    </ItemsControl.ItemContainerStyle>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Border Width="{Binding Width}"
+                                                                                    Height="8"
+                                                                                    Background="{Binding Fill}"
+                                                                                    ToolTip="{Binding Tooltip}"/>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </Viewbox>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                        <Grid Grid.Row="2"
+                                              Margin="88,0,0,0"
+                                              Height="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding UsageTimelineStartLabel}"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                       HorizontalAlignment="Left"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding UsageTimelineMiddleLabel}"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                       HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding UsageTimelineEndLabel}"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                       HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </Grid>
 
                             <Border Grid.Row="2"
                                     Height="1"
@@ -1049,7 +1168,7 @@
                                 </ItemsControl.ItemContainerStyle>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Width="168"
+                                        <Border Width="156"
                                                 Padding="4"
                                                 Background="Transparent"
                                                 Cursor="Hand"
@@ -1128,57 +1247,49 @@
                                                     </BeginStoryboard>
                                                 </EventTrigger>
                                             </Border.Triggers>
-                                        <StackPanel Width="160">
-                                            <Grid Width="{Binding NodeSize}"
-                                                  Height="{Binding NodeSize}"
-                                                  HorizontalAlignment="Left">
-                                                <Ellipse x:Name="NodeRing"
-                                                         Fill="Transparent"
-                                                         Stroke="{DynamicResource Perelegans.AccentBrush}"
-                                                         StrokeThickness="1"
-                                                         Opacity="0.5"/>
-                                                <Ellipse x:Name="NodeCore"
-                                                         Margin="4"
-                                                         Fill="{DynamicResource Perelegans.AccentBrush}">
-                                                    <Ellipse.Effect>
-                                                        <DropShadowEffect BlurRadius="14"
-                                                                          ShadowDepth="0"
-                                                                          Opacity="0.45"
-                                                                          Color="#DFA8B5"/>
-                                                    </Ellipse.Effect>
-                                                </Ellipse>
-                                            </Grid>
-                                            <TextBlock Text="{Binding TypeText}"
-                                                       Margin="0,6,0,0"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding Title}"
-                                                       Margin="0,2,0,0"
-                                                       FontSize="11"
-                                                       TextWrapping="Wrap"
-                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
-                                            <TextBlock Text="{Binding ConstellationName}"
-                                                       Margin="0,3,0,0"
-                                                       FontSize="10"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"/>
-                                            <TextBlock Text="{Binding InsightMetaText}"
-                                                       Margin="0,2,0,0"
-                                                       FontSize="10"
-                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
-                                            <TextBlock Text="{Binding Preview}"
-                                                       Margin="0,2,0,0"
-                                                       FontSize="10"
-                                                       TextWrapping="Wrap"
-                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
-                                            <TextBlock x:Name="RewardText"
-                                                       Text="{Binding Tags}"
-                                                       Margin="0,3,0,0"
-                                                       FontSize="10"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"/>
-                                        </StackPanel>
+                                            <StackPanel Width="148">
+                                                <Grid Width="{Binding NodeSize}"
+                                                      Height="{Binding NodeSize}"
+                                                      HorizontalAlignment="Left">
+                                                    <Ellipse x:Name="NodeRing"
+                                                             Fill="Transparent"
+                                                             Stroke="{DynamicResource Perelegans.AccentBrush}"
+                                                             StrokeThickness="1"
+                                                             Opacity="0.5"/>
+                                                    <Ellipse x:Name="NodeCore"
+                                                             Margin="4"
+                                                             Fill="{DynamicResource Perelegans.AccentBrush}">
+                                                        <Ellipse.Effect>
+                                                            <DropShadowEffect BlurRadius="14"
+                                                                              ShadowDepth="0"
+                                                                              Opacity="0.45"
+                                                                              Color="#DFA8B5"/>
+                                                        </Ellipse.Effect>
+                                                    </Ellipse>
+                                                </Grid>
+                                                <TextBlock Text="{Binding TypeText}"
+                                                           Margin="0,4,0,0"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"
+                                                           LineHeight="16"
+                                                           Foreground="{DynamicResource Perelegans.ForegroundBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Preview}"
+                                                           Margin="0,1,0,0"
+                                                           MaxHeight="34"
+                                                           FontSize="12"
+                                                           LineHeight="16"
+                                                           Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                           TextWrapping="Wrap"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Tags}"
+                                                           Margin="0,2,0,0"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           LineHeight="16"
+                                                           Foreground="{DynamicResource Perelegans.AccentBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

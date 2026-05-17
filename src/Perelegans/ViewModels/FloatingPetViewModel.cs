@@ -8,6 +8,8 @@ namespace Perelegans.ViewModels;
 
 public partial class FloatingPetViewModel : ObservableObject, IDisposable
 {
+    private static readonly TimeSpan CodingClientCelebrationHold = TimeSpan.FromSeconds(3);
+
     private readonly ProcessMonitorService _processMonitor;
     private readonly FocusClassificationClient _focusClassificationClient;
     private readonly DatabaseService _databaseService;
@@ -20,8 +22,11 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _timer;
+    private readonly DispatcherTimer _codingCelebrationTimer;
     private BreakpointSnapshot? _activeBreakpointSnapshot;
     private CodingClientActivitySnapshot? _codingClientSnapshot;
+    private DateTime _codingClientCelebrationUntil = DateTime.MinValue;
+    private string _codingClientCelebrationMessage = string.Empty;
     private bool _isAway;
 
     [ObservableProperty]
@@ -92,6 +97,11 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         };
         _timer.Tick += OnTimerTick;
         _timer.Start();
+        _codingCelebrationTimer = new DispatcherTimer
+        {
+            Interval = CodingClientCelebrationHold
+        };
+        _codingCelebrationTimer.Tick += OnCodingCelebrationTimerTick;
         _focusModeService.StateChanged += OnFocusModeStateChanged;
         _settingsService.SettingsChanged += OnSettingsChanged;
         _breakpointSnapshotService.BreakpointReady += OnBreakpointReady;
@@ -288,6 +298,11 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _codingClientSnapshot = snapshot;
         if (snapshot.State == CodingClientActivityState.Idle)
         {
+            if (TryApplyCodingClientSnapshot())
+            {
+                return;
+            }
+
             ResetCodingClientAdornments();
             UpdatePetMood();
             _ = SampleNowAsync();
@@ -300,6 +315,21 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         }
 
         TryApplyCodingClientSnapshot();
+    }
+
+    private void OnCodingCelebrationTimerTick(object? sender, EventArgs e)
+    {
+        _codingCelebrationTimer.Stop();
+        _codingClientCelebrationUntil = DateTime.MinValue;
+        _codingClientCelebrationMessage = string.Empty;
+        if (_codingClientSnapshot?.State == CodingClientActivityState.Completed)
+        {
+            _codingClientSnapshot = null;
+        }
+
+        ResetCodingClientAdornments();
+        PetMood = _focusModeService.IsActive ? "focus" : "idle";
+        _ = SampleNowAsync();
     }
 
     private void SetMonitorEnabled(bool enabled)
@@ -407,6 +437,16 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     {
         if (!IsCodingClientSnapshotActive(_codingClientSnapshot))
         {
+            if (DateTime.Now <= _codingClientCelebrationUntil)
+            {
+                ShowCodingKeyboard = false;
+                ShowQuestionBadge = false;
+                ShowCelebrationMarks = true;
+                PetMood = "celebrate";
+                BubbleText = _codingClientCelebrationMessage;
+                return true;
+            }
+
             ResetCodingClientAdornments();
             return false;
         }
@@ -418,16 +458,29 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         switch (_codingClientSnapshot!.State)
         {
             case CodingClientActivityState.Coding:
+                _codingClientCelebrationUntil = DateTime.MinValue;
+                _codingCelebrationTimer.Stop();
                 PetMood = "coding";
                 ShowCodingKeyboard = true;
                 BubbleText = _codingClientSnapshot.Message;
                 return true;
             case CodingClientActivityState.WaitingForConfirmation:
+                _codingClientCelebrationUntil = DateTime.MinValue;
+                _codingCelebrationTimer.Stop();
                 PetMood = "question";
                 ShowQuestionBadge = true;
                 BubbleText = _codingClientSnapshot.Message;
                 return true;
             case CodingClientActivityState.Completed:
+                _codingClientCelebrationUntil = DateTime.Now + CodingClientCelebrationHold;
+                _codingClientCelebrationMessage = _codingClientSnapshot.Message;
+                _codingCelebrationTimer.Stop();
+                _codingCelebrationTimer.Start();
+                if (PetMood == "celebrate")
+                {
+                    PetMood = "idle";
+                }
+
                 PetMood = "celebrate";
                 ShowCelebrationMarks = true;
                 BubbleText = _codingClientSnapshot.Message;
@@ -442,8 +495,17 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     {
         return snapshot != null &&
                _settingsService.Settings.CodingClientMonitorEnabled &&
-               _settingsService.Settings.CodexDesktopMonitorEnabled &&
+               IsCodingClientEnabled(snapshot.ClientKind) &&
                snapshot.State != CodingClientActivityState.Idle;
+    }
+
+    private bool IsCodingClientEnabled(CodingClientKind kind)
+    {
+        return kind switch
+        {
+            CodingClientKind.ClaudeDesktop => _settingsService.Settings.ClaudeDesktopMonitorEnabled,
+            _ => _settingsService.Settings.CodexDesktopMonitorEnabled
+        };
     }
 
     private void ResetCodingClientAdornments()
@@ -451,6 +513,10 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         ShowCodingKeyboard = false;
         ShowQuestionBadge = false;
         ShowCelebrationMarks = false;
+        if (DateTime.Now > _codingClientCelebrationUntil)
+        {
+            _codingClientCelebrationMessage = string.Empty;
+        }
     }
 
     private bool IsPetSkinSelected(string skinId)
@@ -480,5 +546,6 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _breakpointSnapshotService.BreakpointReady -= OnBreakpointReady;
         _breakpointSnapshotService.AwayDetected -= OnAwayDetected;
         _codingClientMonitorService.ActivityChanged -= OnCodingClientActivityChanged;
+        _codingCelebrationTimer.Stop();
     }
 }

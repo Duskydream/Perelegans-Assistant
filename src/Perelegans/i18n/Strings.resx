@@ -152,11 +152,11 @@
   <data name="Main_DailyReviewReady" xml:space="preserve"><value>Daily review ready.</value></data>
   <data name="Main_DailyReviewHighlights" xml:space="preserve"><value>Highlights</value></data>
   <data name="Main_DailyReviewRisks" xml:space="preserve"><value>Watch points</value></data>
-  <data name="Main_DailyReviewNextAction" xml:space="preserve"><value>Next smallest action</value></data>
+  <data name="Main_DailyReviewNextAction" xml:space="preserve"><value>A question for tomorrow</value></data>
   <data name="Main_DailyReviewNoCompletedTasks" xml:space="preserve"><value>No completed task stars yet.</value></data>
   <data name="Main_DailyReviewNoRisk" xml:space="preserve"><value>No obvious risk from today's task stars.</value></data>
   <data name="Main_DailyReviewActiveTaskFormat" xml:space="preserve"><value>Still active: {0}</value></data>
-  <data name="Main_DailyReviewFallbackNextAction" xml:space="preserve"><value>Create one small task star for tomorrow.</value></data>
+  <data name="Main_DailyReviewFallbackNextAction" xml:space="preserve"><value>If tomorrow starts with just one gentle step, what would you like to pick up first?</value></data>
   <data name="Main_FallbackQuestTitle" xml:space="preserve"><value>Context Note</value></data>
   <data name="Main_FallbackQuestNarrativeFormat" xml:space="preserve"><value>Recorded task: “{0}”. Start from one small, verifiable step.</value></data>
   <data name="Main_FallbackTaskSummaryFormat" xml:space="preserve"><value>Focus on completing “{0}”.</value></data>
@@ -210,6 +210,7 @@
   <data name="Main_UsageStatsNoTime" xml:space="preserve"><value>No recorded time</value></data>
   <data name="Main_UsageStatsEmpty" xml:space="preserve"><value>No process time has been recorded for this period.</value></data>
   <data name="Main_UsageStatsOther" xml:space="preserve"><value>Other</value></data>
+  <data name="Main_UsageStatsTimelineTitle" xml:space="preserve"><value>Process timeline</value></data>
   <data name="Main_DailyReviewFallbackEncouragement" xml:space="preserve"><value>You still left traces that can be picked up again. Even a quiet day can become useful context when it is saved gently.</value></data>
   <data name="Main_DailyReviewEncouragement" xml:space="preserve"><value>A gentle note</value></data>
   <data name="Main_DailyReviewOverview" xml:space="preserve"><value>Overview</value></data>

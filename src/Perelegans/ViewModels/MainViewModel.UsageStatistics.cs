@@ -11,22 +11,24 @@ namespace Perelegans.ViewModels;
 
 public partial class MainViewModel
 {
-    private const byte UsageStatsFillAlpha = 150;
+    private const byte UsageStatsFillAlpha = 238;
     private const double UsagePieCenter = 50;
-    private const double UsagePieRadius = 47;
+    private const double UsagePieMinRadius = 28;
+    private const double UsagePieMaxRadius = 42;
+    private const double UsagePieExplodeOffset = 4.5;
 
     private static readonly MediaColor[] UsageStatsPalette =
     [
-        MediaColor.FromRgb(0xF0, 0x91, 0x99),
-        MediaColor.FromRgb(0xF2, 0xA0, 0xA1),
-        MediaColor.FromRgb(0xEE, 0x82, 0x7C),
-        MediaColor.FromRgb(0xF5, 0xB1, 0xAA),
-        MediaColor.FromRgb(0xEE, 0xBB, 0xCB),
-        MediaColor.FromRgb(0xBC, 0x64, 0xA4),
-        MediaColor.FromRgb(0xFD, 0xEF, 0xF2),
-        MediaColor.FromRgb(0xE4, 0xD2, 0xD8),
-        MediaColor.FromRgb(0xE3, 0x7F, 0x7F),
-        MediaColor.FromRgb(0xFF, 0xD2, 0xDB)
+        MediaColor.FromRgb(0x67, 0x7F, 0xE4),
+        MediaColor.FromRgb(0x8F, 0xCF, 0x73),
+        MediaColor.FromRgb(0xFF, 0xCA, 0x57),
+        MediaColor.FromRgb(0xF4, 0x63, 0x67),
+        MediaColor.FromRgb(0x6E, 0xC4, 0xE2),
+        MediaColor.FromRgb(0xA2, 0x73, 0xD4),
+        MediaColor.FromRgb(0xF6, 0x98, 0x4F),
+        MediaColor.FromRgb(0x55, 0xCC, 0xB2),
+        MediaColor.FromRgb(0xE8, 0x64, 0xAE),
+        MediaColor.FromRgb(0xB7, 0xCA, 0x4E)
     ];
 
     private string? _hoveredUsagePieKey;
@@ -39,6 +41,12 @@ public partial class MainViewModel
 
     [ObservableProperty]
     private ObservableCollection<UsageStatsSliceViewModel> _usageStatsSlices = new();
+
+    [ObservableProperty]
+    private ObservableCollection<UsageTimelineRowViewModel> _usageTimelineRows = new();
+
+    [ObservableProperty]
+    private ObservableCollection<UsageTimelineAxisLabelViewModel> _usageTimelineAxisLabels = new();
 
     [ObservableProperty]
     private UsageStatsSliceViewModel? _highlightedUsageStatsSlice;
@@ -55,7 +63,13 @@ public partial class MainViewModel
     public bool IsDailyUsageStatsMode => UsageStatsPeriod == "day";
     public bool IsMonthlyUsageStatsMode => UsageStatsPeriod == "month";
     public bool HasUsageStatsSlices => UsageStatsSlices.Count > 0;
+    public bool HasUsageTimelineRows => UsageTimelineRows.Count > 0;
+    public double UsageTimelineChartHeight => Math.Max(96, UsageTimelineRows.Count * 18 + 18);
     public string UsageStatsEmptyText => T("Main_UsageStatsEmpty");
+    public string UsageStatsTimelineTitle => T("Main_UsageStatsTimelineTitle");
+    public string UsageTimelineStartLabel => UsageTimelineAxisLabels.ElementAtOrDefault(0)?.Text ?? string.Empty;
+    public string UsageTimelineMiddleLabel => UsageTimelineAxisLabels.ElementAtOrDefault(1)?.Text ?? string.Empty;
+    public string UsageTimelineEndLabel => UsageTimelineAxisLabels.ElementAtOrDefault(2)?.Text ?? string.Empty;
 
     [RelayCommand]
     private async Task ToggleStatistics()
@@ -108,8 +122,15 @@ public partial class MainViewModel
         UsageStatsSubtitle = snapshot.Subtitle;
         UsageStatsTotalText = snapshot.TotalText;
         UsageStatsSlices = new ObservableCollection<UsageStatsSliceViewModel>(snapshot.Slices);
+        UsageTimelineRows = new ObservableCollection<UsageTimelineRowViewModel>(snapshot.TimelineRows);
+        UsageTimelineAxisLabels = new ObservableCollection<UsageTimelineAxisLabelViewModel>(snapshot.TimelineAxisLabels);
         UpdateUsageLegendHighlight();
         OnPropertyChanged(nameof(HasUsageStatsSlices));
+        OnPropertyChanged(nameof(HasUsageTimelineRows));
+        OnPropertyChanged(nameof(UsageTimelineChartHeight));
+        OnPropertyChanged(nameof(UsageTimelineStartLabel));
+        OnPropertyChanged(nameof(UsageTimelineMiddleLabel));
+        OnPropertyChanged(nameof(UsageTimelineEndLabel));
     }
 
     private static UsageStatsSnapshot CreateDailyReviewUsageStatsSnapshot(IReadOnlyCollection<ApplicationUsageSession> sessions)
@@ -182,64 +203,146 @@ public partial class MainViewModel
             title,
             subtitle,
             string.Format(T("Main_UsageStatsTotalFormat"), FormatDurationForStats(total)),
-            slices);
+            slices,
+            CreateUsageTimelineRows(sessions, chartItems.Select(item => item.ProcessName).ToList(), slices, start, end),
+            CreateUsageTimelineAxisLabels(start, end));
     }
 
     private static void AssignUsagePieGeometries(IReadOnlyList<UsageStatsSliceViewModel> slices)
     {
         var startAngle = -90d;
+        var maxShare = Math.Max(0.001d, slices.Max(slice => slice.Share));
         for (var i = 0; i < slices.Count; i++)
         {
             var slice = slices[i];
             var sweep = i == slices.Count - 1
                 ? 270d - startAngle
                 : Math.Max(0d, slice.Share * 360d);
-            slice.PieGeometry = CreateUsagePieSliceGeometry(startAngle, sweep);
+            var midAngle = startAngle + sweep / 2d;
+            var radius = UsagePieMinRadius + Math.Sqrt(slice.Share / maxShare) * (UsagePieMaxRadius - UsagePieMinRadius);
+            var explodeOffset = slices.Count > 1 ? UsagePieExplodeOffset : 0;
+            slice.PieGeometry = CreateUsagePieSliceGeometry(startAngle, sweep, explodeOffset, radius);
+            slice.PieLabelLineGeometry = Geometry.Empty;
+            slice.IsPieLabelVisible = false;
             startAngle += sweep;
         }
     }
 
-    private static Geometry CreateUsagePieSliceGeometry(double startAngle, double sweepAngle)
+    private static Geometry CreateUsagePieSliceGeometry(double startAngle, double sweepAngle, double explodeOffset, double radius)
     {
+        var midAngle = startAngle + sweepAngle / 2d;
+        var center = GetUsagePieShiftedCenter(midAngle, explodeOffset);
         if (sweepAngle >= 359.9)
         {
             var ellipse = new EllipseGeometry(
-                new WpfPoint(UsagePieCenter, UsagePieCenter),
-                UsagePieRadius,
-                UsagePieRadius);
+                center,
+                radius,
+                radius);
             ellipse.Freeze();
             return ellipse;
         }
 
-        var start = GetUsagePiePoint(startAngle);
-        var end = GetUsagePiePoint(startAngle + sweepAngle);
+        var start = GetUsagePiePoint(center, startAngle, radius);
+        var end = GetUsagePiePoint(center, startAngle + sweepAngle, radius);
         var figure = new PathFigure
         {
-            StartPoint = new WpfPoint(UsagePieCenter, UsagePieCenter),
+            StartPoint = center,
             IsClosed = true,
             IsFilled = true
         };
         figure.Segments.Add(new LineSegment(start, true));
         figure.Segments.Add(new ArcSegment(
             end,
-            new WpfSize(UsagePieRadius, UsagePieRadius),
+            new WpfSize(radius, radius),
             0,
             sweepAngle > 180,
             SweepDirection.Clockwise,
             true));
-        figure.Segments.Add(new LineSegment(new WpfPoint(UsagePieCenter, UsagePieCenter), true));
+        figure.Segments.Add(new LineSegment(center, true));
 
         var geometry = new PathGeometry([figure]);
         geometry.Freeze();
         return geometry;
     }
 
-    private static WpfPoint GetUsagePiePoint(double angle)
+    private static WpfPoint GetUsagePieShiftedCenter(double angle, double explodeOffset)
     {
         var radians = angle * Math.PI / 180d;
         return new WpfPoint(
-            UsagePieCenter + Math.Cos(radians) * UsagePieRadius,
-            UsagePieCenter + Math.Sin(radians) * UsagePieRadius);
+            UsagePieCenter + Math.Cos(radians) * explodeOffset,
+            UsagePieCenter + Math.Sin(radians) * explodeOffset);
+    }
+
+    private static WpfPoint GetUsagePiePoint(WpfPoint center, double angle, double radius)
+    {
+        var radians = angle * Math.PI / 180d;
+        return new WpfPoint(
+            center.X + Math.Cos(radians) * radius,
+            center.Y + Math.Sin(radians) * radius);
+    }
+
+    private static IReadOnlyList<UsageTimelineRowViewModel> CreateUsageTimelineRows(
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        IReadOnlyList<string> processNames,
+        IReadOnlyList<UsageStatsSliceViewModel> slices,
+        DateTime start,
+        DateTime end)
+    {
+        var durationSeconds = Math.Max(1, (end - start).TotalSeconds);
+        var brushByProcess = slices.ToDictionary(slice => slice.ProcessName, slice => slice.SwatchBrush);
+        var rows = new List<UsageTimelineRowViewModel>();
+        foreach (var processName in processNames.Take(8))
+        {
+            var rowTop = rows.Count * 18d;
+            var segments = sessions
+                .Where(session => string.Equals(session.ProcessName, processName, StringComparison.Ordinal))
+                .Select(session =>
+                {
+                    var from = session.StartTime > start ? session.StartTime : start;
+                    var to = session.EndTime < end ? session.EndTime : end;
+                    if (to <= from)
+                    {
+                        return null;
+                    }
+
+                    var left = Math.Clamp((from - start).TotalSeconds / durationSeconds * 100d, 0d, 100d);
+                    var availableWidth = 100d - left;
+                    if (availableWidth <= 0d)
+                    {
+                        return null;
+                    }
+
+                    var rawWidth = (to - from).TotalSeconds / durationSeconds * 100d;
+                    var minVisibleWidth = Math.Min(0.7d, availableWidth);
+                    var width = Math.Clamp(rawWidth, minVisibleWidth, availableWidth);
+                    return new UsageTimelineSegmentViewModel(
+                        left,
+                        width,
+                        brushByProcess.GetValueOrDefault(processName) ?? CreateBrush(UsageStatsPalette[rows.Count % UsageStatsPalette.Length]),
+                        $"{processName} {from:HH:mm}-{to:HH:mm}");
+                })
+                .Where(segment => segment != null)
+                .Cast<UsageTimelineSegmentViewModel>()
+                .ToList();
+
+            if (segments.Count > 0)
+            {
+                rows.Add(new UsageTimelineRowViewModel(processName, rowTop, segments));
+            }
+        }
+
+        return rows;
+    }
+
+    private static IReadOnlyList<UsageTimelineAxisLabelViewModel> CreateUsageTimelineAxisLabels(DateTime start, DateTime end)
+    {
+        var middle = start + TimeSpan.FromTicks((end - start).Ticks / 2);
+        return
+        [
+            new UsageTimelineAxisLabelViewModel(0, start.ToString("HH:mm")),
+            new UsageTimelineAxisLabelViewModel(49, middle.ToString("HH:mm")),
+            new UsageTimelineAxisLabelViewModel(93, end.ToString("HH:mm"))
+        ];
     }
 
     private void SetHoveredUsagePieKey(string? hoveredKey)
@@ -303,5 +406,11 @@ public partial class MainViewModel
     partial void OnUsageStatsSlicesChanged(ObservableCollection<UsageStatsSliceViewModel> value)
     {
         OnPropertyChanged(nameof(HasUsageStatsSlices));
+    }
+
+    partial void OnUsageTimelineRowsChanged(ObservableCollection<UsageTimelineRowViewModel> value)
+    {
+        OnPropertyChanged(nameof(HasUsageTimelineRows));
+        OnPropertyChanged(nameof(UsageTimelineChartHeight));
     }
 }

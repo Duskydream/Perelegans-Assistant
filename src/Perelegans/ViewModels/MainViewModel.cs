@@ -477,13 +477,9 @@ public partial class MainViewModel : ObservableObject
             await _dbService.RefreshMemoryLifecycleForDailyReviewAsync();
             await RefreshContextMemoriesAsync();
 
-            var reviewText =
-                (review != null
-                    ? FormatDailyReview(review)
-                    : CreateLocalContextReply(memories, snapshot)) +
-                "\n\n" +
-                FormatDesktopInsight(insight) +
-                "\n\n已写入本地摘要：" + archivePath;
+            review ??= CreateFallbackDailyReview();
+            var reviewText = FormatDailyReview(review) +
+                "\n\n我也把今天能用的上下文悄悄存好了。等你愿意的时候，可以只回答一个小问题：明天开场时，哪件事最值得先被接住？";
             var statsSnapshot = CreateDailyReviewUsageStatsSnapshot(sessions);
             ConversationMessages.Add(statsSnapshot.HasSlices
                 ? ConversationMessage.AssistantWithUsageStats(reviewText, statsSnapshot)
@@ -1691,10 +1687,7 @@ public partial class MainViewModel : ObservableObject
                 .Take(3)
                 .DefaultIfEmpty(T("Main_DailyReviewNoRisk"))
                 .ToList(),
-            SuggestedNextAction = todayTasks
-                .Where(task => task.Status == FocusTaskStatus.Active && !string.IsNullOrWhiteSpace(task.NextAction))
-                .Select(task => task.NextAction)
-                .FirstOrDefault() ?? T("Main_DailyReviewFallbackNextAction")
+            SuggestedNextAction = T("Main_DailyReviewFallbackNextAction")
         };
     }
 

@@ -47,7 +47,7 @@ public sealed class CodingClientMonitorService : IDisposable
     private static readonly TimeSpan CodexSignalWindow = TimeSpan.FromSeconds(16);
     private static readonly TimeSpan WorkspaceWriteWindow = TimeSpan.FromSeconds(7);
     private static readonly TimeSpan CompletionVisibleWindow = TimeSpan.FromSeconds(14);
-    private static readonly TimeSpan CompletionSettledDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan CompletionSettledDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan NotificationWaitingVisibleWindow = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan WorkspaceRefreshInterval = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan CodexLifecycleActiveWindow = TimeSpan.FromHours(2);
@@ -554,11 +554,6 @@ public sealed class CodingClientMonitorService : IDisposable
             _lastNotificationState = state;
             _lastNotificationMessage = message;
             _lastNotificationStateAt = now;
-        }
-
-        if (state == CodingClientActivityState.Completed)
-        {
-            return;
         }
 
         _ = _timer.Dispatcher.InvokeAsync(() =>

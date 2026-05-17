@@ -57,7 +57,7 @@
 
         <StackPanel HorizontalAlignment="Center"
                     VerticalAlignment="Top"
-                    Margin="0,12,0,0">
+                    Margin="0,24,0,0">
             <Border HorizontalAlignment="Center"
                     MaxWidth="160"
                     Padding="11,8"
@@ -246,9 +246,9 @@
                                                 <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
                                                                  From="0"
                                                                  To="-10"
-                                                                 Duration="0:0:0.22"
+                                                                 Duration="0:0:0.2"
                                                                  AutoReverse="True"
-                                                                 RepeatBehavior="Forever"/>
+                                                                 RepeatBehavior="4x"/>
                                             </Storyboard>
                                         </BeginStoryboard>
                                     </DataTrigger.EnterActions>
@@ -474,24 +474,115 @@
                                FontSize="18"
                                FontWeight="Bold"/>
                 </Border>
-                <Grid Panel.ZIndex="4"
-                      IsHitTestVisible="False"
-                      Visibility="{Binding ShowCelebrationMarks, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Canvas Panel.ZIndex="5"
+                        IsHitTestVisible="False">
+                    <Canvas.Style>
+                        <Style TargetType="Canvas">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ShowCelebrationMarks}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Canvas.Style>
                     <TextBlock Text="!"
-                               Margin="14,-6,0,0"
-                               HorizontalAlignment="Left"
-                               VerticalAlignment="Top"
-                               Foreground="#FFFF78A6"
-                               FontSize="24"
-                               FontWeight="Bold"/>
+                               Canvas.Left="118"
+                               Canvas.Top="16"
+                               Opacity="0"
+                               FontFamily="Consolas"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="#FFFF78A6">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowCelebrationMarks}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="CelebrateBangLarge">
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="0.92" Duration="0:0:0.24" AutoReverse="True"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="7" To="-10" Duration="0:0:1.2"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" From="0" To="5" Duration="0:0:1.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="CelebrateBangLarge"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                     <TextBlock Text="!"
-                               Margin="0,-2,14,0"
-                               HorizontalAlignment="Right"
-                               VerticalAlignment="Top"
-                               Foreground="#FF66A8FF"
-                               FontSize="20"
-                               FontWeight="Bold"/>
-                </Grid>
+                               Canvas.Left="132"
+                               Canvas.Top="7"
+                               Opacity="0"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               Foreground="#FF66A8FF">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowCelebrationMarks}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="CelebrateBangMid">
+                                                <Storyboard BeginTime="0:0:0.28" RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="0.76" Duration="0:0:0.22" AutoReverse="True"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="6" To="-9" Duration="0:0:1.05"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" From="0" To="4" Duration="0:0:1.05"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="CelebrateBangMid"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="!"
+                               Canvas.Left="142"
+                               Canvas.Top="0"
+                               Opacity="0"
+                               FontFamily="Consolas"
+                               FontSize="10"
+                               FontWeight="Bold"
+                               Foreground="#FFFFB3CC">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowCelebrationMarks}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="CelebrateBangSmall">
+                                                <Storyboard BeginTime="0:0:0.55" RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="0.62" Duration="0:0:0.2" AutoReverse="True"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="5" To="-8" Duration="0:0:0.95"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" From="0" To="3" Duration="0:0:0.95"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="CelebrateBangSmall"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Canvas>
                 <Canvas Panel.ZIndex="4"
                         IsHitTestVisible="False">
                     <Canvas.Style>
