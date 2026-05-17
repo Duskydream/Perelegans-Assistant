@@ -26,6 +26,7 @@
     <Resource Include="Images\Pet\pixel_cat_focus.png" />
     <Resource Include="Images\Pet\pixel_cat_sleep.png" />
     <Resource Include="Images\Pet\pixel_lightbulb.png" />
+    <Resource Include="Images\Pet\Skins\*.png" />
   </ItemGroup>
 
 </Project>

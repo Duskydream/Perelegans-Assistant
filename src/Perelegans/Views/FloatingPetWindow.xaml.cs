@@ -3,14 +3,13 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Perelegans.Models;
 using Perelegans.ViewModels;
 
 namespace Perelegans.Views;
 
 public partial class FloatingPetWindow : Window
 {
-    private const int SpriteFrameWidth = 48;
-    private const int SpriteFrameHeight = 48;
     private const int SpriteFrameCount = 6;
 
     private readonly DispatcherTimer _spriteTimer = new()
@@ -19,6 +18,7 @@ public partial class FloatingPetWindow : Window
     };
     private BitmapSource? _spriteSheet;
     private string _currentPetMood = "idle";
+    private string _currentPetSkinId = PetSkinPresets.Pink;
     private int _spriteFrameIndex;
 
     public FloatingPetWindow()
@@ -89,7 +89,8 @@ public partial class FloatingPetWindow : Window
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(FloatingPetViewModel.PetMood) &&
+        if ((e.PropertyName == nameof(FloatingPetViewModel.PetMood) ||
+             e.PropertyName == nameof(FloatingPetViewModel.SelectedPetSkinId)) &&
             sender is FloatingPetViewModel vm)
         {
             SetPetMood(vm.PetMood);
@@ -117,10 +118,15 @@ public partial class FloatingPetWindow : Window
         PetSpriteImage.Source = new CroppedBitmap(
             _spriteSheet,
             new Int32Rect(
-                _spriteFrameIndex * SpriteFrameWidth,
+                _spriteFrameIndex * GetSpriteFrameWidth(_spriteSheet),
                 0,
-                SpriteFrameWidth,
-                SpriteFrameHeight));
+                GetSpriteFrameWidth(_spriteSheet),
+                _spriteSheet.PixelHeight));
+    }
+
+    private static int GetSpriteFrameWidth(BitmapSource spriteSheet)
+    {
+        return Math.Max(1, spriteSheet.PixelWidth / SpriteFrameCount);
     }
 
     private void SetPetMood(string? mood)
@@ -131,19 +137,38 @@ public partial class FloatingPetWindow : Window
             "sleep" => "sleep",
             _ => "idle"
         };
+        var petSkinId = DataContext is FloatingPetViewModel vm
+            ? vm.SelectedPetSkinId
+            : PetSkinPresets.Pink;
 
-        if (_spriteSheet != null && _currentPetMood == spriteMood)
+        if (_spriteSheet != null &&
+            _currentPetMood == spriteMood &&
+            _currentPetSkinId == petSkinId)
         {
             return;
         }
 
         _currentPetMood = spriteMood;
+        _currentPetSkinId = petSkinId;
         _spriteFrameIndex = 0;
-        _spriteSheet = LoadPetSpriteSheet(spriteMood);
+        _spriteSheet = LoadPetSpriteSheet(spriteMood, petSkinId);
         UpdateSpriteFrame();
     }
 
-    private static BitmapSource LoadPetSpriteSheet(string mood)
+    private static BitmapSource LoadPetSpriteSheet(string mood, string skinId)
+    {
+        var normalizedSkinId = PetSkinPresets.Normalize(skinId);
+        try
+        {
+            return LoadPackBitmap($"Images/Pet/Skins/{normalizedSkinId}_{mood}.png");
+        }
+        catch
+        {
+            return LoadLegacyPetSpriteSheet(mood);
+        }
+    }
+
+    private static BitmapSource LoadLegacyPetSpriteSheet(string mood)
     {
         var fileName = mood switch
         {
@@ -152,9 +177,14 @@ public partial class FloatingPetWindow : Window
             _ => "pixel_cat_idle.png"
         };
 
+        return LoadPackBitmap($"Images/Pet/{fileName}");
+    }
+
+    private static BitmapSource LoadPackBitmap(string path)
+    {
         var image = new BitmapImage();
         image.BeginInit();
-        image.UriSource = new Uri($"pack://application:,,,/Images/Pet/{fileName}", UriKind.Absolute);
+        image.UriSource = new Uri($"pack://application:,,,/{path}", UriKind.Absolute);
         image.CacheOption = BitmapCacheOption.OnLoad;
         image.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
         image.EndInit();

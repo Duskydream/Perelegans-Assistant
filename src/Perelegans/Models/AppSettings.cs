@@ -79,6 +79,11 @@ public class AppSettings
     public bool ClaudeDesktopMonitorEnabled { get; set; } = true;
 
     /// <summary>
+    /// Selected floating pet skin preset.
+    /// </summary>
+    public string FloatingPetSkinId { get; set; } = PetSkinPresets.Pink;
+
+    /// <summary>
     /// UI Language code (e.g. zh-Hans, en-US).
     /// </summary>
     public string Language { get; set; } = "zh-Hans";

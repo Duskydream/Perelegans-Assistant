@@ -53,6 +53,14 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
     public string BreakpointContinueText => "继续";
 
+    public string SelectedPetSkinId => PetSkinPresets.Normalize(_settingsService.Settings.FloatingPetSkinId);
+
+    public bool IsPinkPetSkinSelected => IsPetSkinSelected(PetSkinPresets.Pink);
+
+    public bool IsWhiteOddEyesPetSkinSelected => IsPetSkinSelected(PetSkinPresets.WhiteOddEyes);
+
+    public bool IsBlackPetSkinSelected => IsPetSkinSelected(PetSkinPresets.Black);
+
     public FloatingPetViewModel(
         ProcessMonitorService processMonitor,
         FocusClassificationClient focusClassificationClient,
@@ -165,6 +173,20 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _exitApplication();
     }
 
+    [RelayCommand]
+    private void SelectPetSkin(string? skinId)
+    {
+        var normalized = PetSkinPresets.Normalize(skinId);
+        if (_settingsService.Settings.FloatingPetSkinId == normalized)
+        {
+            OnPetSkinSelectionChanged();
+            return;
+        }
+
+        _settingsService.Settings.FloatingPetSkinId = normalized;
+        _settingsService.Save();
+    }
+
     private async void OnTimerTick(object? sender, EventArgs e)
     {
         await SampleNowAsync();
@@ -256,6 +278,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(IsMonitorEnabled));
         OnPropertyChanged(nameof(MonitorMenuText));
+        OnPetSkinSelectionChanged();
         UpdatePetMood();
         _ = SampleNowAsync();
     }
@@ -428,6 +451,19 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         ShowCodingKeyboard = false;
         ShowQuestionBadge = false;
         ShowCelebrationMarks = false;
+    }
+
+    private bool IsPetSkinSelected(string skinId)
+    {
+        return SelectedPetSkinId == skinId;
+    }
+
+    private void OnPetSkinSelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedPetSkinId));
+        OnPropertyChanged(nameof(IsPinkPetSkinSelected));
+        OnPropertyChanged(nameof(IsWhiteOddEyesPetSkinSelected));
+        OnPropertyChanged(nameof(IsBlackPetSkinSelected));
     }
 
     private static bool ContainsAny(string text, params string[] terms)

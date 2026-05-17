@@ -29,6 +29,24 @@
                 <MenuItem Header="{Binding FocusModeMenuText}"
                           Command="{Binding ToggleFocusModeCommand}"/>
                 <Separator/>
+                <MenuItem Header="皮肤">
+                    <MenuItem Header="粉色小猫"
+                              Command="{Binding SelectPetSkinCommand}"
+                              CommandParameter="pink"
+                              IsCheckable="True"
+                              IsChecked="{Binding IsPinkPetSkinSelected, Mode=OneWay}"/>
+                    <MenuItem Header="异瞳白猫"
+                              Command="{Binding SelectPetSkinCommand}"
+                              CommandParameter="white-odd-eyes"
+                              IsCheckable="True"
+                              IsChecked="{Binding IsWhiteOddEyesPetSkinSelected, Mode=OneWay}"/>
+                    <MenuItem Header="黑色小猫"
+                              Command="{Binding SelectPetSkinCommand}"
+                              CommandParameter="black"
+                              IsCheckable="True"
+                              IsChecked="{Binding IsBlackPetSkinSelected, Mode=OneWay}"/>
+                </MenuItem>
+                <Separator/>
                 <MenuItem Header="设置"
                           Command="{Binding OpenSettingsCommand}"/>
                 <Separator/>
@@ -255,6 +273,23 @@
                                         <StopStoryboard BeginStoryboardName="PetCodingTap"/>
                                     </DataTrigger.ExitActions>
                                 </DataTrigger>
+                                <DataTrigger Binding="{Binding PetMood}" Value="sleep">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard x:Name="PetSleepBreathe">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                 From="0"
+                                                                 To="3"
+                                                                 Duration="0:0:0.9"
+                                                                 AutoReverse="True"
+                                                                 RepeatBehavior="Forever"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <StopStoryboard BeginStoryboardName="PetSleepBreathe"/>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Image.Style>
@@ -457,6 +492,115 @@
                                FontSize="20"
                                FontWeight="Bold"/>
                 </Grid>
+                <Canvas Panel.ZIndex="4"
+                        IsHitTestVisible="False">
+                    <Canvas.Style>
+                        <Style TargetType="Canvas">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding PetMood}" Value="sleep">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Canvas.Style>
+                    <TextBlock Text="Z"
+                               Canvas.Left="106"
+                               Canvas.Top="24"
+                               Opacity="0"
+                               FontFamily="Consolas"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               Foreground="#FF8BA0B5">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PetMood}" Value="sleep">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="SleepZLarge">
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="0.86" Duration="0:0:0.35" AutoReverse="True"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="8" To="-12" Duration="0:0:1.8"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" From="0" To="7" Duration="0:0:1.8"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="SleepZLarge"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="z"
+                               Canvas.Left="121"
+                               Canvas.Top="12"
+                               Opacity="0"
+                               FontFamily="Consolas"
+                               FontSize="12"
+                               FontWeight="Bold"
+                               Foreground="#FFA9B8C8">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PetMood}" Value="sleep">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="SleepZMid">
+                                                <Storyboard BeginTime="0:0:0.45" RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="0.72" Duration="0:0:0.28" AutoReverse="True"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="7" To="-10" Duration="0:0:1.65"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" From="0" To="5" Duration="0:0:1.65"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="SleepZMid"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="z"
+                               Canvas.Left="132"
+                               Canvas.Top="4"
+                               Opacity="0"
+                               FontFamily="Consolas"
+                               FontSize="9"
+                               FontWeight="Bold"
+                               Foreground="#FFC2CDD8">
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform/>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PetMood}" Value="sleep">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="SleepZSmall">
+                                                <Storyboard BeginTime="0:0:0.9" RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="0.6" Duration="0:0:0.24" AutoReverse="True"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="5" To="-8" Duration="0:0:1.5"/>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" From="0" To="4" Duration="0:0:1.5"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="SleepZSmall"/>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Canvas>
                 <Image Width="24"
                        Height="24"
                        Margin="0,2,0,0"
