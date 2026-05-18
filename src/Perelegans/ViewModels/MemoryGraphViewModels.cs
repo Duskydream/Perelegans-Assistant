@@ -12,13 +12,16 @@ public sealed class GalaxyLinkViewModel(double x1, double y1, double x2, double 
     public double Opacity { get; } = Math.Clamp(strength, 0.25, 0.85);
 }
 
-public sealed class FishboneBranchViewModel(string title, string items, string tags, int openPlanCount, int branchIndex)
+public sealed class FishboneBranchViewModel(string title, string items, string tags, int openPlanCount, int branchIndex, double weight)
 {
     public string Title { get; } = title;
     public string Items { get; } = items;
     public string Tags { get; } = tags;
     public int OpenPlanCount { get; } = openPlanCount;
     public int BranchIndex { get; } = branchIndex;
+    public double Weight { get; } = weight;
+    public bool IsLowWeight => Weight < 0.35;
+    public double VisualOpacity => IsLowWeight ? 0.5 : 1.0;
     public string BranchNumber => (BranchIndex + 1).ToString(CultureInfo.InvariantCulture);
     public string MetaText => OpenPlanCount > 0 ? $"{OpenPlanCount} open plan" : "context";
 }

@@ -83,6 +83,7 @@ public partial class App : System.Windows.Application
             _contextRetrievalService,
             _memoryExtractionService,
             _focusModeService,
+            _codingClientMonitorService,
             OpenSettingsFromAgent,
             RequestShutdown);
 

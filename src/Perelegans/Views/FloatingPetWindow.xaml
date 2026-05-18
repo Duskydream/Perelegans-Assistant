@@ -57,7 +57,7 @@
 
         <StackPanel HorizontalAlignment="Center"
                     VerticalAlignment="Top"
-                    Margin="0,24,0,0">
+                    Margin="0,18,0,0">
             <Border HorizontalAlignment="Center"
                     MaxWidth="160"
                     Padding="11,8"
@@ -83,14 +83,14 @@
             </Border>
 
             <Grid Width="156"
-                  Height="160"
-                  Margin="0,24,0,0"
+                  Height="150"
+                  Margin="0,14,0,0"
                   HorizontalAlignment="Center"
                   Effect="{StaticResource SoftShadow}"
                   RenderOptions.BitmapScalingMode="NearestNeighbor">
                 <Ellipse Width="86"
                          Height="18"
-                         Margin="0,130,0,0"
+                         Margin="0,122,0,0"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Top"
                          Fill="#30FF9BB9"/>

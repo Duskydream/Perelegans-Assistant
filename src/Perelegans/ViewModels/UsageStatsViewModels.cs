@@ -8,6 +8,7 @@ public sealed class UsageStatsSnapshot(
     string title,
     string subtitle,
     string totalText,
+    string insightText,
     IReadOnlyList<UsageStatsSliceViewModel> slices,
     IReadOnlyList<UsageTimelineRowViewModel>? timelineRows = null,
     IReadOnlyList<UsageTimelineAxisLabelViewModel>? timelineAxisLabels = null)
@@ -15,6 +16,7 @@ public sealed class UsageStatsSnapshot(
     public string Title { get; } = title;
     public string Subtitle { get; } = subtitle;
     public string TotalText { get; } = totalText;
+    public string InsightText { get; } = insightText;
     public IReadOnlyList<UsageStatsSliceViewModel> Slices { get; } = slices;
     public IReadOnlyList<UsageTimelineRowViewModel> TimelineRows { get; } = timelineRows ?? [];
     public IReadOnlyList<UsageTimelineAxisLabelViewModel> TimelineAxisLabels { get; } = timelineAxisLabels ?? [];

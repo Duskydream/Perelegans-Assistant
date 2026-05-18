@@ -60,6 +60,9 @@ public partial class MainViewModel
     [ObservableProperty]
     private string _usageStatsTotalText = string.Empty;
 
+    [ObservableProperty]
+    private string _usageStatsInsightText = string.Empty;
+
     public bool IsDailyUsageStatsMode => UsageStatsPeriod == "day";
     public bool IsMonthlyUsageStatsMode => UsageStatsPeriod == "month";
     public bool HasUsageStatsSlices => UsageStatsSlices.Count > 0;
@@ -121,6 +124,7 @@ public partial class MainViewModel
         UsageStatsTitle = snapshot.Title;
         UsageStatsSubtitle = snapshot.Subtitle;
         UsageStatsTotalText = snapshot.TotalText;
+        UsageStatsInsightText = snapshot.InsightText;
         UsageStatsSlices = new ObservableCollection<UsageStatsSliceViewModel>(snapshot.Slices);
         UsageTimelineRows = new ObservableCollection<UsageTimelineRowViewModel>(snapshot.TimelineRows);
         UsageTimelineAxisLabels = new ObservableCollection<UsageTimelineAxisLabelViewModel>(snapshot.TimelineAxisLabels);
@@ -170,7 +174,7 @@ public partial class MainViewModel
         var total = grouped.Aggregate(TimeSpan.Zero, (sum, item) => sum + item.Duration);
         if (total.TotalSeconds < 1)
         {
-            return new UsageStatsSnapshot(title, subtitle, T("Main_UsageStatsNoTime"), []);
+            return new UsageStatsSnapshot(title, subtitle, T("Main_UsageStatsNoTime"), "还没有足够的行为信号，我先安静收集一会儿。", []);
         }
 
         var top = grouped.Take(7).ToList();
@@ -203,9 +207,63 @@ public partial class MainViewModel
             title,
             subtitle,
             string.Format(T("Main_UsageStatsTotalFormat"), FormatDurationForStats(total)),
+            CreateUsageBehaviorInsight(sessions, grouped.Select(item => (item.ProcessName, item.Duration)).ToList(), total, start, end),
             slices,
             CreateUsageTimelineRows(sessions, chartItems.Select(item => item.ProcessName).ToList(), slices, start, end),
             CreateUsageTimelineAxisLabels(start, end));
+    }
+
+    private static string CreateUsageBehaviorInsight(
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        IReadOnlyList<(string ProcessName, TimeSpan Duration)> grouped,
+        TimeSpan total,
+        DateTime start,
+        DateTime end)
+    {
+        var clippedSessions = sessions
+            .Select(session => new
+            {
+                session.ProcessName,
+                StartTime = session.StartTime < start ? start : session.StartTime,
+                EndTime = session.EndTime > end ? end : session.EndTime,
+                Duration = ClipDuration(session, start, end)
+            })
+            .Where(item => item.Duration.TotalSeconds >= 30)
+            .OrderBy(item => item.StartTime)
+            .ToList();
+        var top = grouped.FirstOrDefault();
+        if (top.ProcessName == null)
+        {
+            return "这段时间的窗口记录太少，暂时不做行为判断。";
+        }
+
+        var longest = clippedSessions
+            .OrderByDescending(item => item.Duration)
+            .FirstOrDefault();
+        var switchesPerHour = total.TotalHours <= 0
+            ? 0
+            : Math.Max(0, clippedSessions.Count - 1) / total.TotalHours;
+        var share = top.Duration.TotalSeconds / Math.Max(1, total.TotalSeconds);
+        var flowLine = longest == null
+            ? "连续工作段还不明显"
+            : $"最长连续段是 {longest.ProcessName}，约 {FormatDurationForStats(longest.Duration)}";
+
+        if (share >= 0.58 && longest?.Duration >= TimeSpan.FromMinutes(25))
+        {
+            return $"今天主工作流很集中在 {top.ProcessName}，{flowLine}，看起来更像一段稳定推进。";
+        }
+
+        if (switchesPerHour >= 10)
+        {
+            return $"这段时间切换偏密，主线是 {top.ProcessName}，但可能夹杂查资料或分心；可以回看时间线里最碎的几段。";
+        }
+
+        if (grouped.Count >= 3 && share < 0.4)
+        {
+            return $"行为分布比较分散，没有单一应用压倒性占据时间；如果这是查资料，它是正常切换，如果不是，就适合收束到一个下一步。";
+        }
+
+        return $"主要时间落在 {top.ProcessName}，{flowLine}；整体切换节奏还算平稳。";
     }
 
     private static void AssignUsagePieGeometries(IReadOnlyList<UsageStatsSliceViewModel> slices)

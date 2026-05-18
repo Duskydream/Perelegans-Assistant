@@ -10,11 +10,16 @@ public partial class ConversationMessage : ObservableObject
     private static readonly TimeSpan TypingDelay = TimeSpan.FromMilliseconds(14);
     private readonly CancellationTokenSource _streamingCancellation = new();
 
-    private ConversationMessage(string text, bool isUser, UsageStatsSnapshot? usageStats = null)
+    private ConversationMessage(
+        string text,
+        bool isUser,
+        UsageStatsSnapshot? usageStats = null,
+        BreakpointResumeCardViewModel? breakpointCard = null)
     {
         _text = isUser ? text : string.Empty;
         IsUser = isUser;
         UsageStats = usageStats;
+        BreakpointCard = breakpointCard;
         Timestamp = DateTime.Now;
         Alignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left;
 
@@ -33,13 +38,16 @@ public partial class ConversationMessage : ObservableObject
     public bool IsUser { get; }
     public bool IsAssistant => !IsUser;
     public bool HasUsageStats => UsageStats?.HasSlices == true;
+    public bool HasBreakpointCard => BreakpointCard != null;
     public UsageStatsSnapshot? UsageStats { get; }
+    public BreakpointResumeCardViewModel? BreakpointCard { get; }
     public DateTime Timestamp { get; }
     public HorizontalAlignment Alignment { get; }
 
     public static ConversationMessage User(string text) => new(text, true);
     public static ConversationMessage Assistant(string text) => new(text, false);
     public static ConversationMessage AssistantWithUsageStats(string text, UsageStatsSnapshot usageStats) => new(text, false, usageStats);
+    public static ConversationMessage AssistantWithBreakpointCard(string text, BreakpointResumeCardViewModel breakpointCard) => new(text, false, breakpointCard: breakpointCard);
 
     public void StopStreaming()
     {

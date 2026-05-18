@@ -469,7 +469,7 @@
     <value>仍在进行：{0}</value>
   </data>
   <data name="Main_DailyReviewFallbackNextAction" xml:space="preserve">
-    <value>如果明天只用一个很轻的动作开场，你想先接住哪件事？</value>
+    <value>如果明天只用一个很轻的动作开场，你想先从哪件事开始？</value>
   </data>
   <data name="Main_FallbackQuestTitle" xml:space="preserve">
     <value>上下文笔记</value>
@@ -634,7 +634,7 @@
     <value>进程时间线</value>
   </data>
   <data name="Main_DailyReviewFallbackEncouragement" xml:space="preserve">
-    <value>今天依然留下了可以接住的线索。哪怕推进得不多，它也不是空白的一天，我会帮你把这些痕迹好好保存下来。</value>
+    <value>今天依然留下了不少清晰的线索。哪怕推进得不多，它也不是空白的一天，我会帮你把这些痕迹好好整理下来。</value>
   </data>
   <data name="Main_DailyReviewEncouragement" xml:space="preserve">
     <value>给你的一点确认</value>

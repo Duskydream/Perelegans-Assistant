@@ -53,12 +53,16 @@ public partial class MainViewModel
                 })
                 .ToList();
             var openPlans = group.Count(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned);
+            var branchWeight = group.Any()
+                ? group.Average(memory => memory.Weight)
+                : 0.6;
             yield return new FishboneBranchViewModel(
                 group.Key,
                 string.Join("  /  ", items),
                 string.Join(", ", group.SelectMany(memory => SplitTagsForInsight(memory.Tags)).Distinct(StringComparer.OrdinalIgnoreCase).Take(5)),
                 openPlans,
-                branchIndex++);
+                branchIndex++,
+                branchWeight);
         }
     }
 

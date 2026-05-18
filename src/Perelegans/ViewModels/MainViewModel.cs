@@ -29,6 +29,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ContextRetrievalService _contextRetrievalService;
     private readonly MemoryExtractionService _memoryExtractionService;
     private readonly FocusModeService _focusModeService;
+    private readonly CodingClientMonitorService _codingClientMonitorService;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _assistantThinkingTimer;
@@ -36,6 +37,9 @@ public partial class MainViewModel : ObservableObject
     private DateTime _lastSceneCheckpointAt = DateTime.MinValue;
     private string _lastSceneCheckpointProcess = string.Empty;
     private CancellationTokenSource? _assistantResponseCancellation;
+    private CodingClientActivitySnapshot? _latestCodingClientSnapshot;
+    private string _focusInterventionProcess = string.Empty;
+    private int _focusInterventionLevel;
 
     [ObservableProperty]
     private ObservableCollection<ApplicationUsage> _applications = new();
@@ -172,6 +176,7 @@ public partial class MainViewModel : ObservableObject
         ContextRetrievalService contextRetrievalService,
         MemoryExtractionService memoryExtractionService,
         FocusModeService focusModeService,
+        CodingClientMonitorService codingClientMonitorService,
         Action openSettings,
         Action exitApplication)
     {
@@ -182,6 +187,7 @@ public partial class MainViewModel : ObservableObject
         _contextRetrievalService = contextRetrievalService;
         _memoryExtractionService = memoryExtractionService;
         _focusModeService = focusModeService;
+        _codingClientMonitorService = codingClientMonitorService;
         _openSettings = openSettings;
         _exitApplication = exitApplication;
 
@@ -193,8 +199,10 @@ public partial class MainViewModel : ObservableObject
 
         _processMonitor.ForegroundFocusUpdated += OnForegroundFocusUpdated;
         _focusModeService.StateChanged += OnFocusModeStateChanged;
+        _codingClientMonitorService.ActivityChanged += OnCodingClientActivityChanged;
         _settingsService.SettingsChanged += OnSettingsChanged;
         IsFocusModeActive = _focusModeService.IsActive;
+        _latestCodingClientSnapshot = _codingClientMonitorService.CurrentSnapshot;
         TranslationService.Instance.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == "Item[]")
@@ -395,6 +403,100 @@ public partial class MainViewModel : ObservableObject
         CurrentProcessDurationText = FormatDuration(snapshot.Duration);
         CurrentFocusLabel = snapshot.IsKnownProductivityApp ? T("Main_LikelyProductive") : T("Main_Unclassified");
         QueueSceneCheckpoint(snapshot);
+        EvaluateFocusModeIntervention(snapshot);
+    }
+
+    private void OnCodingClientActivityChanged(CodingClientActivitySnapshot snapshot)
+    {
+        _latestCodingClientSnapshot = snapshot;
+    }
+
+    private void EvaluateFocusModeIntervention(ForegroundFocusSnapshot snapshot)
+    {
+        if (!_focusModeService.IsActive)
+        {
+            ResetFocusIntervention();
+            return;
+        }
+
+        if (IsProcessRelevantToCurrentFocus(snapshot))
+        {
+            ResetFocusIntervention();
+            return;
+        }
+
+        if (!string.Equals(_focusInterventionProcess, snapshot.ProcessName, StringComparison.OrdinalIgnoreCase))
+        {
+            _focusInterventionProcess = snapshot.ProcessName;
+            _focusInterventionLevel = 0;
+        }
+
+        var minutes = snapshot.Duration.TotalMinutes;
+        var level = minutes >= 15 ? 3 : minutes >= 8 ? 2 : minutes >= 3 ? 1 : 0;
+        if (level <= 0 || level <= _focusInterventionLevel)
+        {
+            return;
+        }
+
+        _focusInterventionLevel = level;
+        var message = CreateFocusInterventionMessage(level, snapshot);
+        ConversationMessages.Add(ConversationMessage.Assistant(message));
+        StatusText = level switch
+        {
+            1 => "专注模式：轻提醒已送达",
+            2 => "专注模式：给出下一步",
+            _ => "专注模式：等待你决定是否切回"
+        };
+    }
+
+    private void ResetFocusIntervention()
+    {
+        _focusInterventionProcess = string.Empty;
+        _focusInterventionLevel = 0;
+    }
+
+    private bool IsProcessRelevantToCurrentFocus(ForegroundFocusSnapshot snapshot)
+    {
+        var processTags = InferProcessTags(snapshot.ProcessName);
+        var focusTerms = SplitTagsForInsight(_focusModeService.TaskTags)
+            .Concat(SplitTagsForInsight(_focusModeService.TaskTitle))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (focusTerms.Count == 0)
+        {
+            return snapshot.IsKnownProductivityApp;
+        }
+
+        if (processTags.Overlaps(focusTerms))
+        {
+            return true;
+        }
+
+        var processName = snapshot.ProcessName.ToLowerInvariant();
+        if (ContainsAny(processName, "codex", "claude", "code", "devenv", "rider", "visualstudio") &&
+            focusTerms.Overlaps(["code", "coding", "development", "desktop", "wpf", "frontend", "backend", "bug", "fix"]))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private string CreateFocusInterventionMessage(int level, ForegroundFocusSnapshot snapshot)
+    {
+        var task = string.IsNullOrWhiteSpace(_focusModeService.TaskTitle)
+            ? "当前 plan"
+            : _focusModeService.TaskTitle;
+        var nextAction = string.IsNullOrWhiteSpace(_focusModeService.NextAction)
+            ? $"先回到「{task}」，只做一个 10 分钟内能完成的小动作。"
+            : _focusModeService.NextAction.Trim();
+        var minutes = Math.Max(1, (int)Math.Round(snapshot.Duration.TotalMinutes));
+
+        return level switch
+        {
+            1 => $"我看到你在 {snapshot.ProcessName} 停了约 {minutes} 分钟，可能已经离开「{task}」一点点了。先不打断你，只轻轻把主线放在这里。",
+            2 => $"你已经在 {snapshot.ProcessName} 待了约 {minutes} 分钟。如果这是查资料，可以继续；如果不是，我们可以从这一步切回：{nextAction}",
+            _ => $"这个岔路已经持续约 {minutes} 分钟了。要不要做个选择：暂停「{task}」、把它标记为放弃，或者现在切回？我建议先切回这一步：{nextAction}"
+        };
     }
 
     [RelayCommand(CanExecute = nameof(CanSendConversationMessage))]
@@ -479,7 +581,7 @@ public partial class MainViewModel : ObservableObject
 
             review ??= CreateFallbackDailyReview();
             var reviewText = FormatDailyReview(review) +
-                "\n\n我也把今天能用的上下文悄悄存好了。等你愿意的时候，可以只回答一个小问题：明天开场时，哪件事最值得先被接住？";
+                "\n\n我也把今天能用的上下文悄悄存好了。等你愿意的时候，可以只回答一个小问题：明天开场时，哪件事最值得先开始？";
             var statsSnapshot = CreateDailyReviewUsageStatsSnapshot(sessions);
             ConversationMessages.Add(statsSnapshot.HasSlices
                 ? ConversationMessage.AssistantWithUsageStats(reviewText, statsSnapshot)
@@ -1644,7 +1746,11 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RefreshContextMemoriesAsync(int? highlightId = null)
     {
-        ContextMemories = new ObservableCollection<ContextMemory>(await _dbService.GetContextMemoriesAsync());
+        await _dbService.RefreshContextMemoryWeightsAsync();
+        var visibleMemories = (await _dbService.GetContextMemoriesAsync())
+            .Where(memory => !IsSceneCheckpointMemory(memory))
+            .ToList();
+        ContextMemories = new ObservableCollection<ContextMemory>(visibleMemories);
         GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(ContextMemories));
         FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(ContextMemories));
         SelectedGalaxyMemory = highlightId.HasValue
@@ -1661,6 +1767,16 @@ public partial class MainViewModel : ObservableObject
 
         OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
         OnPropertyChanged(nameof(FocusModeStatusText));
+    }
+
+    private static bool IsSceneCheckpointMemory(ContextMemory memory)
+    {
+        return memory.Source.Contains("scene-checkpoint", StringComparison.OrdinalIgnoreCase) ||
+               memory.Source.Contains("resume-scene", StringComparison.OrdinalIgnoreCase) ||
+               memory.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                   .Any(tag => string.Equals(tag, "scene", StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(tag, "checkpoint", StringComparison.OrdinalIgnoreCase)) ||
+               memory.Title.StartsWith("现场：", StringComparison.OrdinalIgnoreCase);
     }
 
     private DailyReviewDraft CreateFallbackDailyReview()
@@ -2023,6 +2139,7 @@ public partial class MainViewModel : ObservableObject
 
     private void OnFocusModeStateChanged()
     {
+        ResetFocusIntervention();
         IsFocusModeActive = _focusModeService.IsActive;
         OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
         OnPropertyChanged(nameof(FocusModeButtonText));
@@ -2075,16 +2192,97 @@ public partial class MainViewModel : ObservableObject
         var planLine = string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle)
             ? "没有强行写进星图，我只把这次断点留在本地卡点记录里。"
             : $"相关计划：{snapshot.RelatedPlanTitle}";
+        var codingSnapshot = GetRecentCodingClientSnapshot();
+        var card = CreateBreakpointResumeCard(snapshot, codingSnapshot, title, returned);
 
         var message =
             $"欢迎回来。你大约在 {snapshot.LeftAt:HH:mm} 离开，{returned} 回来。\n\n" +
-            $"断点：{title}\n" +
             $"{planLine}\n\n" +
-            $"我保留的线索：\n{snapshot.Evidence}\n\n" +
-            $"建议第一步：{snapshot.NextStep}";
+            "我把现场整理成一张续做卡片了，先从最容易恢复的那一步开始。";
 
-        ConversationMessages.Add(ConversationMessage.Assistant(message));
+        ConversationMessages.Add(ConversationMessage.AssistantWithBreakpointCard(message, card));
         StatusText = "已唤出刚才的卡点提示";
+    }
+
+    private CodingClientActivitySnapshot? GetRecentCodingClientSnapshot()
+    {
+        var snapshot = _latestCodingClientSnapshot;
+        if (snapshot == null ||
+            snapshot.State == CodingClientActivityState.Idle ||
+            DateTime.Now - snapshot.UpdatedAt > TimeSpan.FromMinutes(30))
+        {
+            return null;
+        }
+
+        return snapshot;
+    }
+
+    private static BreakpointResumeCardViewModel CreateBreakpointResumeCard(
+        BreakpointSnapshot snapshot,
+        CodingClientActivitySnapshot? codingSnapshot,
+        string title,
+        string returned)
+    {
+        var clientText = codingSnapshot == null
+            ? "Coding client：没有捕捉到最近生成事件"
+            : $"Coding client：{codingSnapshot.ClientName} · {FormatCodingState(codingSnapshot.State)}";
+        var workspaceText = codingSnapshot == null || string.IsNullOrWhiteSpace(codingSnapshot.WorkspaceRoot)
+            ? "Workspace：暂未识别"
+            : $"Workspace：{ShortenPath(codingSnapshot.WorkspaceRoot)}";
+        var recentChange = codingSnapshot == null || string.IsNullOrWhiteSpace(codingSnapshot.LastChangedPath)
+            ? "最近变动：暂无明确文件变动"
+            : $"最近变动：{ShortenPath(codingSnapshot.LastChangedPath)}";
+        var status = codingSnapshot?.State switch
+        {
+            CodingClientActivityState.WaitingForConfirmation => "状态：正在等你确认",
+            CodingClientActivityState.Completed => "状态：代码生成已完成，可以检查 diff",
+            CodingClientActivityState.Coding => "状态：还在生成中",
+            _ => "状态：只恢复桌面断点"
+        };
+        var nextStep = !string.IsNullOrWhiteSpace(snapshot.NextStep)
+            ? snapshot.NextStep
+            : codingSnapshot?.State == CodingClientActivityState.Completed
+                ? "先打开对应 workspace 看最近 diff，再决定是否运行验证。"
+                : "先回到刚才的窗口，确认还要不要把这个现场保存成 plan。";
+
+        return new BreakpointResumeCardViewModel(
+            "断点续做卡片",
+            $"{snapshot.LeftAt:HH:mm} 离开 · {returned} 回来",
+            clientText,
+            workspaceText,
+            $"活跃进程：{snapshot.ProcessName} · {title}",
+            recentChange,
+            status,
+            nextStep);
+    }
+
+    private static string FormatCodingState(CodingClientActivityState state)
+    {
+        return state switch
+        {
+            CodingClientActivityState.Coding => "生成中",
+            CodingClientActivityState.WaitingForConfirmation => "等待确认",
+            CodingClientActivityState.Completed => "已完成",
+            _ => "空闲"
+        };
+    }
+
+    private static string ShortenPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "未识别";
+        }
+
+        var normalized = path.Trim();
+        var name = Path.GetFileName(normalized.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return normalized;
+        }
+
+        var parent = Path.GetFileName(Path.GetDirectoryName(normalized) ?? string.Empty);
+        return string.IsNullOrWhiteSpace(parent) ? name : $"{parent}\\{name}";
     }
 
     private static bool ContainsAny(string text, params string[] candidates)

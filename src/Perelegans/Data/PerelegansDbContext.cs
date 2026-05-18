@@ -113,6 +113,7 @@ public class PerelegansDbContext : DbContext
             entity.Property(m => m.Content).IsRequired().HasMaxLength(4000);
             entity.Property(m => m.Source).HasMaxLength(240);
             entity.Property(m => m.Tags).HasMaxLength(800);
+            entity.Property(m => m.MentionCount).HasDefaultValue(0);
             entity.Property(m => m.MemoryAxis).HasMaxLength(80);
             entity.Property(m => m.AiDescription).HasMaxLength(1200);
             entity.Property(m => m.AiExplanation).HasMaxLength(2000);

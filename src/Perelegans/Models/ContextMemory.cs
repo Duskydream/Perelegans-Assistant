@@ -37,6 +37,8 @@ public class ContextMemory
 
     public double Weight { get; set; } = 0.6;
 
+    public int MentionCount { get; set; }
+
     public string MemoryAxis { get; set; } = "event";
 
     public string AiDescription { get; set; } = string.Empty;
@@ -73,6 +75,10 @@ public class ContextMemory
 
     public double NodeSize { get; set; } = 18;
 
+    public bool IsLowWeight => Weight < 0.35 || Lifecycle == ContextMemoryLifecycle.Stale;
+
+    public double VisualOpacity => IsLowWeight ? 0.45 : 1.0;
+
     public string TypeText => Type switch
     {
         ContextMemoryType.Preference => "偏好",
@@ -92,5 +98,5 @@ public class ContextMemory
         ? IsAbandoned ? "plan: abandoned" : IsCompleted ? "plan: done" : "plan: open"
         : MemoryAxis;
 
-    public string InsightMetaText => $"{TypeText} / {PlanStatusText} / {Lifecycle} / {Math.Round(Math.Clamp(Weight, 0.1, 1.0), 2):0.00}";
+    public string InsightMetaText => $"{TypeText} / {PlanStatusText} / {Lifecycle} / {Math.Round(Math.Clamp(Weight, 0.1, 1.0), 2):0.00} / used {MentionCount}";
 }

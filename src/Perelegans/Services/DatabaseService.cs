@@ -255,6 +255,40 @@ public class DatabaseService
             .ToListAsync();
     }
 
+    public async Task<int> RefreshContextMemoryWeightsAsync(DateTime? now = null)
+    {
+        var currentTime = now ?? DateTime.Now;
+        var since = currentTime.AddDays(-30);
+
+        await using var db = new PerelegansDbContext();
+        var memories = await db.ContextMemories.ToListAsync();
+        if (memories.Count == 0)
+        {
+            return 0;
+        }
+
+        var recentSessions = await db.ApplicationUsageSessions
+            .AsNoTracking()
+            .Where(session => session.StartTime >= since || session.EndTime >= since)
+            .ToListAsync();
+
+        var changed = 0;
+        foreach (var memory in memories)
+        {
+            if (ApplyMaintainedMemoryWeight(memory, recentSessions, currentTime))
+            {
+                changed++;
+            }
+        }
+
+        if (changed > 0)
+        {
+            await db.SaveChangesAsync();
+        }
+
+        return changed;
+    }
+
     public async Task MarkContextMemoriesUsedAsync(IEnumerable<int> ids)
     {
         var idList = ids.Distinct().ToList();
@@ -267,9 +301,18 @@ public class DatabaseService
         var memories = await db.ContextMemories
             .Where(m => idList.Contains(m.Id))
             .ToListAsync();
+        var now = DateTime.Now;
+        var since = now.AddDays(-30);
+        var recentSessions = await db.ApplicationUsageSessions
+            .AsNoTracking()
+            .Where(session => session.StartTime >= since || session.EndTime >= since)
+            .ToListAsync();
+
         foreach (var memory in memories)
         {
-            memory.LastUsedAt = DateTime.Now;
+            memory.LastUsedAt = now;
+            memory.MentionCount = Math.Min(memory.MentionCount + 1, 9999);
+            ApplyMaintainedMemoryWeight(memory, recentSessions, now);
         }
 
         await db.SaveChangesAsync();
@@ -832,6 +875,7 @@ public class DatabaseService
                 "Source" TEXT NOT NULL DEFAULT '',
                 "Tags" TEXT NOT NULL DEFAULT '',
                 "Weight" REAL NOT NULL DEFAULT 0.6,
+                "MentionCount" INTEGER NOT NULL DEFAULT 0,
                 "MemoryAxis" TEXT NOT NULL DEFAULT 'event',
                 "AiDescription" TEXT NOT NULL DEFAULT '',
                 "AiExplanation" TEXT NOT NULL DEFAULT '',
@@ -861,6 +905,7 @@ public class DatabaseService
         await command.ExecuteNonQueryAsync();
 
         await EnsureColumnAsync(connection, "ContextMemories", "ConstellationName", "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(connection, "ContextMemories", "MentionCount", "INTEGER NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "MemoryAxis", "TEXT NOT NULL DEFAULT 'event'");
         await EnsureColumnAsync(connection, "ContextMemories", "AiDescription", "TEXT NOT NULL DEFAULT ''");
         await EnsureColumnAsync(connection, "ContextMemories", "AiExplanation", "TEXT NOT NULL DEFAULT ''");
@@ -1226,6 +1271,244 @@ public class DatabaseService
             await LinkRelatedTasksAsync(task);
         }
     }
+
+    private static bool ApplyMaintainedMemoryWeight(
+        ContextMemory memory,
+        IReadOnlyCollection<ApplicationUsageSession> recentSessions,
+        DateTime now)
+    {
+        var maintenance = CalculateMaintainedMemoryWeight(memory, recentSessions, now);
+        var lifecycle = CreateMaintainedMemoryLifecycle(memory, now, maintenance.Weight);
+        var nodeSize = CreateMemoryNodeSize(maintenance.Weight, memory.Content);
+        var profile = CreateMaintainedMemoryWeightProfile(maintenance, lifecycle);
+
+        var changed = false;
+        if (Math.Abs(memory.Weight - maintenance.Weight) > 0.005)
+        {
+            memory.Weight = maintenance.Weight;
+            changed = true;
+        }
+
+        if (memory.Lifecycle != lifecycle)
+        {
+            memory.Lifecycle = lifecycle;
+            changed = true;
+        }
+
+        if (Math.Abs(memory.NodeSize - nodeSize) > 0.01)
+        {
+            memory.NodeSize = nodeSize;
+            changed = true;
+        }
+
+        if (!string.Equals(memory.AiWeightProfile, profile, StringComparison.Ordinal))
+        {
+            memory.AiWeightProfile = profile;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static MemoryWeightMaintenanceResult CalculateMaintainedMemoryWeight(
+        ContextMemory memory,
+        IReadOnlyCollection<ApplicationUsageSession> recentSessions,
+        DateTime now)
+    {
+        var createdAt = memory.CreatedAt == default ? memory.UpdatedAt : memory.CreatedAt;
+        var ageDays = Math.Max(0, (now - createdAt).TotalDays);
+        var lastUseDays = memory.LastUsedAt.HasValue
+            ? Math.Max(0, (now - memory.LastUsedAt.Value).TotalDays)
+            : double.PositiveInfinity;
+        var relatedProcessHours = CalculateRelatedProcessHours(memory, recentSessions);
+
+        var typeBoost = memory.Type switch
+        {
+            ContextMemoryType.Preference => 0.22,
+            ContextMemoryType.Decision => 0.20,
+            ContextMemoryType.Project => 0.18,
+            ContextMemoryType.Workflow => 0.16,
+            ContextMemoryType.Task => 0.14,
+            ContextMemoryType.Application => 0.13,
+            ContextMemoryType.Note => 0.08,
+            ContextMemoryType.Event => 0.05,
+            ContextMemoryType.Review => 0.04,
+            _ => 0.08
+        };
+        var ageBoost = Math.Exp(-ageDays / 45d) * 0.18;
+        var agePenalty = Math.Min(0.18, Math.Log(ageDays + 1) / Math.Log(181) * 0.14);
+        var recentUseBoost = memory.LastUsedAt.HasValue
+            ? Math.Exp(-lastUseDays / 14d) * 0.24
+            : 0;
+        var mentionBoost = Math.Min(0.18, Math.Log(memory.MentionCount + 1, 2) * 0.045);
+        var processBoost = Math.Min(0.15, Math.Log(relatedProcessHours + 1, 2) * 0.055);
+        var status = memory.IsPlan
+            ? memory.IsAbandoned ? "abandoned" : memory.IsCompleted ? "completed" : "open"
+            : "context";
+        var planEffect = memory.IsPlan
+            ? memory.IsAbandoned ? -0.18 : memory.IsCompleted ? -0.08 : 0.24
+            : 0;
+        var lifecycleEffect = memory.Lifecycle switch
+        {
+            ContextMemoryLifecycle.Contradicted => -0.35,
+            ContextMemoryLifecycle.Archived => -0.06,
+            ContextMemoryLifecycle.Stale => -0.05,
+            _ => 0
+        };
+
+        var localScore = 0.22 + typeBoost + ageBoost + recentUseBoost + mentionBoost + processBoost + planEffect + lifecycleEffect - agePenalty;
+        if (memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+        {
+            localScore = Math.Max(localScore, 0.72);
+        }
+        else if (memory.IsAbandoned)
+        {
+            localScore = Math.Min(localScore, 0.45);
+        }
+        else if (memory.IsCompleted)
+        {
+            localScore = Math.Min(localScore, 0.62);
+        }
+
+        if (memory.Lifecycle == ContextMemoryLifecycle.Contradicted)
+        {
+            localScore = Math.Min(localScore, 0.34);
+        }
+
+        var maintainedWeight = Math.Clamp(memory.Weight * 0.42 + localScore * 0.58, 0.12, 1.0);
+        return new MemoryWeightMaintenanceResult(
+            Math.Round(maintainedWeight, 3),
+            Math.Round(ageDays, 1),
+            double.IsPositiveInfinity(lastUseDays) ? null : Math.Round(lastUseDays, 1),
+            Math.Round(relatedProcessHours, 1),
+            memory.MentionCount,
+            status);
+    }
+
+    private static ContextMemoryLifecycle CreateMaintainedMemoryLifecycle(ContextMemory memory, DateTime now, double weight)
+    {
+        if (memory.Lifecycle == ContextMemoryLifecycle.Contradicted)
+        {
+            return ContextMemoryLifecycle.Contradicted;
+        }
+
+        if (memory.IsCompleted || memory.IsAbandoned)
+        {
+            return ContextMemoryLifecycle.Archived;
+        }
+
+        if (memory.IsPlan)
+        {
+            return ContextMemoryLifecycle.Active;
+        }
+
+        var createdAt = memory.CreatedAt == default ? memory.UpdatedAt : memory.CreatedAt;
+        var ageDays = Math.Max(0, (now - createdAt).TotalDays);
+        var lastUsedDays = memory.LastUsedAt.HasValue
+            ? Math.Max(0, (now - memory.LastUsedAt.Value).TotalDays)
+            : double.PositiveInfinity;
+
+        if (weight < 0.28 && ageDays > 30)
+        {
+            return ContextMemoryLifecycle.Stale;
+        }
+
+        if (weight < 0.35 && ageDays > 45 && lastUsedDays > 21)
+        {
+            return ContextMemoryLifecycle.Stale;
+        }
+
+        return ContextMemoryLifecycle.Active;
+    }
+
+    private static string CreateMaintainedMemoryWeightProfile(
+        MemoryWeightMaintenanceResult maintenance,
+        ContextMemoryLifecycle lifecycle)
+    {
+        var lastUsed = maintenance.LastUseDays.HasValue
+            ? $"{maintenance.LastUseDays.Value:0.#}d"
+            : "never";
+        return
+            $"local-maintenance: age={maintenance.AgeDays:0.#}d; last={lastUsed}; mentions={maintenance.MentionCount}; relatedProcess={maintenance.RelatedProcessHours:0.#}h; status={maintenance.Status}; lifecycle={lifecycle}; weight={maintenance.Weight:0.00}";
+    }
+
+    private static double CalculateRelatedProcessHours(
+        ContextMemory memory,
+        IReadOnlyCollection<ApplicationUsageSession> recentSessions)
+    {
+        var terms = CreateMemoryProcessTerms(memory);
+        if (terms.Count == 0 || recentSessions.Count == 0)
+        {
+            return 0;
+        }
+
+        var hours = 0d;
+        foreach (var session in recentSessions)
+        {
+            var processName = SafeFileStem(session.ProcessName);
+            var exeName = SafeFileStem(session.ExecutablePath);
+            var processText = string.Join(' ', session.ProcessName, processName, exeName).ToLowerInvariant();
+            if (terms.Any(term =>
+                    processText.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    (processName.Length >= 4 && term.Contains(processName, StringComparison.OrdinalIgnoreCase))))
+            {
+                hours += Math.Max(0, session.Duration.TotalHours);
+            }
+        }
+
+        return hours;
+    }
+
+    private static HashSet<string> CreateMemoryProcessTerms(ContextMemory memory)
+    {
+        var haystack = string.Join(
+            ' ',
+            memory.Title,
+            memory.Tags,
+            memory.Source,
+            memory.ConstellationName,
+            memory.MemoryAxis,
+            memory.Content);
+        return ExtractKeywords(haystack)
+            .Select(term => term.Trim().TrimStart('#').ToLowerInvariant())
+            .Where(term => term.Length >= 3)
+            .Where(term => !IsGenericProcessTerm(term))
+            .Take(60)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool IsGenericProcessTerm(string term)
+    {
+        return term is
+            "app" or "application" or "context" or "memory" or "memories" or "note" or "notes" or
+            "task" or "plan" or "event" or "review" or "project" or "workflow" or "today" or
+            "the" or "and" or "for" or "with" or "from" or "this" or "that" or "todo";
+    }
+
+    private static string SafeFileStem(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return Path.GetFileNameWithoutExtension(value).ToLowerInvariant();
+        }
+        catch (ArgumentException)
+        {
+            return value.ToLowerInvariant();
+        }
+    }
+
+    private readonly record struct MemoryWeightMaintenanceResult(
+        double Weight,
+        double AgeDays,
+        double? LastUseDays,
+        double RelatedProcessHours,
+        int MentionCount,
+        string Status);
 
     private static (double X, double Y) CreateGalaxyCoordinate(int index, string title)
     {

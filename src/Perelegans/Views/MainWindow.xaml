@@ -416,46 +416,100 @@
                                                        LineHeight="22"
                                                        TextWrapping="Wrap"
                                                        Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
-                                            <StackPanel Orientation="Horizontal"
-                                                        HorizontalAlignment="Right"
-                                                        Margin="0,8,0,0">
-                                                <Button Width="30"
-                                                        Height="30"
+                                             <StackPanel Orientation="Horizontal"
+                                                         HorizontalAlignment="Right"
+                                                         Margin="0,8,0,0">
+                                                <Button Width="26"
+                                                        Height="26"
                                                         Command="{Binding DataContext.RewindConversationToCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
                                                         CommandParameter="{Binding}"
                                                         Style="{StaticResource IconButtonStyle}"
                                                         ToolTip="{i18n:Translate Main_ChatRewind}"
                                                         Margin="0,0,4,0">
-                                                    <Viewbox Width="15"
-                                                             Height="15">
-                                                        <Path Data="M 13,4 L 6,11 L 13,18 M 7,11 L 19,11"
+                                                    <Viewbox Width="12"
+                                                             Height="12">
+                                                        <Path Data="M 12,5 L 6,11 L 12,17 M 7,11 H 15 C 20,11 20,19 15,19 H 10"
                                                               Stroke="{DynamicResource Perelegans.SubtleForegroundBrush}"
                                                               Style="{StaticResource LineIconPathStyle}"/>
                                                     </Viewbox>
                                                 </Button>
-                                                <Button Width="30"
-                                                        Height="30"
+                                                <Button Width="26"
+                                                        Height="26"
                                                         Command="{Binding DataContext.DeleteConversationMessageCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
                                                         CommandParameter="{Binding}"
                                                         Style="{StaticResource IconButtonStyle}"
                                                         ToolTip="{i18n:Translate Main_ChatDelete}"
                                                         Margin="0,0,4,0">
-                                                    <Viewbox Width="13"
-                                                             Height="13">
+                                                    <Viewbox Width="11"
+                                                             Height="11">
                                                         <Path Data="M 6,6 L 18,18 M 18,6 L 6,18"
                                                               Stroke="{DynamicResource Perelegans.SubtleForegroundBrush}"
                                                               Style="{StaticResource LineIconPathStyle}"/>
                                                     </Viewbox>
                                                 </Button>
-                                                <Button Content="{i18n:Translate Main_ChatStop}"
-                                                        Command="{Binding DataContext.StopAssistantOutputCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
-                                                        Style="{StaticResource PresetButtonStyle}"
-                                                        Margin="0"
-                                                        Visibility="{Binding IsStreaming, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                            </StackPanel>
-                                            <Border Margin="0,14,0,0"
-                                                    Padding="14"
-                                                    Background="{DynamicResource Perelegans.WindowBackground}"
+                                                 <Button Content="{i18n:Translate Main_ChatStop}"
+                                                         Command="{Binding DataContext.StopAssistantOutputCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
+                                                         Style="{StaticResource PresetButtonStyle}"
+                                                         Margin="0"
+                                                         Visibility="{Binding IsStreaming, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                             </StackPanel>
+                                             <Border Margin="0,14,0,0"
+                                                     Padding="13"
+                                                     Background="{DynamicResource Perelegans.WindowBackground}"
+                                                     BorderBrush="{DynamicResource Perelegans.AccentBrush}"
+                                                     BorderThickness="1"
+                                                     Visibility="{Binding HasBreakpointCard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                 <StackPanel>
+                                                     <DockPanel Margin="0,0,0,10">
+                                                         <TextBlock Text="{Binding BreakpointCard.Title}"
+                                                                    FontSize="14"
+                                                                    FontWeight="SemiBold"
+                                                                    DockPanel.Dock="Left"/>
+                                                         <TextBlock Text="{Binding BreakpointCard.Subtitle}"
+                                                                    FontSize="11"
+                                                                    HorizontalAlignment="Right"
+                                                                    Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                     </DockPanel>
+                                                     <TextBlock Text="{Binding BreakpointCard.ClientText}"
+                                                                Margin="0,0,0,5"
+                                                                FontSize="12"
+                                                                TextWrapping="Wrap"/>
+                                                     <TextBlock Text="{Binding BreakpointCard.WorkspaceText}"
+                                                                Margin="0,0,0,5"
+                                                                FontSize="12"
+                                                                Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                                TextWrapping="Wrap"/>
+                                                     <TextBlock Text="{Binding BreakpointCard.ProcessText}"
+                                                                Margin="0,0,0,5"
+                                                                FontSize="12"
+                                                                Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                                TextWrapping="Wrap"/>
+                                                     <TextBlock Text="{Binding BreakpointCard.RecentChangeText}"
+                                                                Margin="0,0,0,7"
+                                                                FontSize="12"
+                                                                Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                                TextWrapping="Wrap"/>
+                                                     <Border Padding="8,5"
+                                                             Margin="0,0,0,8"
+                                                             Background="{DynamicResource Perelegans.StatsChartHighlightBackground}"
+                                                             BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                                             BorderThickness="1">
+                                                         <TextBlock Text="{Binding BreakpointCard.StatusText}"
+                                                                    FontSize="12"
+                                                                    FontWeight="SemiBold"
+                                                                    Foreground="#FFFF8FC3"
+                                                                    TextWrapping="Wrap"/>
+                                                     </Border>
+                                                     <TextBlock Text="{Binding BreakpointCard.NextStepText}"
+                                                                FontSize="12"
+                                                                LineHeight="18"
+                                                                TextWrapping="Wrap"
+                                                                Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
+                                                 </StackPanel>
+                                             </Border>
+                                             <Border Margin="0,14,0,0"
+                                                     Padding="14"
+                                                     Background="{DynamicResource Perelegans.WindowBackground}"
                                                     BorderBrush="{DynamicResource Perelegans.BorderBrush}"
                                                     BorderThickness="1"
                                                     Visibility="{Binding HasUsageStats, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -506,6 +560,12 @@
                                                                    FontSize="12"
                                                                    FontWeight="SemiBold"
                                                                    Foreground="#FFFF8FC3"/>
+                                                        <TextBlock Text="{Binding UsageStats.InsightText}"
+                                                                   Margin="0,0,0,10"
+                                                                   FontSize="12"
+                                                                   LineHeight="18"
+                                                                   TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
                                                         <ItemsControl ItemsSource="{Binding UsageStats.Slices}">
                                                             <ItemsControl.ItemTemplate>
                                                                 <DataTemplate>
@@ -768,6 +828,13 @@
                             <TextBlock Text="{Binding UsageStatsSubtitle}"
                                        Margin="0,4,0,0"
                                        Style="{StaticResource QuietTextStyle}"/>
+                            <TextBlock Text="{Binding UsageStatsInsightText}"
+                                       Margin="0,8,0,0"
+                                       MaxWidth="760"
+                                       TextWrapping="Wrap"
+                                       FontSize="13"
+                                       LineHeight="19"
+                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
                         </StackPanel>
                     </DockPanel>
 
@@ -1247,18 +1314,38 @@
                                                     </BeginStoryboard>
                                                 </EventTrigger>
                                             </Border.Triggers>
-                                            <StackPanel Width="148">
+                                            <StackPanel Width="148"
+                                                        Opacity="{Binding VisualOpacity}">
                                                 <Grid Width="{Binding NodeSize}"
                                                       Height="{Binding NodeSize}"
                                                       HorizontalAlignment="Left">
                                                     <Ellipse x:Name="NodeRing"
                                                              Fill="Transparent"
-                                                             Stroke="{DynamicResource Perelegans.AccentBrush}"
                                                              StrokeThickness="1"
-                                                             Opacity="0.5"/>
+                                                             Opacity="0.5">
+                                                        <Ellipse.Style>
+                                                            <Style TargetType="Ellipse">
+                                                                <Setter Property="Stroke" Value="{DynamicResource Perelegans.AccentBrush}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsLowWeight}" Value="True">
+                                                                        <Setter Property="Stroke" Value="#FF929292"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Ellipse.Style>
+                                                    </Ellipse>
                                                     <Ellipse x:Name="NodeCore"
-                                                             Margin="4"
-                                                             Fill="{DynamicResource Perelegans.AccentBrush}">
+                                                             Margin="4">
+                                                        <Ellipse.Style>
+                                                            <Style TargetType="Ellipse">
+                                                                <Setter Property="Fill" Value="{DynamicResource Perelegans.AccentBrush}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsLowWeight}" Value="True">
+                                                                        <Setter Property="Fill" Value="#FF8D8D8D"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Ellipse.Style>
                                                         <Ellipse.Effect>
                                                             <DropShadowEffect BlurRadius="14"
                                                                               ShadowDepth="0"
@@ -1342,7 +1429,8 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Grid MinHeight="118"
-                                                      Margin="0,0,0,18">
+                                                      Margin="0,0,0,18"
+                                                      Opacity="{Binding VisualOpacity}">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="82"/>
                                                         <ColumnDefinition Width="62"/>
@@ -1350,14 +1438,16 @@
                                                     </Grid.ColumnDefinitions>
 
                                                     <Grid Grid.Column="0">
-                                                        <Border Width="48"
+                                                        <Border x:Name="BranchBadge"
+                                                                Width="48"
                                                                 Height="48"
                                                                 HorizontalAlignment="Center"
                                                                 VerticalAlignment="Center"
                                                                 Background="{DynamicResource Perelegans.PanelBackground}"
                                                                 BorderBrush="{DynamicResource Perelegans.AccentBrush}"
                                                                 BorderThickness="1">
-                                                            <TextBlock Text="{Binding BranchNumber}"
+                                                            <TextBlock x:Name="BranchNumberText"
+                                                                       Text="{Binding BranchNumber}"
                                                                        HorizontalAlignment="Center"
                                                                        VerticalAlignment="Center"
                                                                        FontSize="16"
@@ -1367,23 +1457,27 @@
                                                     </Grid>
 
                                                     <Grid Grid.Column="1">
-                                                        <Rectangle Width="1.4"
+                                                        <Rectangle x:Name="BranchSpine"
+                                                                   Width="1.4"
                                                                    HorizontalAlignment="Center"
                                                                    Fill="{DynamicResource Perelegans.BorderBrush}"
                                                                    Opacity="0.86"/>
-                                                        <Rectangle Height="1.4"
+                                                        <Rectangle x:Name="BranchRib"
+                                                                   Height="1.4"
                                                                    Margin="31,0,0,0"
                                                                    VerticalAlignment="Center"
                                                                    Fill="{DynamicResource Perelegans.BorderBrush}"
                                                                    Opacity="0.86"/>
-                                                        <Ellipse Width="10"
+                                                        <Ellipse x:Name="BranchDot"
+                                                                 Width="10"
                                                                  Height="10"
                                                                  HorizontalAlignment="Center"
                                                                  VerticalAlignment="Center"
                                                                  Fill="{DynamicResource Perelegans.AccentBrush}"/>
                                                     </Grid>
 
-                                                    <Border Grid.Column="2"
+                                                    <Border x:Name="BranchCard"
+                                                            Grid.Column="2"
                                                             Padding="14,12"
                                                             VerticalAlignment="Center"
                                                             Background="{DynamicResource Perelegans.PanelBackground}"
@@ -1400,23 +1494,27 @@
                                                                     <ColumnDefinition Width="*"/>
                                                                     <ColumnDefinition Width="Auto"/>
                                                                 </Grid.ColumnDefinitions>
-                                                                <TextBlock Text="{Binding Title}"
+                                                                <TextBlock x:Name="BranchTitleText"
+                                                                           Text="{Binding Title}"
                                                                            FontSize="14"
                                                                            FontWeight="SemiBold"
                                                                            TextTrimming="CharacterEllipsis"/>
-                                                                <Border Grid.Column="1"
+                                                                <Border x:Name="BranchMetaPill"
+                                                                        Grid.Column="1"
                                                                         MinWidth="74"
                                                                         Margin="12,0,0,0"
                                                                         Padding="7,2"
                                                                         BorderBrush="{DynamicResource Perelegans.AccentBrush}"
                                                                         BorderThickness="1">
-                                                                    <TextBlock Text="{Binding MetaText}"
+                                                                    <TextBlock x:Name="BranchMetaText"
+                                                                               Text="{Binding MetaText}"
                                                                                FontSize="10"
                                                                                Foreground="{DynamicResource Perelegans.AccentBrush}"
                                                                                TextAlignment="Center"/>
                                                                 </Border>
                                                             </Grid>
-                                                            <TextBlock Grid.Row="1"
+                                                            <TextBlock x:Name="BranchItemsText"
+                                                                       Grid.Row="1"
                                                                        Text="{Binding Items}"
                                                                        Margin="0,8,0,0"
                                                                        MaxHeight="42"
@@ -1424,7 +1522,8 @@
                                                                        TextTrimming="CharacterEllipsis"
                                                                        Foreground="{DynamicResource Perelegans.ForegroundBrush}"
                                                                        FontSize="12"/>
-                                                            <TextBlock Grid.Row="2"
+                                                            <TextBlock x:Name="BranchTagsText"
+                                                                       Grid.Row="2"
                                                                        Text="{Binding Tags}"
                                                                        Margin="0,7,0,0"
                                                                        MaxHeight="32"
@@ -1435,6 +1534,21 @@
                                                         </Grid>
                                                     </Border>
                                                 </Grid>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding IsLowWeight}" Value="True">
+                                                        <Setter TargetName="BranchBadge" Property="BorderBrush" Value="#FF9A9A9A"/>
+                                                        <Setter TargetName="BranchNumberText" Property="Foreground" Value="#FF8E8E8E"/>
+                                                        <Setter TargetName="BranchSpine" Property="Fill" Value="#FF9A9A9A"/>
+                                                        <Setter TargetName="BranchRib" Property="Fill" Value="#FF9A9A9A"/>
+                                                        <Setter TargetName="BranchDot" Property="Fill" Value="#FF8E8E8E"/>
+                                                        <Setter TargetName="BranchCard" Property="BorderBrush" Value="#FF9A9A9A"/>
+                                                        <Setter TargetName="BranchTitleText" Property="Foreground" Value="#FF777777"/>
+                                                        <Setter TargetName="BranchMetaPill" Property="BorderBrush" Value="#FF9A9A9A"/>
+                                                        <Setter TargetName="BranchMetaText" Property="Foreground" Value="#FF777777"/>
+                                                        <Setter TargetName="BranchItemsText" Property="Foreground" Value="#FF7D7D7D"/>
+                                                        <Setter TargetName="BranchTagsText" Property="Foreground" Value="#FF8E8E8E"/>
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
