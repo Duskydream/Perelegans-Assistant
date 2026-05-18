@@ -39,6 +39,7 @@ public class SettingsService
                 var json = File.ReadAllText(SettingsPath);
                 Settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
                 Settings.Language = TranslationService.NormalizeLanguageCode(Settings.Language);
+                RefreshDefaultPersonalityPromptIfNeeded();
             }
         }
         catch
@@ -62,6 +63,15 @@ public class SettingsService
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to save settings: {ex.Message}");
+        }
+    }
+
+    private void RefreshDefaultPersonalityPromptIfNeeded()
+    {
+        if (string.IsNullOrWhiteSpace(Settings.AiPersonalityPrompt) ||
+            Settings.AiPersonalityPrompt.Contains("你存在的方式不是临时问答工具", StringComparison.Ordinal))
+        {
+            Settings.AiPersonalityPrompt = AppSettings.DefaultAiPersonalityPrompt;
         }
     }
 }

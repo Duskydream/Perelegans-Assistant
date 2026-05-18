@@ -7,9 +7,6 @@ namespace Perelegans.Services;
 
 public sealed class BreakpointSnapshotService : IDisposable
 {
-    private static readonly TimeSpan IdleThreshold = TimeSpan.FromMinutes(15);
-    private static readonly TimeSpan ReturnedThreshold = TimeSpan.FromSeconds(8);
-
     private readonly DatabaseService _databaseService;
     private readonly SettingsService _settingsService;
     private readonly ProcessMonitorService _processMonitor;
@@ -18,6 +15,7 @@ public sealed class BreakpointSnapshotService : IDisposable
     private bool _capturedThisIdle;
     private bool _isSaving;
 
+    public event Action? AwayDetected;
     public event Action<BreakpointSnapshot>? BreakpointReady;
 
     public BreakpointSnapshotService(
@@ -75,7 +73,10 @@ public sealed class BreakpointSnapshotService : IDisposable
         }
 
         var idle = GetIdleDuration();
-        if (idle >= IdleThreshold)
+        var idleThreshold = TimeSpan.FromMinutes(Math.Clamp(_settingsService.Settings.BreakpointIdleThresholdMinutes, 1, 240));
+        var returnedThreshold = TimeSpan.FromSeconds(Math.Clamp(_settingsService.Settings.BreakpointReturnThresholdSeconds, 1, 120));
+
+        if (idle >= idleThreshold)
         {
             if (!_capturedThisIdle)
             {
@@ -85,7 +86,7 @@ public sealed class BreakpointSnapshotService : IDisposable
             return;
         }
 
-        if (idle <= ReturnedThreshold)
+        if (idle <= returnedThreshold)
         {
             _capturedThisIdle = false;
             if (_pendingSnapshot is { WasShown: false, IsDismissed: false } snapshot)
@@ -131,6 +132,7 @@ public sealed class BreakpointSnapshotService : IDisposable
             };
 
             _pendingSnapshot = await _databaseService.SaveBreakpointSnapshotAsync(breakpoint);
+            AwayDetected?.Invoke();
         }
         finally
         {

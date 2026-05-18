@@ -37,6 +37,7 @@ public partial class App : System.Windows.Application
     private MemoryExtractionService? _memoryExtractionService;
     private FocusModeService? _focusModeService;
     private BreakpointSnapshotService? _breakpointSnapshotService;
+    private CodingClientMonitorService? _codingClientMonitorService;
 
     private async void App_OnStartup(object sender, StartupEventArgs e)
     {
@@ -66,12 +67,14 @@ public partial class App : System.Windows.Application
         var dbService = new DatabaseService();
         _dbService = dbService;
         _processMonitor = new ProcessMonitorService(dbService);
+        _processMonitor.SetProductivityRules(settingsService.Settings.ProductiveProcessRules);
         _appHttpClient = AppHttpClientFactory.Create(settingsService.Settings);
         _focusClassificationClient = new FocusClassificationClient(_appHttpClient, settingsService);
         _contextRetrievalService = new ContextRetrievalService(dbService);
         _memoryExtractionService = new MemoryExtractionService(dbService, _focusClassificationClient);
         _focusModeService = new FocusModeService();
         _breakpointSnapshotService = new BreakpointSnapshotService(dbService, settingsService, _processMonitor);
+        _codingClientMonitorService = new CodingClientMonitorService(settingsService);
 
         var mainVm = new MainViewModel(
             dbService,
@@ -81,6 +84,7 @@ public partial class App : System.Windows.Application
             _contextRetrievalService,
             _memoryExtractionService,
             _focusModeService,
+            _codingClientMonitorService,
             OpenSettingsFromAgent,
             RequestShutdown);
 
@@ -102,7 +106,9 @@ public partial class App : System.Windows.Application
                 settingsService,
                 _focusModeService,
                 _breakpointSnapshotService,
+                _codingClientMonitorService,
                 ShowDashboard,
+                ShowMemoryReview,
                 ShowBreakpointSnapshot,
                 OpenSettingsFromAgent,
                 RequestShutdown)
@@ -113,6 +119,7 @@ public partial class App : System.Windows.Application
         // Initialize async data (DB creation, focus history, start monitor)
         await mainVm.InitializeAsync();
         _breakpointSnapshotService.Start();
+        _codingClientMonitorService.Start();
 
         if (_pendingActivationRequest)
         {
@@ -137,6 +144,8 @@ public partial class App : System.Windows.Application
     {
         _breakpointSnapshotService?.Dispose();
         _breakpointSnapshotService = null;
+        _codingClientMonitorService?.Dispose();
+        _codingClientMonitorService = null;
 
         if (_activationListenerCts != null)
         {
@@ -183,6 +192,16 @@ public partial class App : System.Windows.Application
         if (_mainWindow?.DataContext is MainViewModel viewModel)
         {
             viewModel.ShowBreakpointSnapshot(snapshot);
+        }
+
+        ShowDashboard();
+    }
+
+    private void ShowMemoryReview()
+    {
+        if (_mainWindow?.DataContext is MainViewModel viewModel)
+        {
+            viewModel.OpenMemoryReview();
         }
 
         ShowDashboard();

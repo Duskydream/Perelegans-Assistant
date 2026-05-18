@@ -107,12 +107,15 @@ public class PerelegansDbContext : DbContext
             entity.HasKey(m => m.Id);
             entity.HasIndex(m => m.Type);
             entity.HasIndex(m => m.UpdatedAt);
+            entity.HasIndex(m => m.ReviewStatus);
             entity.Property(m => m.Type).HasConversion<int>();
             entity.Property(m => m.Lifecycle).HasConversion<int>();
+            entity.Property(m => m.ReviewStatus).HasConversion<int>();
             entity.Property(m => m.Title).IsRequired().HasMaxLength(240);
             entity.Property(m => m.Content).IsRequired().HasMaxLength(4000);
             entity.Property(m => m.Source).HasMaxLength(240);
             entity.Property(m => m.Tags).HasMaxLength(800);
+            entity.Property(m => m.MentionCount).HasDefaultValue(0);
             entity.Property(m => m.MemoryAxis).HasMaxLength(80);
             entity.Property(m => m.AiDescription).HasMaxLength(1200);
             entity.Property(m => m.AiExplanation).HasMaxLength(2000);

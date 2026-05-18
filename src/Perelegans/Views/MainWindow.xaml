@@ -416,28 +416,100 @@
                                                        LineHeight="22"
                                                        TextWrapping="Wrap"
                                                        Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
-                                            <StackPanel Orientation="Horizontal"
-                                                        HorizontalAlignment="Right"
-                                                        Margin="0,8,0,0">
-                                                <Button Content="{i18n:Translate Main_ChatRewind}"
+                                             <StackPanel Orientation="Horizontal"
+                                                         HorizontalAlignment="Right"
+                                                         Margin="0,8,0,0">
+                                                <Button Width="26"
+                                                        Height="26"
                                                         Command="{Binding DataContext.RewindConversationToCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
                                                         CommandParameter="{Binding}"
-                                                        Style="{StaticResource PresetButtonStyle}"
-                                                        Margin="0,0,6,0"/>
-                                                <Button Content="{i18n:Translate Main_ChatDelete}"
+                                                        Style="{StaticResource IconButtonStyle}"
+                                                        ToolTip="{i18n:Translate Main_ChatRewind}"
+                                                        Margin="0,0,4,0">
+                                                    <Viewbox Width="12"
+                                                             Height="12">
+                                                        <Path Data="M 12,5 L 6,11 L 12,17 M 7,11 H 15 C 20,11 20,19 15,19 H 10"
+                                                              Stroke="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                              Style="{StaticResource LineIconPathStyle}"/>
+                                                    </Viewbox>
+                                                </Button>
+                                                <Button Width="26"
+                                                        Height="26"
                                                         Command="{Binding DataContext.DeleteConversationMessageCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
                                                         CommandParameter="{Binding}"
-                                                        Style="{StaticResource PresetButtonStyle}"
-                                                        Margin="0,0,6,0"/>
-                                                <Button Content="{i18n:Translate Main_ChatStop}"
-                                                        Command="{Binding DataContext.StopAssistantOutputCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
-                                                        Style="{StaticResource PresetButtonStyle}"
-                                                        Margin="0"
-                                                        Visibility="{Binding IsStreaming, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                            </StackPanel>
-                                            <Border Margin="0,14,0,0"
-                                                    Padding="14"
-                                                    Background="{DynamicResource Perelegans.WindowBackground}"
+                                                        Style="{StaticResource IconButtonStyle}"
+                                                        ToolTip="{i18n:Translate Main_ChatDelete}"
+                                                        Margin="0,0,4,0">
+                                                    <Viewbox Width="11"
+                                                             Height="11">
+                                                        <Path Data="M 6,6 L 18,18 M 18,6 L 6,18"
+                                                              Stroke="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                              Style="{StaticResource LineIconPathStyle}"/>
+                                                    </Viewbox>
+                                                </Button>
+                                                 <Button Content="{i18n:Translate Main_ChatStop}"
+                                                         Command="{Binding DataContext.StopAssistantOutputCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
+                                                         Style="{StaticResource PresetButtonStyle}"
+                                                         Margin="0"
+                                                         Visibility="{Binding IsStreaming, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                             </StackPanel>
+                                             <Border Margin="0,14,0,0"
+                                                     Padding="13"
+                                                     Background="{DynamicResource Perelegans.WindowBackground}"
+                                                     BorderBrush="{DynamicResource Perelegans.AccentBrush}"
+                                                     BorderThickness="1"
+                                                     Visibility="{Binding HasBreakpointCard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                 <StackPanel>
+                                                     <DockPanel Margin="0,0,0,10">
+                                                         <TextBlock Text="{Binding BreakpointCard.Title}"
+                                                                    FontSize="14"
+                                                                    FontWeight="SemiBold"
+                                                                    DockPanel.Dock="Left"/>
+                                                         <TextBlock Text="{Binding BreakpointCard.Subtitle}"
+                                                                    FontSize="11"
+                                                                    HorizontalAlignment="Right"
+                                                                    Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                     </DockPanel>
+                                                     <TextBlock Text="{Binding BreakpointCard.ClientText}"
+                                                                Margin="0,0,0,5"
+                                                                FontSize="12"
+                                                                TextWrapping="Wrap"/>
+                                                     <TextBlock Text="{Binding BreakpointCard.WorkspaceText}"
+                                                                Margin="0,0,0,5"
+                                                                FontSize="12"
+                                                                Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                                TextWrapping="Wrap"/>
+                                                     <TextBlock Text="{Binding BreakpointCard.ProcessText}"
+                                                                Margin="0,0,0,5"
+                                                                FontSize="12"
+                                                                Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                                TextWrapping="Wrap"/>
+                                                     <TextBlock Text="{Binding BreakpointCard.RecentChangeText}"
+                                                                Margin="0,0,0,7"
+                                                                FontSize="12"
+                                                                Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                                TextWrapping="Wrap"/>
+                                                     <Border Padding="8,5"
+                                                             Margin="0,0,0,8"
+                                                             Background="{DynamicResource Perelegans.StatsChartHighlightBackground}"
+                                                             BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                                             BorderThickness="1">
+                                                         <TextBlock Text="{Binding BreakpointCard.StatusText}"
+                                                                    FontSize="12"
+                                                                    FontWeight="SemiBold"
+                                                                    Foreground="#FFFF8FC3"
+                                                                    TextWrapping="Wrap"/>
+                                                     </Border>
+                                                     <TextBlock Text="{Binding BreakpointCard.NextStepText}"
+                                                                FontSize="12"
+                                                                LineHeight="18"
+                                                                TextWrapping="Wrap"
+                                                                Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
+                                                 </StackPanel>
+                                             </Border>
+                                             <Border Margin="0,14,0,0"
+                                                     Padding="14"
+                                                     Background="{DynamicResource Perelegans.WindowBackground}"
                                                     BorderBrush="{DynamicResource Perelegans.BorderBrush}"
                                                     BorderThickness="1"
                                                     Visibility="{Binding HasUsageStats, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -488,6 +560,12 @@
                                                                    FontSize="12"
                                                                    FontWeight="SemiBold"
                                                                    Foreground="#FFFF8FC3"/>
+                                                        <TextBlock Text="{Binding UsageStats.InsightText}"
+                                                                   Margin="0,0,0,10"
+                                                                   FontSize="12"
+                                                                   LineHeight="18"
+                                                                   TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
                                                         <ItemsControl ItemsSource="{Binding UsageStats.Slices}">
                                                             <ItemsControl.ItemTemplate>
                                                                 <DataTemplate>
@@ -719,11 +797,12 @@
                     BorderBrush="{DynamicResource Perelegans.BorderBrush}"
                     BorderThickness="1"
                     Visibility="{Binding IsStatisticsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
                     <DockPanel Grid.Row="0" Margin="0,0,0,16">
                         <Button DockPanel.Dock="Right"
@@ -750,6 +829,13 @@
                             <TextBlock Text="{Binding UsageStatsSubtitle}"
                                        Margin="0,4,0,0"
                                        Style="{StaticResource QuietTextStyle}"/>
+                            <TextBlock Text="{Binding UsageStatsInsightText}"
+                                       Margin="0,8,0,0"
+                                       MaxWidth="760"
+                                       TextWrapping="Wrap"
+                                       FontSize="13"
+                                       LineHeight="19"
+                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
                         </StackPanel>
                     </DockPanel>
 
@@ -801,87 +887,188 @@
                                 </Border>
                             </Grid>
 
-                            <Border Grid.Row="1"
-                                    Width="208"
-                                    Height="208"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Top"
-                                    Margin="0,22,0,14"
-                                    MouseLeave="UsagePieChart_MouseLeave"
-                                    ClipToBounds="True">
-                                <Grid ClipToBounds="True">
-                                    <Grid.Clip>
-                                        <RectangleGeometry Rect="0,0,208,208"/>
-                                    </Grid.Clip>
-                                    <Viewbox Stretch="Uniform">
-                                        <ItemsControl Width="100"
-                                                      Height="100"
-                                                      ItemsSource="{Binding UsageStatsSlices}">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <Canvas Width="100" Height="100"/>
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemContainerStyle>
-                                                <Style TargetType="ContentPresenter">
-                                                    <Setter Property="Canvas.Left" Value="0"/>
-                                                    <Setter Property="Canvas.Top" Value="0"/>
-                                                </Style>
-                                            </ItemsControl.ItemContainerStyle>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Path Data="{Binding PieGeometry}"
-                                                          Fill="{Binding Fill}"
-                                                          Stroke="{DynamicResource Perelegans.StatsChartSliceBorderBrush}"
-                                                          StrokeThickness="0.85"
-                                                          RenderTransformOrigin="0.5,0.5"
-                                                          MouseEnter="UsageSlicePath_MouseEnter">
-                                                        <Path.Style>
-                                                            <Style TargetType="Path">
-                                                                <Setter Property="Opacity" Value="0.92"/>
-                                                                <Setter Property="RenderTransform">
-                                                                    <Setter.Value>
-                                                                        <ScaleTransform ScaleX="1" ScaleY="1"/>
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
-                                                                        <Setter Property="Opacity" Value="1"/>
-                                                                        <Setter Property="StrokeThickness" Value="1.2"/>
+                            <Grid Grid.Row="1"
+                                  Margin="0,22,0,14"
+                                  MouseLeave="UsagePieChart_MouseLeave">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="310"/>
+                                    <ColumnDefinition Width="18"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0"
+                                        Height="248"
+                                        Padding="8"
+                                        ClipToBounds="True">
+                                    <Grid ClipToBounds="True">
+                                        <Viewbox Stretch="Uniform">
+                                            <Canvas Width="100" Height="100">
+                                                <ItemsControl ItemsSource="{Binding UsageStatsSlices}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <Canvas Width="100" Height="100"/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemContainerStyle>
+                                                        <Style TargetType="ContentPresenter">
+                                                            <Setter Property="Canvas.Left" Value="0"/>
+                                                            <Setter Property="Canvas.Top" Value="0"/>
+                                                        </Style>
+                                                    </ItemsControl.ItemContainerStyle>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Path Data="{Binding PieGeometry}"
+                                                                  Fill="{Binding Fill}"
+                                                                  Stroke="{DynamicResource Perelegans.WindowBackground}"
+                                                                  StrokeThickness="0.7"
+                                                                  RenderTransformOrigin="0.5,0.5"
+                                                                  MouseEnter="UsageSlicePath_MouseEnter">
+                                                                <Path.Style>
+                                                                    <Style TargetType="Path">
+                                                                        <Setter Property="Opacity" Value="0.96"/>
                                                                         <Setter Property="RenderTransform">
                                                                             <Setter.Value>
-                                                                                <ScaleTransform ScaleX="1.035" ScaleY="1.035"/>
+                                                                                <ScaleTransform ScaleX="1" ScaleY="1"/>
                                                                             </Setter.Value>
                                                                         </Setter>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Path.Style>
-                                                    </Path>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </Viewbox>
-                                    <TextBlock Text="{Binding UsageStatsEmptyText}"
-                                           VerticalAlignment="Center"
-                                           HorizontalAlignment="Center"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap"
-                                           FontSize="14"
-                                           Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding HasUsageStatsSlices}" Value="False">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                    </TextBlock>
-                                </Grid>
-                            </Border>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
+                                                                                <Setter Property="Opacity" Value="1"/>
+                                                                                <Setter Property="StrokeThickness" Value="1.2"/>
+                                                                                <Setter Property="RenderTransform">
+                                                                                    <Setter.Value>
+                                                                                        <ScaleTransform ScaleX="1.035" ScaleY="1.035"/>
+                                                                                    </Setter.Value>
+                                                                                </Setter>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Path.Style>
+                                                            </Path>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <TextBlock Text="{Binding UsageStatsEmptyText}"
+                                                   VerticalAlignment="Center"
+                                                   HorizontalAlignment="Center"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="14"
+                                                   Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasUsageStatsSlices}" Value="False">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </Border>
+
+                                <Border Grid.Column="2"
+                                        Height="248"
+                                        Padding="12,12,12,10"
+                                        Background="{DynamicResource Perelegans.StatsChartMetricBackground}"
+                                        BorderBrush="{DynamicResource Perelegans.StatsChartPanelBorderBrush}"
+                                        BorderThickness="1"
+                                        ClipToBounds="True">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="{Binding UsageStatsTimelineTitle}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
+                                        <ScrollViewer Grid.Row="1"
+                                                      Margin="0,10,0,8"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled">
+                                            <ItemsControl ItemsSource="{Binding UsageTimelineRows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Height="18">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="88"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding ProcessName}"
+                                                                       FontSize="10"
+                                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       VerticalAlignment="Center"/>
+                                                            <Border Grid.Column="1"
+                                                                    Height="1"
+                                                                    Background="{DynamicResource Perelegans.StatsChartPanelBorderBrush}"
+                                                                    VerticalAlignment="Center"
+                                                                    Opacity="0.65"/>
+                                                            <Viewbox Grid.Column="1"
+                                                                     Height="12"
+                                                                     Stretch="Fill"
+                                                                     VerticalAlignment="Center">
+                                                                <ItemsControl Width="100"
+                                                                              Height="12"
+                                                                              ItemsSource="{Binding Segments}">
+                                                                    <ItemsControl.ItemsPanel>
+                                                                        <ItemsPanelTemplate>
+                                                                            <Canvas Width="100" Height="12"/>
+                                                                        </ItemsPanelTemplate>
+                                                                    </ItemsControl.ItemsPanel>
+                                                                    <ItemsControl.ItemContainerStyle>
+                                                                        <Style TargetType="ContentPresenter">
+                                                                            <Setter Property="Canvas.Left" Value="{Binding Left}"/>
+                                                                            <Setter Property="Canvas.Top" Value="2"/>
+                                                                        </Style>
+                                                                    </ItemsControl.ItemContainerStyle>
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Border Width="{Binding Width}"
+                                                                                    Height="8"
+                                                                                    Background="{Binding Fill}"
+                                                                                    ToolTip="{Binding Tooltip}"/>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </Viewbox>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                        <Grid Grid.Row="2"
+                                              Margin="88,0,0,0"
+                                              Height="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding UsageTimelineStartLabel}"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                       HorizontalAlignment="Left"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding UsageTimelineMiddleLabel}"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                       HorizontalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding UsageTimelineEndLabel}"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                       HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </Grid>
 
                             <Border Grid.Row="2"
                                     Height="1"
@@ -955,11 +1142,12 @@
                     BorderBrush="{DynamicResource Perelegans.BorderBrush}"
                     BorderThickness="1"
                     Visibility="{Binding IsGalaxyVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
                     <DockPanel Grid.Row="0" Margin="0,0,0,12">
                         <Button DockPanel.Dock="Right"
@@ -968,6 +1156,10 @@
                                 Style="{StaticResource PresetButtonStyle}"
                                 Margin="0"/>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,10,0">
+                            <Button Content="总览"
+                                    Command="{Binding ShowMemoryConstellationOverviewCommand}"
+                                    Style="{StaticResource PresetButtonStyle}"
+                                    Margin="0,0,6,0"/>
                             <Button Content="{i18n:Translate Main_MemoryPreviewGalaxy}"
                                     Command="{Binding SetMemoryPreviewModeCommand}"
                                     CommandParameter="galaxy"
@@ -989,7 +1181,40 @@
                         </StackPanel>
                     </DockPanel>
 
-                    <Grid Grid.Row="1">
+                    <Grid Grid.Row="1" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Height="32"
+                                 Padding="9,0"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding GalaxySearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 mah:TextBoxHelper.Watermark="搜索标题、内容、标签"/>
+                        <ComboBox Grid.Column="1"
+                                  Margin="8,0,0,0"
+                                  Height="32"
+                                  IsEditable="True"
+                                  Text="{Binding GalaxyTagFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  ItemsSource="{Binding AvailableGalaxyTags}"
+                                  mah:TextBoxHelper.Watermark="标签"/>
+                        <ComboBox Grid.Column="2"
+                                  Margin="8,0,0,0"
+                                  Height="32"
+                                  IsEditable="True"
+                                  Text="{Binding GalaxyGroupFilter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  ItemsSource="{Binding AvailableGalaxyGroups}"
+                                  mah:TextBoxHelper.Watermark="分组"/>
+                        <Button Grid.Column="3"
+                                Content="清除"
+                                Command="{Binding ClearGalaxyFiltersCommand}"
+                                Style="{StaticResource PresetButtonStyle}"
+                                Margin="8,0,0,0"/>
+                    </Grid>
+
+                    <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="280"/>
@@ -1035,7 +1260,8 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <ItemsControl ItemsSource="{Binding ContextMemories}">
+                            <ItemsControl ItemsSource="{Binding MemoryConstellations}"
+                                          Visibility="{Binding IsMemoryConstellationLayer, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <Canvas Width="920" Height="640"/>
@@ -1049,7 +1275,81 @@
                                 </ItemsControl.ItemContainerStyle>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Width="168"
+                                        <Border Width="180"
+                                                Padding="6"
+                                                Background="Transparent"
+                                                Cursor="Hand"
+                                                MouseLeftButtonDown="MemoryConstellation_MouseLeftButtonDown">
+                                            <StackPanel Width="168"
+                                                        Opacity="{Binding VisualOpacity}">
+                                                <Grid Width="{Binding NodeSize}"
+                                                      Height="{Binding NodeSize}"
+                                                      HorizontalAlignment="Left">
+                                                    <Ellipse Fill="Transparent"
+                                                             Stroke="{DynamicResource Perelegans.AccentBrush}"
+                                                             StrokeThickness="1.2"
+                                                             Opacity="0.48"/>
+                                                    <Ellipse Margin="8"
+                                                             Fill="{DynamicResource Perelegans.AccentBrush}"
+                                                             Opacity="0.82">
+                                                        <Ellipse.Effect>
+                                                            <DropShadowEffect BlurRadius="18"
+                                                                              ShadowDepth="0"
+                                                                              Opacity="0.45"
+                                                                              Color="#DFA8B5"/>
+                                                        </Ellipse.Effect>
+                                                    </Ellipse>
+                                                </Grid>
+                                                <TextBlock Text="{Binding Title}"
+                                                           Margin="0,5,0,0"
+                                                           FontSize="14"
+                                                           FontWeight="SemiBold"
+                                                           LineHeight="17"
+                                                           Foreground="{DynamicResource Perelegans.ForegroundBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding CountText}"
+                                                           Margin="0,1,0,0"
+                                                           FontSize="12"
+                                                           LineHeight="15"
+                                                           Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Summary}"
+                                                           Margin="0,2,0,0"
+                                                           MaxHeight="32"
+                                                           FontSize="12"
+                                                           LineHeight="16"
+                                                           Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                           TextWrapping="Wrap"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Tags}"
+                                                           Margin="0,2,0,0"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           LineHeight="16"
+                                                           Foreground="{DynamicResource Perelegans.AccentBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <ItemsControl ItemsSource="{Binding ContextMemories}"
+                                          Visibility="{Binding IsMemoryNodeLayer, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Canvas Width="920" Height="640"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemContainerStyle>
+                                    <Style TargetType="ContentPresenter">
+                                        <Setter Property="Canvas.Left" Value="{Binding X}"/>
+                                        <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+                                    </Style>
+                                </ItemsControl.ItemContainerStyle>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="156"
                                                 Padding="4"
                                                 Background="Transparent"
                                                 Cursor="Hand"
@@ -1128,57 +1428,69 @@
                                                     </BeginStoryboard>
                                                 </EventTrigger>
                                             </Border.Triggers>
-                                        <StackPanel Width="160">
-                                            <Grid Width="{Binding NodeSize}"
-                                                  Height="{Binding NodeSize}"
-                                                  HorizontalAlignment="Left">
-                                                <Ellipse x:Name="NodeRing"
-                                                         Fill="Transparent"
-                                                         Stroke="{DynamicResource Perelegans.AccentBrush}"
-                                                         StrokeThickness="1"
-                                                         Opacity="0.5"/>
-                                                <Ellipse x:Name="NodeCore"
-                                                         Margin="4"
-                                                         Fill="{DynamicResource Perelegans.AccentBrush}">
-                                                    <Ellipse.Effect>
-                                                        <DropShadowEffect BlurRadius="14"
-                                                                          ShadowDepth="0"
-                                                                          Opacity="0.45"
-                                                                          Color="#DFA8B5"/>
-                                                    </Ellipse.Effect>
-                                                </Ellipse>
-                                            </Grid>
-                                            <TextBlock Text="{Binding TypeText}"
-                                                       Margin="0,6,0,0"
-                                                       FontSize="12"
-                                                       FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding Title}"
-                                                       Margin="0,2,0,0"
-                                                       FontSize="11"
-                                                       TextWrapping="Wrap"
-                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
-                                            <TextBlock Text="{Binding ConstellationName}"
-                                                       Margin="0,3,0,0"
-                                                       FontSize="10"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"/>
-                                            <TextBlock Text="{Binding InsightMetaText}"
-                                                       Margin="0,2,0,0"
-                                                       FontSize="10"
-                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
-                                            <TextBlock Text="{Binding Preview}"
-                                                       Margin="0,2,0,0"
-                                                       FontSize="10"
-                                                       TextWrapping="Wrap"
-                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
-                                            <TextBlock x:Name="RewardText"
-                                                       Text="{Binding Tags}"
-                                                       Margin="0,3,0,0"
-                                                       FontSize="10"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"/>
-                                        </StackPanel>
+                                            <StackPanel Width="148"
+                                                        Opacity="{Binding VisualOpacity}">
+                                                <Grid Width="{Binding NodeSize}"
+                                                      Height="{Binding NodeSize}"
+                                                      HorizontalAlignment="Left">
+                                                    <Ellipse x:Name="NodeRing"
+                                                             Fill="Transparent"
+                                                             StrokeThickness="1"
+                                                             Opacity="0.5">
+                                                        <Ellipse.Style>
+                                                            <Style TargetType="Ellipse">
+                                                                <Setter Property="Stroke" Value="{DynamicResource Perelegans.AccentBrush}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsLowWeight}" Value="True">
+                                                                        <Setter Property="Stroke" Value="#FF929292"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Ellipse.Style>
+                                                    </Ellipse>
+                                                    <Ellipse x:Name="NodeCore"
+                                                             Margin="4">
+                                                        <Ellipse.Style>
+                                                            <Style TargetType="Ellipse">
+                                                                <Setter Property="Fill" Value="{DynamicResource Perelegans.AccentBrush}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsLowWeight}" Value="True">
+                                                                        <Setter Property="Fill" Value="#FF8D8D8D"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Ellipse.Style>
+                                                        <Ellipse.Effect>
+                                                            <DropShadowEffect BlurRadius="14"
+                                                                              ShadowDepth="0"
+                                                                              Opacity="0.45"
+                                                                              Color="#DFA8B5"/>
+                                                        </Ellipse.Effect>
+                                                    </Ellipse>
+                                                </Grid>
+                                                <TextBlock Text="{Binding TypeText}"
+                                                           Margin="0,4,0,0"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"
+                                                           LineHeight="16"
+                                                           Foreground="{DynamicResource Perelegans.ForegroundBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Preview}"
+                                                           Margin="0,1,0,0"
+                                                           MaxHeight="34"
+                                                           FontSize="12"
+                                                           LineHeight="16"
+                                                           Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                           TextWrapping="Wrap"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Tags}"
+                                                           Margin="0,2,0,0"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           LineHeight="16"
+                                                           Foreground="{DynamicResource Perelegans.AccentBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -1193,7 +1505,7 @@
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Visibility" Value="Collapsed"/>
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ContextMemories.Count}" Value="0">
+                                            <DataTrigger Binding="{Binding IsGalaxyEmpty}" Value="True">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -1210,7 +1522,7 @@
                                 BorderThickness="1"
                                 Visibility="{Binding IsFishbonePreviewMode, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Disabled">
+                                          HorizontalScrollBarVisibility="Auto">
                                 <StackPanel>
                                     <DockPanel Margin="0,0,0,22">
                                         <StackPanel DockPanel.Dock="Left">
@@ -1227,106 +1539,162 @@
                                                    Opacity="0.9"/>
                                     </DockPanel>
 
-                                    <ItemsControl ItemsSource="{Binding FishboneBranches}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid MinHeight="118"
-                                                      Margin="0,0,0,18">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="82"/>
-                                                        <ColumnDefinition Width="62"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
+                                    <Canvas Width="2460"
+                                            Height="540">
+                                        <Rectangle Canvas.Left="34"
+                                                   Canvas.Top="268"
+                                                   Width="2350"
+                                                   Height="2"
+                                                   Fill="{DynamicResource Perelegans.BorderBrush}"
+                                                   Opacity="0.86"/>
+                                        <Polygon Points="2384,258 2418,269 2384,280"
+                                                 Fill="{DynamicResource Perelegans.AccentBrush}"
+                                                 Opacity="0.82"/>
 
-                                                    <Grid Grid.Column="0">
-                                                        <Border Width="48"
-                                                                Height="48"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center"
-                                                                Background="{DynamicResource Perelegans.PanelBackground}"
-                                                                BorderBrush="{DynamicResource Perelegans.AccentBrush}"
-                                                                BorderThickness="1">
-                                                            <TextBlock Text="{Binding BranchNumber}"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center"
-                                                                       FontSize="16"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"/>
-                                                        </Border>
-                                                    </Grid>
-
-                                                    <Grid Grid.Column="1">
-                                                        <Rectangle Width="1.4"
-                                                                   HorizontalAlignment="Center"
+                                        <ItemsControl ItemsSource="{Binding FishboneBranches}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <Canvas Width="2460"
+                                                            Height="540"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemContainerStyle>
+                                                <Style TargetType="ContentPresenter">
+                                                    <Setter Property="Canvas.Left" Value="{Binding BranchX}"/>
+                                                    <Setter Property="Canvas.Top" Value="0"/>
+                                                </Style>
+                                            </ItemsControl.ItemContainerStyle>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Canvas Width="320"
+                                                            Height="540"
+                                                            Opacity="{Binding VisualOpacity}">
+                                                        <Rectangle x:Name="BranchRib"
+                                                                   Canvas.Left="0"
+                                                                   Canvas.Top="268"
+                                                                   Width="156"
+                                                                   Height="2"
                                                                    Fill="{DynamicResource Perelegans.BorderBrush}"
-                                                                   Opacity="0.86"/>
-                                                        <Rectangle Height="1.4"
-                                                                   Margin="31,0,0,0"
-                                                                   VerticalAlignment="Center"
-                                                                   Fill="{DynamicResource Perelegans.BorderBrush}"
-                                                                   Opacity="0.86"/>
-                                                        <Ellipse Width="10"
-                                                                 Height="10"
-                                                                 HorizontalAlignment="Center"
-                                                                 VerticalAlignment="Center"
+                                                                   Opacity="0.9"
+                                                                   RenderTransformOrigin="0,0.5">
+                                                            <Rectangle.RenderTransform>
+                                                                <RotateTransform Angle="{Binding RibAngle}"/>
+                                                            </Rectangle.RenderTransform>
+                                                        </Rectangle>
+                                                        <Ellipse x:Name="BranchDot"
+                                                                 Canvas.Left="-5"
+                                                                 Canvas.Top="263"
+                                                                 Width="12"
+                                                                 Height="12"
                                                                  Fill="{DynamicResource Perelegans.AccentBrush}"/>
-                                                    </Grid>
 
-                                                    <Border Grid.Column="2"
-                                                            Padding="14,12"
-                                                            VerticalAlignment="Center"
-                                                            Background="{DynamicResource Perelegans.PanelBackground}"
-                                                            BorderBrush="{DynamicResource Perelegans.BorderBrush}"
-                                                            BorderThickness="1">
-                                                        <Grid>
-                                                            <Grid.RowDefinitions>
-                                                                <RowDefinition Height="Auto"/>
-                                                                <RowDefinition Height="Auto"/>
-                                                                <RowDefinition Height="Auto"/>
-                                                            </Grid.RowDefinitions>
+                                                        <Border x:Name="BranchCard"
+                                                                Canvas.Left="74"
+                                                                Canvas.Top="{Binding CardTop}"
+                                                                Width="230"
+                                                                Padding="10,9"
+                                                                Background="{DynamicResource Perelegans.PanelBackground}"
+                                                                BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                                                BorderThickness="1">
                                                             <Grid>
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="*"/>
-                                                                    <ColumnDefinition Width="Auto"/>
-                                                                </Grid.ColumnDefinitions>
-                                                                <TextBlock Text="{Binding Title}"
-                                                                           FontSize="14"
-                                                                           FontWeight="SemiBold"
-                                                                           TextTrimming="CharacterEllipsis"/>
-                                                                <Border Grid.Column="1"
-                                                                        MinWidth="74"
-                                                                        Margin="12,0,0,0"
-                                                                        Padding="7,2"
-                                                                        BorderBrush="{DynamicResource Perelegans.AccentBrush}"
-                                                                        BorderThickness="1">
-                                                                    <TextBlock Text="{Binding MetaText}"
-                                                                               FontSize="10"
-                                                                               Foreground="{DynamicResource Perelegans.AccentBrush}"
-                                                                               TextAlignment="Center"/>
-                                                                </Border>
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                    <RowDefinition Height="Auto"/>
+                                                                </Grid.RowDefinitions>
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock x:Name="BranchTitleText"
+                                                                               Text="{Binding Title}"
+                                                                               FontSize="13"
+                                                                               FontWeight="SemiBold"
+                                                                               TextTrimming="CharacterEllipsis"/>
+                                                                    <Border x:Name="BranchMetaPill"
+                                                                            Grid.Column="1"
+                                                                            MinWidth="48"
+                                                                            Margin="8,0,0,0"
+                                                                            Padding="5,1"
+                                                                            BorderBrush="{DynamicResource Perelegans.AccentBrush}"
+                                                                            BorderThickness="1">
+                                                                        <TextBlock x:Name="BranchMetaText"
+                                                                                   Text="{Binding MetaText}"
+                                                                                   FontSize="9"
+                                                                                   Foreground="{DynamicResource Perelegans.AccentBrush}"
+                                                                                   TextAlignment="Center"/>
+                                                                    </Border>
+                                                                </Grid>
+
+                                                                <ScrollViewer Grid.Row="1"
+                                                                              Margin="0,8,0,0"
+                                                                              MaxHeight="132"
+                                                                              VerticalScrollBarVisibility="Auto"
+                                                                              HorizontalScrollBarVisibility="Disabled">
+                                                                    <ItemsControl ItemsSource="{Binding Memories}">
+                                                                        <ItemsControl.ItemsPanel>
+                                                                            <ItemsPanelTemplate>
+                                                                                <StackPanel/>
+                                                                            </ItemsPanelTemplate>
+                                                                        </ItemsControl.ItemsPanel>
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate>
+                                                                                <Button Command="{Binding DataContext.SelectGalaxyTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type mah:MetroWindow}}}"
+                                                                                        CommandParameter="{Binding Memory}"
+                                                                                        Cursor="Hand"
+                                                                                        Margin="0,0,0,5"
+                                                                                        Padding="7,5"
+                                                                                        Background="Transparent"
+                                                                                        BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                                                                        BorderThickness="1"
+                                                                                        HorizontalContentAlignment="Stretch"
+                                                                                        Opacity="{Binding VisualOpacity}">
+                                                                                    <StackPanel>
+                                                                                        <TextBlock Text="{Binding Title}"
+                                                                                                   FontSize="11"
+                                                                                                   FontWeight="SemiBold"
+                                                                                                   Foreground="{DynamicResource Perelegans.ForegroundBrush}"
+                                                                                                   TextTrimming="CharacterEllipsis"/>
+                                                                                        <TextBlock Text="{Binding StatusText}"
+                                                                                                   Margin="0,2,0,0"
+                                                                                                   FontSize="10"
+                                                                                                   Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                                                                   TextTrimming="CharacterEllipsis"/>
+                                                                                    </StackPanel>
+                                                                                </Button>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                </ScrollViewer>
+
+                                                                <TextBlock x:Name="BranchTagsText"
+                                                                           Grid.Row="2"
+                                                                           Text="{Binding Tags}"
+                                                                           Margin="0,3,0,0"
+                                                                           MaxHeight="28"
+                                                                           TextWrapping="Wrap"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           Foreground="{DynamicResource Perelegans.AccentBrush}"
+                                                                           FontSize="10"/>
                                                             </Grid>
-                                                            <TextBlock Grid.Row="1"
-                                                                       Text="{Binding Items}"
-                                                                       Margin="0,8,0,0"
-                                                                       MaxHeight="42"
-                                                                       TextWrapping="Wrap"
-                                                                       TextTrimming="CharacterEllipsis"
-                                                                       Foreground="{DynamicResource Perelegans.ForegroundBrush}"
-                                                                       FontSize="12"/>
-                                                            <TextBlock Grid.Row="2"
-                                                                       Text="{Binding Tags}"
-                                                                       Margin="0,7,0,0"
-                                                                       MaxHeight="32"
-                                                                       TextWrapping="Wrap"
-                                                                       TextTrimming="CharacterEllipsis"
-                                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"
-                                                                       FontSize="11"/>
-                                                        </Grid>
-                                                    </Border>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                                        </Border>
+                                                    </Canvas>
+                                                    <DataTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsLowWeight}" Value="True">
+                                                            <Setter TargetName="BranchRib" Property="Fill" Value="#FF9A9A9A"/>
+                                                            <Setter TargetName="BranchDot" Property="Fill" Value="#FF8E8E8E"/>
+                                                            <Setter TargetName="BranchCard" Property="BorderBrush" Value="#FF9A9A9A"/>
+                                                            <Setter TargetName="BranchTitleText" Property="Foreground" Value="#FF777777"/>
+                                                            <Setter TargetName="BranchMetaPill" Property="BorderBrush" Value="#FF9A9A9A"/>
+                                                            <Setter TargetName="BranchMetaText" Property="Foreground" Value="#FF777777"/>
+                                                            <Setter TargetName="BranchTagsText" Property="Foreground" Value="#FF8E8E8E"/>
+                                                        </DataTrigger>
+                                                    </DataTemplate.Triggers>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Canvas>
                                 </StackPanel>
                             </ScrollViewer>
                         </Border>
@@ -1340,6 +1708,55 @@
                             <ScrollViewer VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
                             <StackPanel>
+                                <Border Margin="0,0,0,14"
+                                        Padding="10"
+                                        Background="{DynamicResource Perelegans.WindowBackground}"
+                                        BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                        BorderThickness="1"
+                                        Visibility="{Binding HasPendingMemories, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding PendingMemoryCountText}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="AI 发现的线索会先停在这里，确认后才进入星图。"
+                                                   Margin="0,4,0,8"
+                                                   TextWrapping="Wrap"
+                                                   Style="{StaticResource QuietTextStyle}"/>
+                                        <ListBox ItemsSource="{Binding PendingContextMemories}"
+                                                 SelectedItem="{Binding SelectedGalaxyMemory, Mode=TwoWay}"
+                                                 MaxHeight="132"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 Foreground="{DynamicResource Perelegans.ForegroundBrush}">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="!"
+                                                                   Margin="0,0,8,0"
+                                                                   FontSize="15"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="{DynamicResource Perelegans.AccentBrush}"/>
+                                                        <StackPanel Grid.Column="1">
+                                                            <TextBlock Text="{Binding Title}"
+                                                                       FontWeight="SemiBold"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding Preview}"
+                                                                       Margin="0,2,0,0"
+                                                                       FontSize="11"
+                                                                       TextWrapping="Wrap"
+                                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </StackPanel>
+                                </Border>
+
                                 <TextBlock Text="{i18n:Translate Main_GalaxyEditTitle}"
                                            FontSize="15"
                                            FontWeight="SemiBold"/>
@@ -1365,6 +1782,24 @@
                                          VerticalContentAlignment="Center"
                                          IsEnabled="{Binding HasSelectedGalaxyTask}"
                                          Text="{Binding GalaxyEditCreatedAtText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <TextBlock Text="标签"
+                                           Style="{StaticResource QuietTextStyle}"/>
+                                <TextBox Margin="0,5,0,12"
+                                         Height="32"
+                                         Padding="8,0"
+                                         VerticalContentAlignment="Center"
+                                         IsEnabled="{Binding HasSelectedGalaxyTask}"
+                                         Text="{Binding GalaxyEditTags, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                <TextBlock Text="分组"
+                                           Style="{StaticResource QuietTextStyle}"/>
+                                <ComboBox Margin="0,5,0,12"
+                                          Height="32"
+                                          IsEditable="True"
+                                          IsEnabled="{Binding HasSelectedGalaxyTask}"
+                                          Text="{Binding GalaxyEditGroup, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          ItemsSource="{Binding AvailableGalaxyGroups}"/>
 
                                 <CheckBox Content="{i18n:Translate Main_GalaxyTaskCompleted}"
                                           Margin="0,2,0,8"
@@ -1411,6 +1846,24 @@
                                            Margin="0,0,0,16"
                                            FontSize="11"
                                            Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+
+                                <Grid Margin="0,0,0,8"
+                                      Visibility="{Binding HasSelectedPendingMemory, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button Content="确认进入星图"
+                                            Command="{Binding ConfirmSelectedMemoryCommand}"
+                                            HorizontalContentAlignment="Center"
+                                            Style="{StaticResource AccentLineButtonStyle}"/>
+                                    <Button Grid.Column="2"
+                                            Content="忽略"
+                                            Command="{Binding RejectSelectedMemoryCommand}"
+                                            HorizontalContentAlignment="Center"
+                                            Style="{StaticResource LineButtonStyle}"/>
+                                </Grid>
 
                                 <Button Content="{i18n:Translate Main_GalaxyTaskSave}"
                                         Command="{Binding SaveGalaxyTaskCommand}"

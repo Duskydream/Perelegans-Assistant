@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
@@ -13,6 +14,7 @@ public partial class FloatingPetWindow : Window
     private const int DefaultSpriteFrameHeight = 48;
     private const int DefaultSpriteFrameCount = 6;
     private const int DefaultSpriteFrameIntervalMs = 180;
+    private const int LegacySpriteFrameCount = 6;
     private static readonly Uri DefaultSpriteUri = new("pack://application:,,,/Images/Pet/pixel_cat_idle.png", UriKind.Absolute);
 
     private readonly DispatcherTimer _spriteTimer = new()
@@ -21,6 +23,9 @@ public partial class FloatingPetWindow : Window
     };
     private BitmapSource? _spriteSheet;
     private FloatingPetViewModel? _subscribedViewModel;
+    private bool _usingCustomSprite;
+    private string _currentPetMood = "idle";
+    private string _currentPetSkinId = PetSkinPresets.Pink;
     private int _spriteFrameIndex;
     private int _spriteFrameWidth = DefaultSpriteFrameWidth;
     private int _spriteFrameHeight = DefaultSpriteFrameHeight;
@@ -62,7 +67,7 @@ public partial class FloatingPetWindow : Window
         _spriteTimer.Tick -= OnSpriteTimerTick;
         DataContextChanged -= OnDataContextChanged;
         Loaded -= OnLoaded;
-        UnsubscribeFromSettingsChanged();
+        UnsubscribeFromViewModel();
 
         if (DataContext is IDisposable disposable)
         {
@@ -79,7 +84,7 @@ public partial class FloatingPetWindow : Window
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        UnsubscribeFromSettingsChanged();
+        UnsubscribeFromViewModel();
         SubscribeToCurrentViewModel();
         ReloadSpriteSheet();
     }
@@ -123,7 +128,7 @@ public partial class FloatingPetWindow : Window
         vm.PropertyChanged += OnViewModelPropertyChanged;
     }
 
-    private void UnsubscribeFromSettingsChanged()
+    private void UnsubscribeFromViewModel()
     {
         if (_subscribedViewModel == null)
         {
@@ -140,15 +145,21 @@ public partial class FloatingPetWindow : Window
         ReloadSpriteSheet();
     }
 
-    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(FloatingPetViewModel.CurrentPetSpritePose))
+        if (e.PropertyName == nameof(FloatingPetViewModel.CurrentPetSpritePose) && _usingCustomSprite)
         {
+            UpdateSpritePoseRow();
+            UpdateSpriteFrame();
             return;
         }
 
-        UpdateSpritePoseRow();
-        UpdateSpriteFrame();
+        if ((e.PropertyName == nameof(FloatingPetViewModel.PetMood) ||
+             e.PropertyName == nameof(FloatingPetViewModel.SelectedPetSkinId)) &&
+            !_usingCustomSprite)
+        {
+            ReloadSpriteSheet();
+        }
     }
 
     private void ReloadSpriteSheet()
@@ -157,28 +168,14 @@ public partial class FloatingPetWindow : Window
         _spriteFrameIndex = 0;
 
         var settings = _subscribedViewModel?.Settings;
-        _spriteFrameWidth = NormalizePositive(settings?.PetSpriteFrameWidth, DefaultSpriteFrameWidth);
-        _spriteFrameHeight = NormalizePositive(settings?.PetSpriteFrameHeight, DefaultSpriteFrameHeight);
-        _spriteFrameCount = NormalizePositive(settings?.PetSpriteFrameCount, DefaultSpriteFrameCount);
-        _spriteRowCount = NormalizePositive(settings?.PetSpriteRowCount, 1);
-        _spriteTimer.Interval = TimeSpan.FromMilliseconds(
-            NormalizePositive(settings?.PetSpriteFrameIntervalMs, DefaultSpriteFrameIntervalMs));
-
-        if (settings != null &&
-            !string.IsNullOrWhiteSpace(settings.PetSpritePath) &&
-            Uri.TryCreate(settings.PetSpritePath, UriKind.Absolute, out var customSpriteUri) &&
-            TryLoadPetSpriteSheet(customSpriteUri, out var customSprite) &&
-            IsSpriteSheetLargeEnough(customSprite, _spriteFrameWidth, _spriteFrameHeight, _spriteFrameCount, _spriteRowCount))
+        if (TryLoadCustomSprite(settings))
         {
-            _spriteSheet = customSprite;
+            _usingCustomSprite = true;
         }
         else
         {
-            _spriteFrameWidth = DefaultSpriteFrameWidth;
-            _spriteFrameHeight = DefaultSpriteFrameHeight;
-            _spriteFrameCount = DefaultSpriteFrameCount;
-            _spriteRowCount = 1;
-            _spriteSheet = LoadDefaultPetSpriteSheet();
+            _usingCustomSprite = false;
+            LoadPresetOrLegacySprite();
         }
 
         UpdateSpritePoseRow();
@@ -190,11 +187,104 @@ public partial class FloatingPetWindow : Window
         }
     }
 
+    private bool TryLoadCustomSprite(AppSettings? settings)
+    {
+        if (settings == null || string.IsNullOrWhiteSpace(settings.PetSpritePath))
+        {
+            return false;
+        }
+
+        var frameWidth = NormalizePositive(settings.PetSpriteFrameWidth, DefaultSpriteFrameWidth);
+        var frameHeight = NormalizePositive(settings.PetSpriteFrameHeight, DefaultSpriteFrameHeight);
+        var frameCount = NormalizePositive(settings.PetSpriteFrameCount, DefaultSpriteFrameCount);
+        var rowCount = NormalizePositive(settings.PetSpriteRowCount, 1);
+
+        if (!Uri.TryCreate(settings.PetSpritePath, UriKind.Absolute, out var customSpriteUri) ||
+            !TryLoadPetSpriteSheet(customSpriteUri, out var customSprite) ||
+            !IsSpriteSheetLargeEnough(customSprite, frameWidth, frameHeight, frameCount, rowCount))
+        {
+            return false;
+        }
+
+        _spriteFrameWidth = frameWidth;
+        _spriteFrameHeight = frameHeight;
+        _spriteFrameCount = frameCount;
+        _spriteRowCount = rowCount;
+        _spriteTimer.Interval = TimeSpan.FromMilliseconds(
+            NormalizePositive(settings.PetSpriteFrameIntervalMs, DefaultSpriteFrameIntervalMs));
+        _spriteSheet = customSprite;
+        return true;
+    }
+
+    private void LoadPresetOrLegacySprite()
+    {
+        _currentPetMood = _subscribedViewModel?.PetMood ?? "idle";
+        _currentPetSkinId = _subscribedViewModel?.SelectedPetSkinId ?? PetSkinPresets.Pink;
+        _spriteSheet = LoadPetSpriteSheet(_currentPetMood, _currentPetSkinId);
+        _spriteFrameCount = LegacySpriteFrameCount;
+        _spriteRowCount = 1;
+        _spritePoseRowIndex = 0;
+        _spriteFrameWidth = Math.Max(1, _spriteSheet.PixelWidth / LegacySpriteFrameCount);
+        _spriteFrameHeight = Math.Max(1, _spriteSheet.PixelHeight);
+        _spriteTimer.Interval = TimeSpan.FromMilliseconds(DefaultSpriteFrameIntervalMs);
+    }
+
+    private static BitmapSource LoadPetSpriteSheet(string mood, string skinId)
+    {
+        var normalizedSkinId = PetSkinPresets.Normalize(skinId);
+        var spriteMood = mood switch
+        {
+            "focus" or "coding" => "focus",
+            "sleep" => "sleep",
+            _ => "idle"
+        };
+
+        try
+        {
+            return LoadPackBitmap($"Images/Pet/Skins/{normalizedSkinId}_{spriteMood}.png");
+        }
+        catch
+        {
+            return LoadLegacyPetSpriteSheet(spriteMood);
+        }
+    }
+
+    private static BitmapSource LoadLegacyPetSpriteSheet(string mood)
+    {
+        var fileName = mood switch
+        {
+            "focus" => "pixel_cat_focus.png",
+            "sleep" => "pixel_cat_sleep.png",
+            _ => "pixel_cat_idle.png"
+        };
+
+        try
+        {
+            return LoadPackBitmap($"Images/Pet/{fileName}");
+        }
+        catch
+        {
+            return LoadDefaultPetSpriteSheet();
+        }
+    }
+
     private static BitmapSource LoadDefaultPetSpriteSheet()
     {
         return TryLoadPetSpriteSheet(DefaultSpriteUri, out var image)
             ? image
             : throw new InvalidOperationException("Default pet sprite could not be loaded.");
+    }
+
+    private static BitmapSource LoadPackBitmap(string path)
+    {
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.UriSource = new Uri($"pack://application:,,,/{path}", UriKind.Absolute);
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+        image.EndInit();
+        image.Freeze();
+        return image;
     }
 
     private static bool TryLoadPetSpriteSheet(Uri uri, out BitmapSource image)
@@ -221,6 +311,12 @@ public partial class FloatingPetWindow : Window
 
     private void UpdateSpritePoseRow()
     {
+        if (!_usingCustomSprite)
+        {
+            _spritePoseRowIndex = 0;
+            return;
+        }
+
         var settings = _subscribedViewModel?.Settings;
         var pose = _subscribedViewModel?.CurrentPetSpritePose ?? PetSpritePose.Idle;
         _spritePoseRowIndex = Math.Clamp(GetConfiguredPoseRow(settings, pose), 0, _spriteRowCount - 1);

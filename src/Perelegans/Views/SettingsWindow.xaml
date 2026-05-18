@@ -575,11 +575,73 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="14"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="14"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Text="{i18n:Translate Settings_LaunchAtStartup}" Style="{StaticResource FieldLabelStyle}"/>
                             <CheckBox Grid.Row="0" Grid.Column="1" IsChecked="{Binding LaunchAtStartup, Mode=TwoWay}" VerticalAlignment="Center"/>
                             <TextBlock Grid.Row="2" Text="{i18n:Translate Settings_CloseBehavior}" Style="{StaticResource FieldLabelStyle}"/>
                             <ComboBox Grid.Row="2" Grid.Column="1" Style="{StaticResource SettingsComboBoxStyle}" ItemsSource="{Binding CloseBehaviorOptions}" ItemTemplate="{StaticResource OptionLabelTemplate}" SelectedValuePath="Value" SelectedValue="{Binding SelectedCloseBehavior, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="4" Text="Coding clients:" Style="{StaticResource FieldLabelStyle}"/>
+                            <StackPanel Grid.Row="4" Grid.Column="1">
+                                <CheckBox Content="Enable coding client monitor"
+                                          IsChecked="{Binding CodingClientMonitorEnabled, Mode=TwoWay}"
+                                          VerticalAlignment="Center"/>
+                                <CheckBox Content="Codex Desktop"
+                                          Margin="0,9,0,0"
+                                          IsChecked="{Binding CodexDesktopMonitorEnabled, Mode=TwoWay}"
+                                          IsEnabled="{Binding CodingClientMonitorEnabled}"
+                                          VerticalAlignment="Center"/>
+                                <CheckBox Content="Claude Desktop"
+                                          Margin="0,9,0,0"
+                                          IsChecked="{Binding ClaudeDesktopMonitorEnabled, Mode=TwoWay}"
+                                          IsEnabled="{Binding CodingClientMonitorEnabled}"
+                                          VerticalAlignment="Center"/>
+                                <TextBlock Text="Uses client process activity, local state timestamps, Windows notifications, and active workspace file changes when available."
+                                           Margin="0,8,0,0"
+                                           TextWrapping="Wrap"
+                                           Style="{StaticResource QuietTextStyle}"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="专注应用规则"
+                                   Margin="0,20,0,8"
+                                   Style="{StaticResource FieldLabelStyle}"/>
+                        <TextBox MinHeight="92"
+                                 FontSize="13"
+                                 Padding="10,8"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 Text="{Binding ProductiveProcessRules, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Text="每行一个进程名、窗口标题关键词或路径关键词；命中后会作为专注/生产力信号。"
+                                   Margin="0,8,0,0"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource QuietTextStyle}"/>
+                        <Grid Margin="0,18,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="120"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="离开多久生成断点"
+                                       VerticalAlignment="Center"
+                                       Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Grid.Column="1"
+                                     Height="34"
+                                     Padding="8,0"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding BreakpointIdleThresholdMinutes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Column="3"
+                                       Text="回来多久弹出恢复"
+                                       VerticalAlignment="Center"
+                                       Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Grid.Column="4"
+                                     Height="34"
+                                     Padding="8,0"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding BreakpointReturnThresholdSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         </Grid>
                     </StackPanel>
                 </Border>

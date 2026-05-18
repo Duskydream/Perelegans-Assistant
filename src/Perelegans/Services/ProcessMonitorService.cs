@@ -13,7 +13,7 @@ public class ProcessMonitorService
 {
     private readonly DatabaseService _dbService;
     private readonly DispatcherTimer _timer;
-    private readonly HashSet<string> _productivityProcessNames = new(StringComparer.OrdinalIgnoreCase)
+    private HashSet<string> _productivityRules = new(StringComparer.OrdinalIgnoreCase)
     {
         "Code",
         "devenv",
@@ -48,6 +48,20 @@ public class ProcessMonitorService
     public void SetInterval(int seconds)
     {
         _timer.Interval = TimeSpan.FromSeconds(Math.Max(1, seconds));
+    }
+
+    public void SetProductivityRules(string rules)
+    {
+        var parsed = rules
+            .Split(['\r', '\n', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(rule => rule.Trim())
+            .Where(rule => !string.IsNullOrWhiteSpace(rule))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (parsed.Count > 0)
+        {
+            _productivityRules = parsed;
+        }
     }
 
     public void Start()
@@ -103,7 +117,7 @@ public class ProcessMonitorService
 
             var executablePath = NormalizeExecutablePath(TryGetExecutablePath(process));
             var windowTitle = NormalizeWindowTitle(TryGetForegroundWindowTitle());
-            var isProductivityApp = _productivityProcessNames.Contains(processName);
+            var isProductivityApp = IsKnownProductivityApp(processName, executablePath, windowTitle);
 
             if (_foregroundFocusSession == null ||
                 _foregroundFocusSession.ProcessId != process.Id ||
@@ -293,6 +307,15 @@ public class ProcessMonitorService
         return string.IsNullOrWhiteSpace(title)
             ? string.Empty
             : title.Trim();
+    }
+
+    private bool IsKnownProductivityApp(string processName, string executablePath, string windowTitle)
+    {
+        return _productivityRules.Any(rule =>
+            string.Equals(processName, rule, StringComparison.OrdinalIgnoreCase) ||
+            processName.Contains(rule, StringComparison.OrdinalIgnoreCase) ||
+            executablePath.Contains(rule, StringComparison.OrdinalIgnoreCase) ||
+            windowTitle.Contains(rule, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string TryGetForegroundWindowTitle()

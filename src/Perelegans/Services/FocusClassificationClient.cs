@@ -232,15 +232,15 @@ public sealed class FocusClassificationClient
 
         var prompt =
             "你是 Perelegans 的本地记忆复盘层，也是用户可靠、亲近的陪伴助手。请把任务星点、本地记忆星图和最近24小时 Win32 进程切换行为合并分析，生成简短日报。\n" +
-            "不要使用 RPG 或游戏叙事。不要说教。不要写成冷冰冰的统计报表。把窗口/进程切换当作系统自然生长出的上下文信号，推测用户真正推进了什么、卡在哪里、下一步最小动作是什么。\n" +
-            "特别关注 plan 记忆的完成状态：未完成 plan 权重更高，已完成 plan 作为产出证据。\n" +
-            "结构要清楚，但语气要温暖、具体、有支撑感。encouragement 字段请写 1-2 句鼓励/安慰：承认今天真实发生过的努力，不夸张，不空泛，不否定疲惫。\n\n" +
+            "不要使用 RPG 或游戏叙事。不要说教。不要写成冷冰冰的统计报表。把窗口/进程切换当作上下文线索，轻轻指出用户今天真正推进过什么、哪里可能有消耗。\n" +
+            "不要替用户安排明天的计划，不要输出命令式 next action。suggestedNextAction 字段请写成一个自然、亲和的问题，引导用户自己决定下一步，例如询问明天开场想先从哪件事开始。\n" +
+            "结构要清楚，但语气要像熟悉的伙伴在桌边复盘：温和、具体、有支撑感。encouragement 字段请写 1-2 句鼓励/安慰：承认今天真实发生过的努力，不夸张，不空泛，不否定疲惫。避免固定口头禅和重复短语。\n\n" +
             $"当前专注目标：{NormalizeFocusGoal(_settingsService.Settings.FocusGoal)}\n" +
             "今日任务：\n" + string.Join('\n', taskLines) + "\n\n" +
             "本地记忆星图：\n" + string.Join('\n', memoryLines) + "\n\n" +
             "最近24小时进程切换聚合：\n" + string.Join('\n', appLines) + "\n\n" +
             "必须只返回 JSON，不要 Markdown，不要解释。格式：\n" +
-            "{\"encouragement\":\"今天不是只有数字在变化，你确实把注意力落在了写作和开发上。哪怕中间有切换，也已经留下了可以继续接住的线索。\",\"review\":\"今天主要推进了论文摘要和代码验证，专注信号集中在写作与开发。\",\"highlights\":[\"完成论文摘要初稿\",\"WPF 星图交互推进明显\"],\"risks\":[\"任务颗粒度仍偏大\"],\"suggestedNextAction\":\"明天先用 15 分钟把星图删除流程手动测一遍。\"}";
+            "{\"encouragement\":\"今天不只是窗口在切换，你确实把注意力落到了一些具体的事情上。就算节奏有点断，也已经留下了可以继续推进的线索。\",\"review\":\"今天主要在写作和代码验证之间来回推进，比较像是在把想法和实现慢慢对齐。\",\"highlights\":[\"论文摘要有推进\",\"WPF 桌宠和统计界面继续变清晰\"],\"risks\":[\"有些任务可能还没有被拆到足够轻\"],\"suggestedNextAction\":\"如果明天只选一个开场动作，你更想先从哪件事开始？\"}";
 
         var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 700);
         return string.IsNullOrWhiteSpace(content)
@@ -397,75 +397,6 @@ public sealed class FocusClassificationClient
         }
 
         return TryDeserializeJson<FocusAssessmentResult>(content);
-    }
-
-    public async Task<ScreenContextAssessmentResult?> AssessScreenAsync(
-        string imageBase64,
-        CancellationToken cancellationToken = default)
-    {
-        if (!IsConfigured ||
-            string.IsNullOrWhiteSpace(imageBase64) ||
-            !Uri.TryCreate(_settingsService.Settings.AiApiBaseUrl.Trim(), UriKind.Absolute, out var baseUri))
-        {
-            return null;
-        }
-
-        var requestUri = BuildChatCompletionsUri(baseUri);
-        using var request = new HttpRequestMessage(HttpMethod.Post, requestUri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settingsService.Settings.AiApiKey.Trim());
-
-        var focusGoal = NormalizeFocusGoal(_settingsService.Settings.FocusGoal);
-        var screenPrompt =
-            "请判断这张桌面截图是否体现专注、学习、创作、开发、阅读、写作或其他生产力工作状态。\n" +
-            $"当前专注目标：{focusGoal}\n" +
-            "如果截图内容明显有助于该目标或通用专注工作，isDeepWork 为 true；如果更像娱乐视频、社交闲逛、游戏、无目的浏览或明显分心，isDeepWork 为 false。\n" +
-            "只返回 JSON，不要 Markdown，不要解释。格式：{\"isDeepWork\":true,\"reason\":\"...\",\"message\":\"...\",\"confidence\":0.0}";
-
-        var payload = new
-        {
-            model = _settingsService.Settings.AiModel.Trim(),
-            temperature = 0.2,
-            max_tokens = 300,
-            response_format = new { type = "json_object" },
-            messages = new object[]
-            {
-                new
-                {
-                    role = "system",
-                    content = "You are a strict desktop focus-state classifier. Return JSON only."
-                },
-                new
-                {
-                    role = "user",
-                    content = new object[]
-                    {
-                        new
-                        {
-                            type = "text",
-                            text = screenPrompt
-                        },
-                        new
-                        {
-                            type = "image_url",
-                            image_url = new { url = $"data:image/jpeg;base64,{imageBase64}" }
-                        }
-                    }
-                }
-            }
-        };
-
-        request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(RequestTimeout);
-        using var response = await _httpClient.SendAsync(request, timeoutCts.Token);
-        var body = await response.Content.ReadAsStringAsync(timeoutCts.Token);
-        response.EnsureSuccessStatusCode();
-
-        var content = ExtractOpenAiContent(body);
-        return string.IsNullOrWhiteSpace(content)
-            ? null
-            : TryDeserializeJson<ScreenContextAssessmentResult>(content);
     }
 
     public static string BuildProductivityPrompt(string processName, TimeSpan duration, string? focusGoal)

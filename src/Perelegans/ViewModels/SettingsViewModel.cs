@@ -49,6 +49,24 @@ public partial class SettingsViewModel : ObservableObject
     private AppCloseBehavior _selectedCloseBehavior;
 
     [ObservableProperty]
+    private bool _codingClientMonitorEnabled;
+
+    [ObservableProperty]
+    private bool _codexDesktopMonitorEnabled;
+
+    [ObservableProperty]
+    private bool _claudeDesktopMonitorEnabled;
+
+    [ObservableProperty]
+    private string _productiveProcessRules = string.Empty;
+
+    [ObservableProperty]
+    private int _breakpointIdleThresholdMinutes;
+
+    [ObservableProperty]
+    private int _breakpointReturnThresholdSeconds;
+
+    [ObservableProperty]
     private AiProvider _selectedAiProvider;
 
     [ObservableProperty]
@@ -224,6 +242,12 @@ public partial class SettingsViewModel : ObservableObject
         SelectedLanguage = TranslationService.NormalizeLanguageCode(s.Language);
         LaunchAtStartup = s.LaunchAtStartup;
         SelectedCloseBehavior = s.CloseBehavior;
+        CodingClientMonitorEnabled = s.CodingClientMonitorEnabled;
+        CodexDesktopMonitorEnabled = s.CodexDesktopMonitorEnabled;
+        ClaudeDesktopMonitorEnabled = s.ClaudeDesktopMonitorEnabled;
+        ProductiveProcessRules = s.ProductiveProcessRules;
+        BreakpointIdleThresholdMinutes = s.BreakpointIdleThresholdMinutes;
+        BreakpointReturnThresholdSeconds = s.BreakpointReturnThresholdSeconds;
         SelectedAiProvider = s.AiProvider;
         AiApiBaseUrl = s.AiApiBaseUrl;
         AiApiKey = s.AiApiKey;
@@ -505,6 +529,12 @@ public partial class SettingsViewModel : ObservableObject
         s.Language = TranslationService.NormalizeLanguageCode(SelectedLanguage);
         s.LaunchAtStartup = LaunchAtStartup;
         s.CloseBehavior = SelectedCloseBehavior;
+        s.CodingClientMonitorEnabled = CodingClientMonitorEnabled;
+        s.CodexDesktopMonitorEnabled = CodexDesktopMonitorEnabled;
+        s.ClaudeDesktopMonitorEnabled = ClaudeDesktopMonitorEnabled;
+        s.ProductiveProcessRules = ProductiveProcessRules.Trim();
+        s.BreakpointIdleThresholdMinutes = Math.Clamp(BreakpointIdleThresholdMinutes, 1, 240);
+        s.BreakpointReturnThresholdSeconds = Math.Clamp(BreakpointReturnThresholdSeconds, 1, 120);
         s.AiProvider = SelectedAiProvider;
         s.AiApiBaseUrl = AiApiBaseUrl.Trim();
         s.AiApiKey = AiApiKey.Trim();
@@ -526,6 +556,7 @@ public partial class SettingsViewModel : ObservableObject
         s.PetSpriteBackgroundTolerance = petSpriteBackgroundTolerance;
         s.AutoSaveMemories = AutoSaveMemories;
         _settingsService.Save();
+        _processMonitor?.SetProductivityRules(s.ProductiveProcessRules);
         _themeService.ApplyTheme(s.Theme);
         TranslationService.Instance.ChangeLanguage(s.Language);
         _startupRegistrationService.SetEnabled(s.LaunchAtStartup);

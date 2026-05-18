@@ -8,18 +8,28 @@ namespace Perelegans.ViewModels;
 
 public partial class FloatingPetViewModel : ObservableObject, IDisposable
 {
+    private static readonly TimeSpan CodingClientCelebrationHold = TimeSpan.FromSeconds(3);
+
     private readonly ProcessMonitorService _processMonitor;
     private readonly FocusClassificationClient _focusClassificationClient;
     private readonly DatabaseService _databaseService;
     private readonly SettingsService _settingsService;
     private readonly FocusModeService _focusModeService;
     private readonly BreakpointSnapshotService _breakpointSnapshotService;
+    private readonly CodingClientMonitorService _codingClientMonitorService;
     private readonly Action _showDashboard;
+    private readonly Action _showMemoryReview;
     private readonly Action<BreakpointSnapshot> _showBreakpointSnapshot;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _timer;
+    private readonly DispatcherTimer _codingCelebrationTimer;
     private BreakpointSnapshot? _activeBreakpointSnapshot;
+    private CodingClientActivitySnapshot? _codingClientSnapshot;
+    private DateTime _codingClientCelebrationUntil = DateTime.MinValue;
+    private string _codingClientCelebrationMessage = string.Empty;
+    private bool _isAway;
+    private int _pendingMemoryCount;
 
     [ObservableProperty]
     private string _bubbleText = "Perelegans 正在待命";
@@ -39,7 +49,32 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private PetSpritePose _currentPetSpritePose = PetSpritePose.Idle;
 
+    [ObservableProperty]
+    private string _petMood = "idle";
+
+    [ObservableProperty]
+    private bool _showCodingKeyboard;
+
+    [ObservableProperty]
+    private bool _showQuestionBadge;
+
+    [ObservableProperty]
+    private bool _showCelebrationMarks;
+
+    [ObservableProperty]
+    private bool _hasPendingMemoryPrompt;
+
     public string BreakpointContinueText => "继续";
+
+    public string MemoryReviewText => _pendingMemoryCount <= 1 ? "查看" : $"查看 {_pendingMemoryCount}";
+
+    public string SelectedPetSkinId => PetSkinPresets.Normalize(_settingsService.Settings.FloatingPetSkinId);
+
+    public bool IsPinkPetSkinSelected => IsPetSkinSelected(PetSkinPresets.Pink);
+
+    public bool IsWhiteOddEyesPetSkinSelected => IsPetSkinSelected(PetSkinPresets.WhiteOddEyes);
+
+    public bool IsBlackPetSkinSelected => IsPetSkinSelected(PetSkinPresets.Black);
 
     public FloatingPetViewModel(
         ProcessMonitorService processMonitor,
@@ -48,7 +83,9 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         SettingsService settingsService,
         FocusModeService focusModeService,
         BreakpointSnapshotService breakpointSnapshotService,
+        CodingClientMonitorService codingClientMonitorService,
         Action showDashboard,
+        Action showMemoryReview,
         Action<BreakpointSnapshot> showBreakpointSnapshot,
         Action openSettings,
         Action exitApplication)
@@ -59,7 +96,9 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _settingsService = settingsService;
         _focusModeService = focusModeService;
         _breakpointSnapshotService = breakpointSnapshotService;
+        _codingClientMonitorService = codingClientMonitorService;
         _showDashboard = showDashboard;
+        _showMemoryReview = showMemoryReview;
         _showBreakpointSnapshot = showBreakpointSnapshot;
         _openSettings = openSettings;
         _exitApplication = exitApplication;
@@ -70,9 +109,16 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         };
         _timer.Tick += OnTimerTick;
         _timer.Start();
+        _codingCelebrationTimer = new DispatcherTimer
+        {
+            Interval = CodingClientCelebrationHold
+        };
+        _codingCelebrationTimer.Tick += OnCodingCelebrationTimerTick;
         _focusModeService.StateChanged += OnFocusModeStateChanged;
         _settingsService.SettingsChanged += OnSettingsChanged;
         _breakpointSnapshotService.BreakpointReady += OnBreakpointReady;
+        _breakpointSnapshotService.AwayDetected += OnAwayDetected;
+        _codingClientMonitorService.ActivityChanged += OnCodingClientActivityChanged;
 
         _ = SampleNowAsync();
     }
@@ -96,6 +142,13 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     public void SetPetSpritePose(PetSpritePose pose)
     {
         CurrentPetSpritePose = pose;
+        PetMood = pose switch
+        {
+            PetSpritePose.Paused => "sleep",
+            PetSpritePose.Focus => "focus",
+            PetSpritePose.Breakpoint => "question",
+            _ => "idle"
+        };
     }
 
     [RelayCommand]
@@ -122,8 +175,15 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         var snapshot = _activeBreakpointSnapshot;
         _activeBreakpointSnapshot = null;
         HasBreakpointPrompt = false;
-        CurrentPetSpritePose = PetSpritePose.Idle;
+        UpdatePetMood();
         _showBreakpointSnapshot(snapshot);
+    }
+
+    [RelayCommand]
+    private void OpenMemoryReview()
+    {
+        HasPendingMemoryPrompt = false;
+        _showMemoryReview();
     }
 
     [RelayCommand]
@@ -138,7 +198,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         if (_focusModeService.IsActive)
         {
             _focusModeService.Stop();
-            CurrentPetSpritePose = PetSpritePose.Idle;
+            UpdatePetMood();
             BubbleText = "专注模式已结束。";
             return;
         }
@@ -152,7 +212,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
         _focusModeService.Start(memory);
         SetMonitorEnabled(true);
-        CurrentPetSpritePose = PetSpritePose.Focus;
+        UpdatePetMood();
         BubbleText = $"已为「{memory.Title}」开启专注模式，我会轻轻提醒。";
     }
 
@@ -160,6 +220,20 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private void Exit()
     {
         _exitApplication();
+    }
+
+    [RelayCommand]
+    private void SelectPetSkin(string? skinId)
+    {
+        var normalized = PetSkinPresets.Normalize(skinId);
+        if (_settingsService.Settings.FloatingPetSkinId == normalized)
+        {
+            OnPetSkinSelectionChanged();
+            return;
+        }
+
+        _settingsService.Settings.FloatingPetSkinId = normalized;
+        _settingsService.Save();
     }
 
     private async void OnTimerTick(object? sender, EventArgs e)
@@ -175,21 +249,48 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
     private async Task ApplySnapshotAsync(ForegroundFocusSnapshot? snapshot)
     {
+        if (_isAway)
+        {
+            return;
+        }
+
         if (HasBreakpointPrompt)
         {
             return;
         }
 
+        var pendingCount = await _databaseService.GetPendingContextMemoryCountAsync();
+        if (pendingCount > 0 && !IsCodingClientSnapshotActive(_codingClientSnapshot))
+        {
+            _pendingMemoryCount = pendingCount;
+            OnPropertyChanged(nameof(MemoryReviewText));
+            HasPendingMemoryPrompt = true;
+            ResetCodingClientAdornments();
+            SetPetSpritePose(PetSpritePose.Breakpoint);
+            BubbleText = pendingCount == 1
+                ? "我发现 1 条可能值得留下的记忆，等你确认后再放进星图。"
+                : $"我发现 {pendingCount} 条候选记忆，等你确认后再放进星图。";
+            return;
+        }
+
+        HasPendingMemoryPrompt = false;
+
         if (!_settingsService.Settings.MonitorEnabled)
         {
-            CurrentPetSpritePose = PetSpritePose.Paused;
+            ResetCodingClientAdornments();
+            SetPetSpritePose(PetSpritePose.Paused);
             BubbleText = "Perelegans 先歇一会";
+            return;
+        }
+
+        if (TryApplyCodingClientSnapshot())
+        {
             return;
         }
 
         if (snapshot == null)
         {
-            CurrentPetSpritePose = PetSpritePose.Idle;
+            SetPetSpritePose(PetSpritePose.Idle);
             BubbleText = "正在等你打开下一个窗口";
             return;
         }
@@ -208,14 +309,14 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         var latestPlan = await _databaseService.GetLatestOpenPlanMemoryAsync();
         if (latestPlan != null && !snapshot.IsKnownProductivityApp && minutes >= 8)
         {
-            CurrentPetSpritePose = PetSpritePose.Distracted;
+            SetPetSpritePose(PetSpritePose.Distracted);
             BubbleText = $"如果你愿意，等会儿可以回到「{latestPlan.Title}」。我会在旁边安静记着。";
             return;
         }
 
-        CurrentPetSpritePose = snapshot.IsKnownProductivityApp
+        SetPetSpritePose(snapshot.IsKnownProductivityApp
             ? PetSpritePose.Productive
-            : PetSpritePose.Distracted;
+            : PetSpritePose.Distracted);
         BubbleText = snapshot.IsKnownProductivityApp
             ? $"{snapshot.ProcessName} 已陪你 {minutes} 分钟"
             : $"{snapshot.ProcessName} 停留 {minutes} 分钟";
@@ -226,21 +327,22 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         var relevant = IsProcessRelevantToFocus(snapshot.ProcessName, _focusModeService.TaskTags);
         if (relevant)
         {
-            CurrentPetSpritePose = PetSpritePose.Focus;
+            SetPetSpritePose(PetSpritePose.Focus);
             BubbleText = $"正在陪你推进「{_focusModeService.TaskTitle}」。";
             return;
         }
 
-        CurrentPetSpritePose = PetSpritePose.Distracted;
+        SetPetSpritePose(PetSpritePose.Distracted);
         BubbleText = minutes >= 3
             ? $"我先轻轻提醒一下：你在 {snapshot.ProcessName} 停了 {minutes} 分钟。要不要回到「{_focusModeService.TaskTitle}」？可以先做它的下一步。"
-            : $"专注模式中：「{_focusModeService.TaskTitle}」。";
+            : $"专注模式中：\n「{_focusModeService.TaskTitle}」。";
     }
 
     private void OnFocusModeStateChanged()
     {
         OnPropertyChanged(nameof(IsFocusModeActive));
         OnPropertyChanged(nameof(FocusModeMenuText));
+        UpdatePetMood();
         _ = SampleNowAsync();
     }
 
@@ -248,6 +350,47 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(IsMonitorEnabled));
         OnPropertyChanged(nameof(MonitorMenuText));
+        OnPetSkinSelectionChanged();
+        UpdatePetMood();
+        _ = SampleNowAsync();
+    }
+
+    private void OnCodingClientActivityChanged(CodingClientActivitySnapshot snapshot)
+    {
+        _codingClientSnapshot = snapshot;
+        if (snapshot.State == CodingClientActivityState.Idle)
+        {
+            if (TryApplyCodingClientSnapshot())
+            {
+                return;
+            }
+
+            ResetCodingClientAdornments();
+            UpdatePetMood();
+            _ = SampleNowAsync();
+            return;
+        }
+
+        if (_isAway || HasBreakpointPrompt || !_settingsService.Settings.MonitorEnabled)
+        {
+            return;
+        }
+
+        TryApplyCodingClientSnapshot();
+    }
+
+    private void OnCodingCelebrationTimerTick(object? sender, EventArgs e)
+    {
+        _codingCelebrationTimer.Stop();
+        _codingClientCelebrationUntil = DateTime.MinValue;
+        _codingClientCelebrationMessage = string.Empty;
+        if (_codingClientSnapshot?.State == CodingClientActivityState.Completed)
+        {
+            _codingClientSnapshot = null;
+        }
+
+        ResetCodingClientAdornments();
+        SetPetSpritePose(_focusModeService.IsActive ? PetSpritePose.Focus : PetSpritePose.Idle);
         _ = SampleNowAsync();
     }
 
@@ -262,19 +405,31 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         }
         else
         {
+            _focusModeService.Stop();
             _processMonitor.Stop();
         }
 
         OnPropertyChanged(nameof(IsMonitorEnabled));
         OnPropertyChanged(nameof(MonitorMenuText));
+        UpdatePetMood();
         _ = SampleNowAsync();
+    }
+
+    private void OnAwayDetected()
+    {
+        _isAway = true;
+        HasBreakpointPrompt = false;
+        ResetCodingClientAdornments();
+        SetPetSpritePose(PetSpritePose.Paused);
+        BubbleText = "我先替你守住刚才的思路，等你回来。";
     }
 
     private void OnBreakpointReady(BreakpointSnapshot snapshot)
     {
+        _isAway = false;
         _activeBreakpointSnapshot = snapshot;
         HasBreakpointPrompt = true;
-        CurrentPetSpritePose = PetSpritePose.Breakpoint;
+        SetPetSpritePose(PetSpritePose.Breakpoint);
         BubbleText = string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle)
             ? $"欢迎回来。你离开前停在 {snapshot.ProcessName}，要不要接着刚才的思路？"
             : $"欢迎回来。你离开前可能在推进「{snapshot.RelatedPlanTitle}」，要不要继续？";
@@ -316,6 +471,133 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         return false;
     }
 
+    private void UpdatePetMood()
+    {
+        if (_isAway)
+        {
+            ResetCodingClientAdornments();
+            SetPetSpritePose(PetSpritePose.Paused);
+            return;
+        }
+
+        if (!_settingsService.Settings.MonitorEnabled)
+        {
+            ResetCodingClientAdornments();
+            SetPetSpritePose(PetSpritePose.Paused);
+            return;
+        }
+
+        if (TryApplyCodingClientSnapshot())
+        {
+            return;
+        }
+
+        SetPetSpritePose(_focusModeService.IsActive ? PetSpritePose.Focus : PetSpritePose.Idle);
+    }
+
+    private bool TryApplyCodingClientSnapshot()
+    {
+        if (!IsCodingClientSnapshotActive(_codingClientSnapshot))
+        {
+            if (DateTime.Now <= _codingClientCelebrationUntil)
+            {
+                ShowCodingKeyboard = false;
+                ShowQuestionBadge = false;
+                ShowCelebrationMarks = true;
+                CurrentPetSpritePose = PetSpritePose.Productive;
+                PetMood = "celebrate";
+                BubbleText = _codingClientCelebrationMessage;
+                return true;
+            }
+
+            ResetCodingClientAdornments();
+            return false;
+        }
+
+        ShowCodingKeyboard = false;
+        ShowQuestionBadge = false;
+        ShowCelebrationMarks = false;
+
+        switch (_codingClientSnapshot!.State)
+        {
+            case CodingClientActivityState.Coding:
+                _codingClientCelebrationUntil = DateTime.MinValue;
+                _codingCelebrationTimer.Stop();
+                CurrentPetSpritePose = PetSpritePose.Focus;
+                PetMood = "coding";
+                ShowCodingKeyboard = true;
+                BubbleText = _codingClientSnapshot.Message;
+                return true;
+            case CodingClientActivityState.WaitingForConfirmation:
+                _codingClientCelebrationUntil = DateTime.MinValue;
+                _codingCelebrationTimer.Stop();
+                CurrentPetSpritePose = PetSpritePose.Breakpoint;
+                PetMood = "question";
+                ShowQuestionBadge = true;
+                BubbleText = _codingClientSnapshot.Message;
+                return true;
+            case CodingClientActivityState.Completed:
+                _codingClientCelebrationUntil = DateTime.Now + CodingClientCelebrationHold;
+                _codingClientCelebrationMessage = _codingClientSnapshot.Message;
+                _codingCelebrationTimer.Stop();
+                _codingCelebrationTimer.Start();
+                if (PetMood == "celebrate")
+                {
+                    PetMood = "idle";
+                }
+
+                CurrentPetSpritePose = PetSpritePose.Productive;
+                PetMood = "celebrate";
+                ShowCelebrationMarks = true;
+                BubbleText = _codingClientSnapshot.Message;
+                return true;
+            default:
+                ResetCodingClientAdornments();
+                return false;
+        }
+    }
+
+    private bool IsCodingClientSnapshotActive(CodingClientActivitySnapshot? snapshot)
+    {
+        return snapshot != null &&
+               _settingsService.Settings.CodingClientMonitorEnabled &&
+               IsCodingClientEnabled(snapshot.ClientKind) &&
+               snapshot.State != CodingClientActivityState.Idle;
+    }
+
+    private bool IsCodingClientEnabled(CodingClientKind kind)
+    {
+        return kind switch
+        {
+            CodingClientKind.ClaudeDesktop => _settingsService.Settings.ClaudeDesktopMonitorEnabled,
+            _ => _settingsService.Settings.CodexDesktopMonitorEnabled
+        };
+    }
+
+    private void ResetCodingClientAdornments()
+    {
+        ShowCodingKeyboard = false;
+        ShowQuestionBadge = false;
+        ShowCelebrationMarks = false;
+        if (DateTime.Now > _codingClientCelebrationUntil)
+        {
+            _codingClientCelebrationMessage = string.Empty;
+        }
+    }
+
+    private bool IsPetSkinSelected(string skinId)
+    {
+        return SelectedPetSkinId == skinId;
+    }
+
+    private void OnPetSkinSelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedPetSkinId));
+        OnPropertyChanged(nameof(IsPinkPetSkinSelected));
+        OnPropertyChanged(nameof(IsWhiteOddEyesPetSkinSelected));
+        OnPropertyChanged(nameof(IsBlackPetSkinSelected));
+    }
+
     private static bool ContainsAny(string text, params string[] terms)
     {
         return terms.Any(term => text.Contains(term, StringComparison.OrdinalIgnoreCase));
@@ -328,5 +610,8 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _focusModeService.StateChanged -= OnFocusModeStateChanged;
         _settingsService.SettingsChanged -= OnSettingsChanged;
         _breakpointSnapshotService.BreakpointReady -= OnBreakpointReady;
+        _breakpointSnapshotService.AwayDetected -= OnAwayDetected;
+        _codingClientMonitorService.ActivityChanged -= OnCodingClientActivityChanged;
+        _codingCelebrationTimer.Stop();
     }
 }

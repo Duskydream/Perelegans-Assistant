@@ -22,6 +22,10 @@ namespace Perelegans.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private const int MaxDefaultMemoryNodes = 180;
+    private const int MaxFilteredMemoryNodes = 260;
+    private const int MaxInteractiveLinkRefreshNodes = 90;
+
     private readonly DatabaseService _dbService;
     private readonly SettingsService _settingsService;
     private readonly ProcessMonitorService _processMonitor;
@@ -29,6 +33,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ContextRetrievalService _contextRetrievalService;
     private readonly MemoryExtractionService _memoryExtractionService;
     private readonly FocusModeService _focusModeService;
+    private readonly CodingClientMonitorService _codingClientMonitorService;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _assistantThinkingTimer;
@@ -36,6 +41,11 @@ public partial class MainViewModel : ObservableObject
     private DateTime _lastSceneCheckpointAt = DateTime.MinValue;
     private string _lastSceneCheckpointProcess = string.Empty;
     private CancellationTokenSource? _assistantResponseCancellation;
+    private CodingClientActivitySnapshot? _latestCodingClientSnapshot;
+    private string _focusInterventionProcess = string.Empty;
+    private int _focusInterventionLevel;
+    private Dictionary<int, string> _memorySearchIndex = [];
+    private string _expandedMemoryConstellation = string.Empty;
 
     [ObservableProperty]
     private ObservableCollection<ApplicationUsage> _applications = new();
@@ -78,7 +88,19 @@ public partial class MainViewModel : ObservableObject
     private ObservableCollection<ContextMemory> _contextMemories = new();
 
     [ObservableProperty]
+    private ObservableCollection<ContextMemory> _pendingContextMemories = new();
+
+    [ObservableProperty]
+    private ObservableCollection<string> _availableGalaxyTags = new();
+
+    [ObservableProperty]
+    private ObservableCollection<string> _availableGalaxyGroups = new();
+
+    [ObservableProperty]
     private ObservableCollection<GalaxyLinkViewModel> _galaxyLinks = new();
+
+    [ObservableProperty]
+    private ObservableCollection<MemoryConstellationNodeViewModel> _memoryConstellations = new();
 
     [ObservableProperty]
     private ObservableCollection<FishboneBranchViewModel> _fishboneBranches = new();
@@ -89,10 +111,18 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveGalaxyTaskCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteGalaxyTaskCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ConfirmSelectedMemoryCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RejectSelectedMemoryCommand))]
     private ContextMemory? _selectedGalaxyMemory;
 
     [ObservableProperty]
     private string _galaxyEditTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _galaxyEditTags = string.Empty;
+
+    [ObservableProperty]
+    private string _galaxyEditGroup = string.Empty;
 
     [ObservableProperty]
     private string _galaxyEditCreatedAtText = string.Empty;
@@ -115,6 +145,17 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFocusModeActive;
 
+    [ObservableProperty]
+    private string _galaxySearchText = string.Empty;
+
+    [ObservableProperty]
+    private string _galaxyTagFilter = string.Empty;
+
+    [ObservableProperty]
+    private string _galaxyGroupFilter = string.Empty;
+
+    private List<ContextMemory> _allVisibleContextMemories = [];
+
     public int ApplicationCount => Applications.Count;
     public int ProductiveCount => Applications.Count(a => a.Category == ApplicationFocusCategory.Productive);
     public int DistractingCount => Applications.Count(a => a.Category == ApplicationFocusCategory.Distracting);
@@ -133,7 +174,7 @@ public partial class MainViewModel : ObservableObject
                 return _focusModeService.TaskTitle;
             }
 
-            var latestPlan = ContextMemories
+            var latestPlan = _allVisibleContextMemories
                 .Where(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
                 .OrderByDescending(memory => memory.UpdatedAt)
                 .FirstOrDefault();
@@ -142,9 +183,37 @@ public partial class MainViewModel : ObservableObject
     }
     public string ApplicationCountText => string.Format(T("Main_AppsCountFormat"), ApplicationCount);
     public string FocusTaskCountText => string.Format(T("Main_FocusTaskCountFormat"), FocusTasks.Count(t => t.Status == FocusTaskStatus.Completed), FocusTasks.Count);
-    public string MemoryCountText => string.Format(T("Main_MemoryCountFormat"), ContextMemories.Count);
+    public string MemoryCountText
+    {
+        get
+        {
+            var total = string.Format(T("Main_MemoryCountFormat"), _allVisibleContextMemories.Count);
+            var rendered = IsMemoryConstellationLayer
+                ? $" · 星座 {MemoryConstellations.Count}"
+                : _allVisibleContextMemories.Count > 0 && ContextMemories.Count < _allVisibleContextMemories.Count
+                ? $" · 显示 {ContextMemories.Count}"
+                : string.Empty;
+            var pending = PendingContextMemories.Count > 0
+                ? $" · {PendingContextMemories.Count} 待确认"
+                : string.Empty;
+            return total + rendered + pending;
+        }
+    }
+    public bool HasPendingMemories => PendingContextMemories.Count > 0;
+    public string PendingMemoryCountText => PendingContextMemories.Count == 0
+        ? "没有待确认记忆"
+        : $"{PendingContextMemories.Count} 条待确认记忆";
     public bool HasSelectedGalaxyTask => SelectedGalaxyMemory != null;
+    public bool HasSelectedPendingMemory => SelectedGalaxyMemory?.IsPendingReview == true;
+    public bool HasGalaxyFilters => !string.IsNullOrWhiteSpace(NormalizeGalaxyFilter(GalaxySearchText, "search")) ||
+        !string.IsNullOrWhiteSpace(NormalizeGalaxyFilter(GalaxyTagFilter, "tag")) ||
+        !string.IsNullOrWhiteSpace(NormalizeGalaxyFilter(GalaxyGroupFilter, "group"));
     public bool IsGalaxyPreviewMode => MemoryPreviewMode == "galaxy";
+    public bool IsMemoryConstellationLayer => IsGalaxyPreviewMode && !HasGalaxyFilters;
+    public bool IsMemoryNodeLayer => IsGalaxyPreviewMode && !IsMemoryConstellationLayer;
+    public bool IsGalaxyEmpty => IsMemoryConstellationLayer
+        ? MemoryConstellations.Count == 0
+        : ContextMemories.Count == 0;
     public bool IsFishbonePreviewMode => MemoryPreviewMode == "fishbone";
     public string FocusModeButtonText => IsFocusModeActive ? T("Main_FocusModeEnd") : T("Main_FocusModeStart");
     public string FocusModeStatusText => IsFocusModeActive
@@ -172,6 +241,7 @@ public partial class MainViewModel : ObservableObject
         ContextRetrievalService contextRetrievalService,
         MemoryExtractionService memoryExtractionService,
         FocusModeService focusModeService,
+        CodingClientMonitorService codingClientMonitorService,
         Action openSettings,
         Action exitApplication)
     {
@@ -182,6 +252,7 @@ public partial class MainViewModel : ObservableObject
         _contextRetrievalService = contextRetrievalService;
         _memoryExtractionService = memoryExtractionService;
         _focusModeService = focusModeService;
+        _codingClientMonitorService = codingClientMonitorService;
         _openSettings = openSettings;
         _exitApplication = exitApplication;
 
@@ -193,8 +264,10 @@ public partial class MainViewModel : ObservableObject
 
         _processMonitor.ForegroundFocusUpdated += OnForegroundFocusUpdated;
         _focusModeService.StateChanged += OnFocusModeStateChanged;
+        _codingClientMonitorService.ActivityChanged += OnCodingClientActivityChanged;
         _settingsService.SettingsChanged += OnSettingsChanged;
         IsFocusModeActive = _focusModeService.IsActive;
+        _latestCodingClientSnapshot = _codingClientMonitorService.CurrentSnapshot;
         TranslationService.Instance.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == "Item[]")
@@ -376,6 +449,55 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ClearGalaxyFilters()
+    {
+        _expandedMemoryConstellation = string.Empty;
+        SelectedGalaxyMemory = null;
+        GalaxySearchText = string.Empty;
+        GalaxyTagFilter = string.Empty;
+        GalaxyGroupFilter = string.Empty;
+        ApplyGalaxyMemoryFilters();
+        OnPropertyChanged(nameof(HasGalaxyFilters));
+    }
+
+    [RelayCommand]
+    private void ShowMemoryConstellationOverview()
+    {
+        MemoryPreviewMode = "galaxy";
+        ClearGalaxyFilters();
+    }
+
+    [RelayCommand]
+    private void OpenMemoryConstellation(MemoryConstellationNodeViewModel? constellation)
+    {
+        if (constellation == null)
+        {
+            return;
+        }
+
+        MemoryPreviewMode = "galaxy";
+        _expandedMemoryConstellation = constellation.Title;
+        GalaxySearchText = string.Empty;
+        GalaxyTagFilter = string.Empty;
+        GalaxyGroupFilter = constellation.Title;
+        SelectedGalaxyMemory = ContextMemories
+            .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+            .ThenByDescending(memory => memory.Weight)
+            .FirstOrDefault();
+        StatusText = $"已展开分组：{constellation.Title}";
+    }
+
+    public void OpenMemoryReview()
+    {
+        IsGalaxyVisible = true;
+        IsStatisticsVisible = false;
+        if (PendingContextMemories.Count > 0)
+        {
+            SelectedGalaxyMemory = PendingContextMemories[0];
+        }
+    }
+
+    [RelayCommand]
     private void OpenSettings()
     {
         _openSettings();
@@ -395,6 +517,100 @@ public partial class MainViewModel : ObservableObject
         CurrentProcessDurationText = FormatDuration(snapshot.Duration);
         CurrentFocusLabel = snapshot.IsKnownProductivityApp ? T("Main_LikelyProductive") : T("Main_Unclassified");
         QueueSceneCheckpoint(snapshot);
+        EvaluateFocusModeIntervention(snapshot);
+    }
+
+    private void OnCodingClientActivityChanged(CodingClientActivitySnapshot snapshot)
+    {
+        _latestCodingClientSnapshot = snapshot;
+    }
+
+    private void EvaluateFocusModeIntervention(ForegroundFocusSnapshot snapshot)
+    {
+        if (!_focusModeService.IsActive)
+        {
+            ResetFocusIntervention();
+            return;
+        }
+
+        if (IsProcessRelevantToCurrentFocus(snapshot))
+        {
+            ResetFocusIntervention();
+            return;
+        }
+
+        if (!string.Equals(_focusInterventionProcess, snapshot.ProcessName, StringComparison.OrdinalIgnoreCase))
+        {
+            _focusInterventionProcess = snapshot.ProcessName;
+            _focusInterventionLevel = 0;
+        }
+
+        var minutes = snapshot.Duration.TotalMinutes;
+        var level = minutes >= 15 ? 3 : minutes >= 8 ? 2 : minutes >= 3 ? 1 : 0;
+        if (level <= 0 || level <= _focusInterventionLevel)
+        {
+            return;
+        }
+
+        _focusInterventionLevel = level;
+        var message = CreateFocusInterventionMessage(level, snapshot);
+        ConversationMessages.Add(ConversationMessage.Assistant(message));
+        StatusText = level switch
+        {
+            1 => "专注模式：轻提醒已送达",
+            2 => "专注模式：给出下一步",
+            _ => "专注模式：等待你决定是否切回"
+        };
+    }
+
+    private void ResetFocusIntervention()
+    {
+        _focusInterventionProcess = string.Empty;
+        _focusInterventionLevel = 0;
+    }
+
+    private bool IsProcessRelevantToCurrentFocus(ForegroundFocusSnapshot snapshot)
+    {
+        var processTags = InferProcessTags(snapshot.ProcessName);
+        var focusTerms = SplitTagsForInsight(_focusModeService.TaskTags)
+            .Concat(SplitTagsForInsight(_focusModeService.TaskTitle))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (focusTerms.Count == 0)
+        {
+            return snapshot.IsKnownProductivityApp;
+        }
+
+        if (processTags.Overlaps(focusTerms))
+        {
+            return true;
+        }
+
+        var processName = snapshot.ProcessName.ToLowerInvariant();
+        if (ContainsAny(processName, "codex", "claude", "code", "devenv", "rider", "visualstudio") &&
+            focusTerms.Overlaps(["code", "coding", "development", "desktop", "wpf", "frontend", "backend", "bug", "fix"]))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private string CreateFocusInterventionMessage(int level, ForegroundFocusSnapshot snapshot)
+    {
+        var task = string.IsNullOrWhiteSpace(_focusModeService.TaskTitle)
+            ? "当前 plan"
+            : _focusModeService.TaskTitle;
+        var nextAction = string.IsNullOrWhiteSpace(_focusModeService.NextAction)
+            ? $"先回到「{task}」，只做一个 10 分钟内能完成的小动作。"
+            : _focusModeService.NextAction.Trim();
+        var minutes = Math.Max(1, (int)Math.Round(snapshot.Duration.TotalMinutes));
+
+        return level switch
+        {
+            1 => $"我看到你在 {snapshot.ProcessName} 停了约 {minutes} 分钟，可能已经离开「{task}」一点点了。先不打断你，只轻轻把主线放在这里。",
+            2 => $"你已经在 {snapshot.ProcessName} 待了约 {minutes} 分钟。如果这是查资料，可以继续；如果不是，我们可以从这一步切回：{nextAction}",
+            _ => $"这个岔路已经持续约 {minutes} 分钟了。要不要做个选择：暂停「{task}」、把它标记为放弃，或者现在切回？我建议先切回这一步：{nextAction}"
+        };
     }
 
     [RelayCommand(CanExecute = nameof(CanSendConversationMessage))]
@@ -477,13 +693,9 @@ public partial class MainViewModel : ObservableObject
             await _dbService.RefreshMemoryLifecycleForDailyReviewAsync();
             await RefreshContextMemoriesAsync();
 
-            var reviewText =
-                (review != null
-                    ? FormatDailyReview(review)
-                    : CreateLocalContextReply(memories, snapshot)) +
-                "\n\n" +
-                FormatDesktopInsight(insight) +
-                "\n\n已写入本地摘要：" + archivePath;
+            review ??= CreateFallbackDailyReview();
+            var reviewText = FormatDailyReview(review) +
+                "\n\n我也把今天能用的上下文悄悄存好了。等你愿意的时候，可以只回答一个小问题：明天开场时，哪件事最值得先开始？";
             var statsSnapshot = CreateDailyReviewUsageStatsSnapshot(sessions);
             ConversationMessages.Add(statsSnapshot.HasSlices
                 ? ConversationMessage.AssistantWithUsageStats(reviewText, statsSnapshot)
@@ -526,7 +738,7 @@ public partial class MainViewModel : ObservableObject
             SelectedGalaxyMemory.Content,
             SelectedGalaxyMemory.Type,
             SelectedGalaxyMemory.Source,
-            SelectedGalaxyMemory.Tags,
+            GalaxyEditTags,
             SelectedGalaxyMemory.Weight,
             SelectedGalaxyMemory.Id,
             memoryAxis: SelectedGalaxyMemory.MemoryAxis,
@@ -537,7 +749,9 @@ public partial class MainViewModel : ObservableObject
             isCompleted: SelectedGalaxyMemory.IsPlan && GalaxyEditIsCompleted,
             isAbandoned: SelectedGalaxyMemory.IsPlan && GalaxyEditIsAbandoned,
             lifecycle: SelectedGalaxyMemory.Lifecycle,
-            aiWeightProfile: SelectedGalaxyMemory.AiWeightProfile);
+            aiWeightProfile: SelectedGalaxyMemory.AiWeightProfile,
+            reviewStatus: SelectedGalaxyMemory.ReviewStatus,
+            constellationName: GalaxyEditGroup.Trim());
 
         StatusText = T("Main_GalaxyTaskSaved");
         await RefreshContextMemoriesAsync(updated.Id);
@@ -545,6 +759,41 @@ public partial class MainViewModel : ObservableObject
         {
             EndFocusModeIfMatches(updated.Id);
         }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEditGalaxyTask))]
+    private async Task ConfirmSelectedMemory()
+    {
+        if (SelectedGalaxyMemory == null)
+        {
+            return;
+        }
+
+        if (SelectedGalaxyMemory.IsPendingReview)
+        {
+            await SaveGalaxyTask();
+            var confirmed = await _dbService.ConfirmPendingContextMemoryAsync(SelectedGalaxyMemory.Id);
+            StatusText = confirmed == null ? "无法确认这条记忆。" : $"已确认记忆：{confirmed.Title}";
+            await RefreshContextMemoriesAsync(confirmed?.Id);
+            IsGalaxyVisible = true;
+            return;
+        }
+
+        StatusText = "这条记忆已经在星图里。";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEditGalaxyTask))]
+    private async Task RejectSelectedMemory()
+    {
+        if (SelectedGalaxyMemory == null)
+        {
+            return;
+        }
+
+        await _dbService.RejectPendingContextMemoryAsync(SelectedGalaxyMemory.Id);
+        StatusText = $"已忽略候选记忆：{SelectedGalaxyMemory.Title}";
+        SelectedGalaxyMemory = null;
+        await RefreshContextMemoriesAsync();
     }
 
     [RelayCommand(CanExecute = nameof(CanEditGalaxyTask))]
@@ -594,8 +843,10 @@ public partial class MainViewModel : ObservableObject
 
         current.X = x;
         current.Y = y;
-        GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(ContextMemories));
-        FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(ContextMemories));
+        if (ContextMemories.Count <= MaxInteractiveLinkRefreshNodes)
+        {
+            GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(ContextMemories));
+        }
     }
 
     private bool CanEditGalaxyTask()
@@ -981,21 +1232,11 @@ public partial class MainViewModel : ObservableObject
             !string.IsNullOrWhiteSpace(candidate.Content) &&
             savedPlan == null)
         {
-            await _dbService.UpsertContextMemoryAsync(
-                MemoryExtractionService.NormalizeCandidateTitle(candidate.Title, candidate.Content),
-                candidate.Content,
-                MemoryExtractionService.ParseType(candidate.Type),
-                "ai-candidate",
-                string.Join(", ", candidate.Tags.Take(8)),
-                candidate.Weight,
-                memoryAxis: candidate.MemoryAxis,
-                aiDescription: candidate.Description,
-                aiExplanation: candidate.Explanation,
-                nextPrediction: candidate.NextPrediction,
-                isPlan: candidate.IsPlan || MemoryExtractionService.LooksLikePlanMemory(candidate.Content),
-                isCompleted: candidate.IsCompleted,
-                aiWeightProfile: candidate.WeightProfile);
-            await RefreshContextMemoriesAsync();
+            var pending = await _memoryExtractionService.SaveCandidateForReviewAsync(candidate);
+            await RefreshContextMemoriesAsync(pending?.Id);
+            StatusText = pending == null
+                ? StatusText
+                : $"发现一条候选记忆，已放到待确认：{pending.Title}";
         }
         else if (savedPlan == null)
         {
@@ -1648,15 +1889,28 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RefreshContextMemoriesAsync(int? highlightId = null)
     {
-        ContextMemories = new ObservableCollection<ContextMemory>(await _dbService.GetContextMemoriesAsync());
-        GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(ContextMemories));
-        FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(ContextMemories));
+        await _dbService.RefreshContextMemoryWeightsAsync();
+        var visibleMemories = (await _dbService.GetContextMemoriesAsync())
+            .Where(memory => !IsSceneCheckpointMemory(memory))
+            .ToList();
+        var pendingMemories = (await _dbService.GetPendingContextMemoriesAsync())
+            .Where(memory => !IsSceneCheckpointMemory(memory))
+            .ToList();
+        _allVisibleContextMemories = visibleMemories;
+        _memorySearchIndex = visibleMemories.ToDictionary(memory => memory.Id, CreateMemorySearchText);
+        PendingContextMemories = new ObservableCollection<ContextMemory>(pendingMemories);
+        AvailableGalaxyTags = new ObservableCollection<string>(CreateAvailableMemoryTags(visibleMemories));
+        AvailableGalaxyGroups = new ObservableCollection<string>(CreateAvailableMemoryGroups(visibleMemories));
+        ApplyGalaxyMemoryFilters();
         SelectedGalaxyMemory = highlightId.HasValue
-            ? ContextMemories.FirstOrDefault(memory => memory.Id == highlightId.Value)
+            ? ContextMemories.Concat(PendingContextMemories).FirstOrDefault(memory => memory.Id == highlightId.Value)
             : SelectedGalaxyMemory == null
                 ? null
-                : ContextMemories.FirstOrDefault(memory => memory.Id == SelectedGalaxyMemory.Id);
+                : ContextMemories.Concat(PendingContextMemories).FirstOrDefault(memory => memory.Id == SelectedGalaxyMemory.Id);
         OnPropertyChanged(nameof(MemoryCountText));
+        OnPropertyChanged(nameof(PendingMemoryCountText));
+        OnPropertyChanged(nameof(HasPendingMemories));
+        OnPropertyChanged(nameof(HasGalaxyFilters));
 
         if (highlightId.HasValue)
         {
@@ -1665,6 +1919,180 @@ public partial class MainViewModel : ObservableObject
 
         OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
         OnPropertyChanged(nameof(FocusModeStatusText));
+    }
+
+    private void ApplyGalaxyMemoryFilters()
+    {
+        var search = NormalizeGalaxyFilter(GalaxySearchText, "search");
+        var tagFilter = NormalizeGalaxyFilter(GalaxyTagFilter, "tag");
+        var groupFilter = NormalizeGalaxyFilter(GalaxyGroupFilter, "group");
+        var hasFilters = !string.IsNullOrWhiteSpace(search) ||
+            !string.IsNullOrWhiteSpace(tagFilter) ||
+            !string.IsNullOrWhiteSpace(groupFilter);
+        var isExpandedConstellation = !string.IsNullOrWhiteSpace(_expandedMemoryConstellation) &&
+            string.IsNullOrWhiteSpace(search) &&
+            string.IsNullOrWhiteSpace(tagFilter) &&
+            string.Equals(groupFilter, _expandedMemoryConstellation, StringComparison.OrdinalIgnoreCase);
+        var filtered = isExpandedConstellation
+            ? CreateExpandedConstellationMemorySlice(_allVisibleContextMemories, _expandedMemoryConstellation)
+            : _allVisibleContextMemories
+                .Where(memory => MatchesGalaxyFilters(memory, search, tagFilter, groupFilter))
+                .ToList();
+        var constellationNodes = hasFilters
+            ? []
+            : CreateMemoryConstellationNodes(filtered).ToList();
+        MemoryConstellations = new ObservableCollection<MemoryConstellationNodeViewModel>(constellationNodes);
+        if (!hasFilters)
+        {
+            ContextMemories = [];
+            GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(
+                CreateMemoryConstellationLinks(filtered, constellationNodes));
+            FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(filtered));
+            OnPropertyChanged(nameof(MemoryCountText));
+            OnPropertyChanged(nameof(IsMemoryConstellationLayer));
+            OnPropertyChanged(nameof(IsMemoryNodeLayer));
+            OnPropertyChanged(nameof(IsGalaxyEmpty));
+            return;
+        }
+
+        var displayed = CreateDisplayedMemorySlice(
+            filtered,
+            hasFilters,
+            SelectedGalaxyMemory?.Id);
+        ContextMemories = new ObservableCollection<ContextMemory>(displayed);
+        GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(displayed));
+        FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(displayed));
+        OnPropertyChanged(nameof(MemoryCountText));
+        OnPropertyChanged(nameof(IsMemoryConstellationLayer));
+        OnPropertyChanged(nameof(IsMemoryNodeLayer));
+        OnPropertyChanged(nameof(IsGalaxyEmpty));
+    }
+
+    private bool MatchesGalaxyFilters(ContextMemory memory, string search, string tagFilter, string groupFilter)
+    {
+        if (!string.IsNullOrWhiteSpace(search) &&
+            !ContainsAllSearchTerms(memory, search))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(tagFilter) &&
+            !SplitTagsForInsight(memory.Tags)
+                .Any(tag => string.Equals(tag, tagFilter, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(groupFilter) &&
+            !string.Equals(memory.ConstellationName.Trim(), groupFilter, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static IReadOnlyList<ContextMemory> CreateDisplayedMemorySlice(
+        IReadOnlyList<ContextMemory> memories,
+        bool hasFilters,
+        int? pinnedMemoryId)
+    {
+        var limit = hasFilters ? MaxFilteredMemoryNodes : MaxDefaultMemoryNodes;
+        if (memories.Count <= limit)
+        {
+            return memories;
+        }
+
+        var displayed = memories
+            .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+            .ThenByDescending(memory => memory.Weight)
+            .ThenByDescending(memory => memory.UpdatedAt)
+            .Take(limit)
+            .ToList();
+
+        if (pinnedMemoryId.HasValue &&
+            displayed.All(memory => memory.Id != pinnedMemoryId.Value))
+        {
+            var pinned = memories.FirstOrDefault(memory => memory.Id == pinnedMemoryId.Value);
+            if (pinned != null)
+            {
+                displayed[^1] = pinned;
+            }
+        }
+
+        return displayed;
+    }
+
+    private static string NormalizeGalaxyFilter(string? value, string kind)
+    {
+        var normalized = value?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        var lower = normalized.ToLowerInvariant();
+        var isPlaceholder = kind switch
+        {
+            "tag" => lower is "tag" or "tags" or "\u6807\u7b7e",
+            "group" => lower is "group" or "groups" or "\u5206\u7ec4",
+            "search" => lower is "search" or "\u641c\u7d22" or "\u641c\u7d22\u6807\u9898\u3001\u5185\u5bb9\u3001\u6807\u7b7e",
+            _ => false
+        };
+
+        return isPlaceholder ? string.Empty : normalized;
+    }
+
+    private bool ContainsAllSearchTerms(ContextMemory memory, string search)
+    {
+        var haystack = _memorySearchIndex.TryGetValue(memory.Id, out var indexedText)
+            ? indexedText
+            : CreateMemorySearchText(memory);
+        return SplitTagsForInsight(search)
+            .DefaultIfEmpty(search.Trim().ToLowerInvariant())
+            .All(term => haystack.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string CreateMemorySearchText(ContextMemory memory)
+    {
+        return string.Join(
+            ' ',
+            memory.Title,
+            memory.Content,
+            memory.Tags,
+            memory.ConstellationName,
+            memory.AiDescription,
+            memory.AiExplanation,
+            memory.NextPrediction).ToLowerInvariant();
+    }
+
+    private static IReadOnlyList<string> CreateAvailableMemoryTags(IEnumerable<ContextMemory> memories)
+    {
+        return memories
+            .SelectMany(memory => SplitTagsForInsight(memory.Tags))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(tag => tag, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> CreateAvailableMemoryGroups(IEnumerable<ContextMemory> memories)
+    {
+        return memories
+            .Select(memory => memory.ConstellationName.Trim())
+            .Where(group => !string.IsNullOrWhiteSpace(group))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    private static bool IsSceneCheckpointMemory(ContextMemory memory)
+    {
+        return memory.Source.Contains("scene-checkpoint", StringComparison.OrdinalIgnoreCase) ||
+               memory.Source.Contains("resume-scene", StringComparison.OrdinalIgnoreCase) ||
+               memory.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                   .Any(tag => string.Equals(tag, "scene", StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(tag, "checkpoint", StringComparison.OrdinalIgnoreCase)) ||
+               memory.Title.StartsWith("现场：", StringComparison.OrdinalIgnoreCase);
     }
 
     private DailyReviewDraft CreateFallbackDailyReview()
@@ -1691,10 +2119,7 @@ public partial class MainViewModel : ObservableObject
                 .Take(3)
                 .DefaultIfEmpty(T("Main_DailyReviewNoRisk"))
                 .ToList(),
-            SuggestedNextAction = todayTasks
-                .Where(task => task.Status == FocusTaskStatus.Active && !string.IsNullOrWhiteSpace(task.NextAction))
-                .Select(task => task.NextAction)
-                .FirstOrDefault() ?? T("Main_DailyReviewFallbackNextAction")
+            SuggestedNextAction = T("Main_DailyReviewFallbackNextAction")
         };
     }
 
@@ -2030,6 +2455,7 @@ public partial class MainViewModel : ObservableObject
 
     private void OnFocusModeStateChanged()
     {
+        ResetFocusIntervention();
         IsFocusModeActive = _focusModeService.IsActive;
         OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
         OnPropertyChanged(nameof(FocusModeButtonText));
@@ -2082,16 +2508,97 @@ public partial class MainViewModel : ObservableObject
         var planLine = string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle)
             ? "没有强行写进星图，我只把这次断点留在本地卡点记录里。"
             : $"相关计划：{snapshot.RelatedPlanTitle}";
+        var codingSnapshot = GetRecentCodingClientSnapshot();
+        var card = CreateBreakpointResumeCard(snapshot, codingSnapshot, title, returned);
 
         var message =
             $"欢迎回来。你大约在 {snapshot.LeftAt:HH:mm} 离开，{returned} 回来。\n\n" +
-            $"断点：{title}\n" +
             $"{planLine}\n\n" +
-            $"我保留的线索：\n{snapshot.Evidence}\n\n" +
-            $"建议第一步：{snapshot.NextStep}";
+            "我把现场整理成一张续做卡片了，先从最容易恢复的那一步开始。";
 
-        ConversationMessages.Add(ConversationMessage.Assistant(message));
+        ConversationMessages.Add(ConversationMessage.AssistantWithBreakpointCard(message, card));
         StatusText = "已唤出刚才的卡点提示";
+    }
+
+    private CodingClientActivitySnapshot? GetRecentCodingClientSnapshot()
+    {
+        var snapshot = _latestCodingClientSnapshot;
+        if (snapshot == null ||
+            snapshot.State == CodingClientActivityState.Idle ||
+            DateTime.Now - snapshot.UpdatedAt > TimeSpan.FromMinutes(30))
+        {
+            return null;
+        }
+
+        return snapshot;
+    }
+
+    private static BreakpointResumeCardViewModel CreateBreakpointResumeCard(
+        BreakpointSnapshot snapshot,
+        CodingClientActivitySnapshot? codingSnapshot,
+        string title,
+        string returned)
+    {
+        var clientText = codingSnapshot == null
+            ? "Coding client：没有捕捉到最近生成事件"
+            : $"Coding client：{codingSnapshot.ClientName} · {FormatCodingState(codingSnapshot.State)}";
+        var workspaceText = codingSnapshot == null || string.IsNullOrWhiteSpace(codingSnapshot.WorkspaceRoot)
+            ? "Workspace：暂未识别"
+            : $"Workspace：{ShortenPath(codingSnapshot.WorkspaceRoot)}";
+        var recentChange = codingSnapshot == null || string.IsNullOrWhiteSpace(codingSnapshot.LastChangedPath)
+            ? "最近变动：暂无明确文件变动"
+            : $"最近变动：{ShortenPath(codingSnapshot.LastChangedPath)}";
+        var status = codingSnapshot?.State switch
+        {
+            CodingClientActivityState.WaitingForConfirmation => "状态：正在等你确认",
+            CodingClientActivityState.Completed => "状态：代码生成已完成，可以检查 diff",
+            CodingClientActivityState.Coding => "状态：还在生成中",
+            _ => "状态：只恢复桌面断点"
+        };
+        var nextStep = !string.IsNullOrWhiteSpace(snapshot.NextStep)
+            ? snapshot.NextStep
+            : codingSnapshot?.State == CodingClientActivityState.Completed
+                ? "先打开对应 workspace 看最近 diff，再决定是否运行验证。"
+                : "先回到刚才的窗口，确认还要不要把这个现场保存成 plan。";
+
+        return new BreakpointResumeCardViewModel(
+            "断点续做卡片",
+            $"{snapshot.LeftAt:HH:mm} 离开 · {returned} 回来",
+            clientText,
+            workspaceText,
+            $"活跃进程：{snapshot.ProcessName} · {title}",
+            recentChange,
+            status,
+            nextStep);
+    }
+
+    private static string FormatCodingState(CodingClientActivityState state)
+    {
+        return state switch
+        {
+            CodingClientActivityState.Coding => "生成中",
+            CodingClientActivityState.WaitingForConfirmation => "等待确认",
+            CodingClientActivityState.Completed => "已完成",
+            _ => "空闲"
+        };
+    }
+
+    private static string ShortenPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "未识别";
+        }
+
+        var normalized = path.Trim();
+        var name = Path.GetFileName(normalized.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return normalized;
+        }
+
+        var parent = Path.GetFileName(Path.GetDirectoryName(normalized) ?? string.Empty);
+        return string.IsNullOrWhiteSpace(parent) ? name : $"{parent}\\{name}";
     }
 
     private static bool ContainsAny(string text, params string[] candidates)
@@ -2164,6 +2671,9 @@ public partial class MainViewModel : ObservableObject
     partial void OnMemoryPreviewModeChanged(string value)
     {
         OnPropertyChanged(nameof(IsGalaxyPreviewMode));
+        OnPropertyChanged(nameof(IsMemoryConstellationLayer));
+        OnPropertyChanged(nameof(IsMemoryNodeLayer));
+        OnPropertyChanged(nameof(IsGalaxyEmpty));
         OnPropertyChanged(nameof(IsFishbonePreviewMode));
     }
 
@@ -2172,6 +2682,13 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(MemoryCountText));
         OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
         OnPropertyChanged(nameof(FocusModeStatusText));
+        OnPropertyChanged(nameof(IsGalaxyEmpty));
+    }
+
+    partial void OnMemoryConstellationsChanged(ObservableCollection<MemoryConstellationNodeViewModel> value)
+    {
+        OnPropertyChanged(nameof(MemoryCountText));
+        OnPropertyChanged(nameof(IsGalaxyEmpty));
     }
 
     partial void OnSelectedGalaxyMemoryChanged(ContextMemory? value)
@@ -2181,16 +2698,22 @@ public partial class MainViewModel : ObservableObject
         if (value == null)
         {
             GalaxyEditTitle = string.Empty;
+            GalaxyEditTags = string.Empty;
+            GalaxyEditGroup = string.Empty;
             GalaxyEditCreatedAtText = string.Empty;
             GalaxyEditIsCompleted = false;
             GalaxyEditIsAbandoned = false;
+            OnPropertyChanged(nameof(HasSelectedPendingMemory));
             return;
         }
 
         GalaxyEditTitle = value.Title;
+        GalaxyEditTags = value.Tags;
+        GalaxyEditGroup = value.ConstellationName;
         GalaxyEditCreatedAtText = value.UpdatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
         GalaxyEditIsCompleted = value.IsPlan && value.IsCompleted;
         GalaxyEditIsAbandoned = value.IsPlan && value.IsAbandoned;
+        OnPropertyChanged(nameof(HasSelectedPendingMemory));
     }
 
     partial void OnGalaxyEditIsCompletedChanged(bool value)
@@ -2207,6 +2730,47 @@ public partial class MainViewModel : ObservableObject
         {
             GalaxyEditIsCompleted = false;
         }
+    }
+
+    partial void OnPendingContextMemoriesChanged(ObservableCollection<ContextMemory> value)
+    {
+        OnPropertyChanged(nameof(HasPendingMemories));
+        OnPropertyChanged(nameof(PendingMemoryCountText));
+        OnPropertyChanged(nameof(MemoryCountText));
+    }
+
+    partial void OnGalaxySearchTextChanged(string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            _expandedMemoryConstellation = string.Empty;
+        }
+
+        ApplyGalaxyMemoryFilters();
+        OnPropertyChanged(nameof(HasGalaxyFilters));
+    }
+
+    partial void OnGalaxyTagFilterChanged(string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            _expandedMemoryConstellation = string.Empty;
+        }
+
+        ApplyGalaxyMemoryFilters();
+        OnPropertyChanged(nameof(HasGalaxyFilters));
+    }
+
+    partial void OnGalaxyGroupFilterChanged(string value)
+    {
+        var groupFilter = NormalizeGalaxyFilter(value, "group");
+        if (!string.Equals(groupFilter, _expandedMemoryConstellation, StringComparison.OrdinalIgnoreCase))
+        {
+            _expandedMemoryConstellation = string.Empty;
+        }
+
+        ApplyGalaxyMemoryFilters();
+        OnPropertyChanged(nameof(HasGalaxyFilters));
     }
 
     private static string T(string key) => TranslationService.Instance[key];

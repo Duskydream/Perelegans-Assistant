@@ -21,6 +21,13 @@ public enum ContextMemoryLifecycle
     Contradicted = 3
 }
 
+public enum ContextMemoryReviewStatus
+{
+    Confirmed = 0,
+    Pending = 1,
+    Rejected = 2
+}
+
 public class ContextMemory
 {
     public int Id { get; set; }
@@ -36,6 +43,8 @@ public class ContextMemory
     public string Tags { get; set; } = string.Empty;
 
     public double Weight { get; set; } = 0.6;
+
+    public int MentionCount { get; set; }
 
     public string MemoryAxis { get; set; } = "event";
 
@@ -61,6 +70,12 @@ public class ContextMemory
 
     public string ConstellationName { get; set; } = string.Empty;
 
+    public ContextMemoryReviewStatus ReviewStatus { get; set; } = ContextMemoryReviewStatus.Confirmed;
+
+    public DateTime? SuggestedAt { get; set; }
+
+    public DateTime? ReviewedAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
@@ -72,6 +87,23 @@ public class ContextMemory
     public double Y { get; set; }
 
     public double NodeSize { get; set; } = 18;
+
+    public bool IsPendingReview => ReviewStatus == ContextMemoryReviewStatus.Pending;
+
+    public bool IsRejected => ReviewStatus == ContextMemoryReviewStatus.Rejected;
+
+    public string ReviewStatusText => ReviewStatus switch
+    {
+        ContextMemoryReviewStatus.Pending => "待确认",
+        ContextMemoryReviewStatus.Rejected => "已忽略",
+        _ => "已确认"
+    };
+
+    public string DisplayTitle => IsPendingReview ? $"! {Title}" : Title;
+
+    public bool IsLowWeight => Weight < 0.35 || Lifecycle == ContextMemoryLifecycle.Stale;
+
+    public double VisualOpacity => IsLowWeight ? 0.45 : 1.0;
 
     public string TypeText => Type switch
     {
@@ -92,5 +124,5 @@ public class ContextMemory
         ? IsAbandoned ? "plan: abandoned" : IsCompleted ? "plan: done" : "plan: open"
         : MemoryAxis;
 
-    public string InsightMetaText => $"{TypeText} / {PlanStatusText} / {Lifecycle} / {Math.Round(Math.Clamp(Weight, 0.1, 1.0), 2):0.00}";
+    public string InsightMetaText => $"{TypeText} / {PlanStatusText} / {Lifecycle} / {Math.Round(Math.Clamp(Weight, 0.1, 1.0), 2):0.00} / used {MentionCount}";
 }
