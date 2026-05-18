@@ -7,12 +7,14 @@ public static class PetSkinPresets
     public const string Pink = "pink";
     public const string WhiteOddEyes = "white-odd-eyes";
     public const string Black = "black";
+    public const string Custom = "custom";
 
     public static readonly IReadOnlyList<PetSkinPreset> All = new[]
     {
         new PetSkinPreset(Pink, "粉色小猫"),
         new PetSkinPreset(WhiteOddEyes, "异瞳白猫"),
-        new PetSkinPreset(Black, "黑色小猫")
+        new PetSkinPreset(Black, "黑色小猫"),
+        new PetSkinPreset(Custom, "自定义")
     };
 
     private static readonly Dictionary<string, string> KnownIds = All

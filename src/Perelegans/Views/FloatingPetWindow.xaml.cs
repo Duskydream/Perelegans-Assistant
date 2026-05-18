@@ -189,7 +189,9 @@ public partial class FloatingPetWindow : Window
 
     private bool TryLoadCustomSprite(AppSettings? settings)
     {
-        if (settings == null || string.IsNullOrWhiteSpace(settings.PetSpritePath))
+        if (settings == null ||
+            PetSkinPresets.Normalize(settings.FloatingPetSkinId) != PetSkinPresets.Custom ||
+            string.IsNullOrWhiteSpace(settings.PetSpritePath))
         {
             return false;
         }
