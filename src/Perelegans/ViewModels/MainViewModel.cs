@@ -1901,6 +1901,7 @@ public partial class MainViewModel : ObservableObject
         PendingContextMemories = new ObservableCollection<ContextMemory>(pendingMemories);
         AvailableGalaxyTags = new ObservableCollection<string>(CreateAvailableMemoryTags(visibleMemories));
         AvailableGalaxyGroups = new ObservableCollection<string>(CreateAvailableMemoryGroups(visibleMemories));
+        ResetMissingExpandedMemoryConstellation(visibleMemories);
         ApplyGalaxyMemoryFilters();
         SelectedGalaxyMemory = highlightId.HasValue
             ? ContextMemories.Concat(PendingContextMemories).FirstOrDefault(memory => memory.Id == highlightId.Value)
@@ -1919,6 +1920,28 @@ public partial class MainViewModel : ObservableObject
 
         OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
         OnPropertyChanged(nameof(FocusModeStatusText));
+    }
+
+    private void ResetMissingExpandedMemoryConstellation(IReadOnlyList<ContextMemory> visibleMemories)
+    {
+        if (string.IsNullOrWhiteSpace(_expandedMemoryConstellation) ||
+            visibleMemories.Any(memory => string.Equals(
+                memory.ConstellationName.Trim(),
+                _expandedMemoryConstellation,
+                StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        var staleConstellation = _expandedMemoryConstellation;
+        _expandedMemoryConstellation = string.Empty;
+        if (string.Equals(
+                NormalizeGalaxyFilter(GalaxyGroupFilter, "group"),
+                staleConstellation,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            GalaxyGroupFilter = string.Empty;
+        }
     }
 
     private void ApplyGalaxyMemoryFilters()

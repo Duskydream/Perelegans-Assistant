@@ -469,16 +469,13 @@ public class DatabaseService
 
     public async Task<bool> DeleteContextMemoryAsync(int id)
     {
-        await using var db = new PerelegansDbContext();
-        var memory = await db.ContextMemories.FirstOrDefaultAsync(m => m.Id == id);
-        if (memory == null)
-        {
-            return false;
-        }
+        await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
+        await connection.OpenAsync();
 
-        db.ContextMemories.Remove(memory);
-        await db.SaveChangesAsync();
-        return true;
+        await using var command = connection.CreateCommand();
+        command.CommandText = """DELETE FROM "ContextMemories" WHERE "Id" = $id;""";
+        command.Parameters.AddWithValue("$id", id);
+        return await command.ExecuteNonQueryAsync() > 0;
     }
 
     public async Task UpdateContextMemoryPositionAsync(int id, double x, double y)
