@@ -151,7 +151,8 @@ public partial class MainWindow : MetroWindow
             return;
         }
 
-        if (FindAncestor<ContentPresenter>(e.OriginalSource as DependencyObject)?.DataContext is ContextMemory)
+        var nodeContext = FindAncestor<ContentPresenter>(e.OriginalSource as DependencyObject)?.DataContext;
+        if (nodeContext is ContextMemory or MemoryConstellationNodeViewModel)
         {
             return;
         }
@@ -235,6 +236,16 @@ public partial class MainWindow : MetroWindow
 
         element.CaptureMouse();
         e.Handled = true;
+    }
+
+    private void MemoryConstellation_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: MemoryConstellationNodeViewModel constellation } &&
+            _viewModel?.OpenMemoryConstellationCommand.CanExecute(constellation) == true)
+        {
+            _viewModel.OpenMemoryConstellationCommand.Execute(constellation);
+            e.Handled = true;
+        }
     }
 
     private void GalaxyTask_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)

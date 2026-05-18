@@ -67,6 +67,7 @@ public partial class App : System.Windows.Application
         var dbService = new DatabaseService();
         _dbService = dbService;
         _processMonitor = new ProcessMonitorService(dbService);
+        _processMonitor.SetProductivityRules(settingsService.Settings.ProductiveProcessRules);
         _appHttpClient = AppHttpClientFactory.Create(settingsService.Settings);
         _focusClassificationClient = new FocusClassificationClient(_appHttpClient, settingsService);
         _contextRetrievalService = new ContextRetrievalService(dbService);
@@ -107,6 +108,7 @@ public partial class App : System.Windows.Application
                 _breakpointSnapshotService,
                 _codingClientMonitorService,
                 ShowDashboard,
+                ShowMemoryReview,
                 ShowBreakpointSnapshot,
                 OpenSettingsFromAgent,
                 RequestShutdown)
@@ -190,6 +192,16 @@ public partial class App : System.Windows.Application
         if (_mainWindow?.DataContext is MainViewModel viewModel)
         {
             viewModel.ShowBreakpointSnapshot(snapshot);
+        }
+
+        ShowDashboard();
+    }
+
+    private void ShowMemoryReview()
+    {
+        if (_mainWindow?.DataContext is MainViewModel viewModel)
+        {
+            viewModel.OpenMemoryReview();
         }
 
         ShowDashboard();

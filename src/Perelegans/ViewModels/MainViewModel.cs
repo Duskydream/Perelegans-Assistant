@@ -22,6 +22,10 @@ namespace Perelegans.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private const int MaxDefaultMemoryNodes = 180;
+    private const int MaxFilteredMemoryNodes = 260;
+    private const int MaxInteractiveLinkRefreshNodes = 90;
+
     private readonly DatabaseService _dbService;
     private readonly SettingsService _settingsService;
     private readonly ProcessMonitorService _processMonitor;
@@ -40,6 +44,8 @@ public partial class MainViewModel : ObservableObject
     private CodingClientActivitySnapshot? _latestCodingClientSnapshot;
     private string _focusInterventionProcess = string.Empty;
     private int _focusInterventionLevel;
+    private Dictionary<int, string> _memorySearchIndex = [];
+    private string _expandedMemoryConstellation = string.Empty;
 
     [ObservableProperty]
     private ObservableCollection<ApplicationUsage> _applications = new();
@@ -82,7 +88,19 @@ public partial class MainViewModel : ObservableObject
     private ObservableCollection<ContextMemory> _contextMemories = new();
 
     [ObservableProperty]
+    private ObservableCollection<ContextMemory> _pendingContextMemories = new();
+
+    [ObservableProperty]
+    private ObservableCollection<string> _availableGalaxyTags = new();
+
+    [ObservableProperty]
+    private ObservableCollection<string> _availableGalaxyGroups = new();
+
+    [ObservableProperty]
     private ObservableCollection<GalaxyLinkViewModel> _galaxyLinks = new();
+
+    [ObservableProperty]
+    private ObservableCollection<MemoryConstellationNodeViewModel> _memoryConstellations = new();
 
     [ObservableProperty]
     private ObservableCollection<FishboneBranchViewModel> _fishboneBranches = new();
@@ -93,10 +111,18 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveGalaxyTaskCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteGalaxyTaskCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ConfirmSelectedMemoryCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RejectSelectedMemoryCommand))]
     private ContextMemory? _selectedGalaxyMemory;
 
     [ObservableProperty]
     private string _galaxyEditTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _galaxyEditTags = string.Empty;
+
+    [ObservableProperty]
+    private string _galaxyEditGroup = string.Empty;
 
     [ObservableProperty]
     private string _galaxyEditCreatedAtText = string.Empty;
@@ -119,6 +145,17 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFocusModeActive;
 
+    [ObservableProperty]
+    private string _galaxySearchText = string.Empty;
+
+    [ObservableProperty]
+    private string _galaxyTagFilter = string.Empty;
+
+    [ObservableProperty]
+    private string _galaxyGroupFilter = string.Empty;
+
+    private List<ContextMemory> _allVisibleContextMemories = [];
+
     public int ApplicationCount => Applications.Count;
     public int ProductiveCount => Applications.Count(a => a.Category == ApplicationFocusCategory.Productive);
     public int DistractingCount => Applications.Count(a => a.Category == ApplicationFocusCategory.Distracting);
@@ -137,7 +174,7 @@ public partial class MainViewModel : ObservableObject
                 return _focusModeService.TaskTitle;
             }
 
-            var latestPlan = ContextMemories
+            var latestPlan = _allVisibleContextMemories
                 .Where(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
                 .OrderByDescending(memory => memory.UpdatedAt)
                 .FirstOrDefault();
@@ -146,9 +183,37 @@ public partial class MainViewModel : ObservableObject
     }
     public string ApplicationCountText => string.Format(T("Main_AppsCountFormat"), ApplicationCount);
     public string FocusTaskCountText => string.Format(T("Main_FocusTaskCountFormat"), FocusTasks.Count(t => t.Status == FocusTaskStatus.Completed), FocusTasks.Count);
-    public string MemoryCountText => string.Format(T("Main_MemoryCountFormat"), ContextMemories.Count);
+    public string MemoryCountText
+    {
+        get
+        {
+            var total = string.Format(T("Main_MemoryCountFormat"), _allVisibleContextMemories.Count);
+            var rendered = IsMemoryConstellationLayer
+                ? $" · 星座 {MemoryConstellations.Count}"
+                : _allVisibleContextMemories.Count > 0 && ContextMemories.Count < _allVisibleContextMemories.Count
+                ? $" · 显示 {ContextMemories.Count}"
+                : string.Empty;
+            var pending = PendingContextMemories.Count > 0
+                ? $" · {PendingContextMemories.Count} 待确认"
+                : string.Empty;
+            return total + rendered + pending;
+        }
+    }
+    public bool HasPendingMemories => PendingContextMemories.Count > 0;
+    public string PendingMemoryCountText => PendingContextMemories.Count == 0
+        ? "没有待确认记忆"
+        : $"{PendingContextMemories.Count} 条待确认记忆";
     public bool HasSelectedGalaxyTask => SelectedGalaxyMemory != null;
+    public bool HasSelectedPendingMemory => SelectedGalaxyMemory?.IsPendingReview == true;
+    public bool HasGalaxyFilters => !string.IsNullOrWhiteSpace(NormalizeGalaxyFilter(GalaxySearchText, "search")) ||
+        !string.IsNullOrWhiteSpace(NormalizeGalaxyFilter(GalaxyTagFilter, "tag")) ||
+        !string.IsNullOrWhiteSpace(NormalizeGalaxyFilter(GalaxyGroupFilter, "group"));
     public bool IsGalaxyPreviewMode => MemoryPreviewMode == "galaxy";
+    public bool IsMemoryConstellationLayer => IsGalaxyPreviewMode && !HasGalaxyFilters;
+    public bool IsMemoryNodeLayer => IsGalaxyPreviewMode && !IsMemoryConstellationLayer;
+    public bool IsGalaxyEmpty => IsMemoryConstellationLayer
+        ? MemoryConstellations.Count == 0
+        : ContextMemories.Count == 0;
     public bool IsFishbonePreviewMode => MemoryPreviewMode == "fishbone";
     public string FocusModeButtonText => IsFocusModeActive ? T("Main_FocusModeEnd") : T("Main_FocusModeStart");
     public string FocusModeStatusText => IsFocusModeActive
@@ -381,6 +446,55 @@ public partial class MainViewModel : ObservableObject
     private void SetMemoryPreviewMode(string mode)
     {
         MemoryPreviewMode = mode == "fishbone" ? "fishbone" : "galaxy";
+    }
+
+    [RelayCommand]
+    private void ClearGalaxyFilters()
+    {
+        _expandedMemoryConstellation = string.Empty;
+        SelectedGalaxyMemory = null;
+        GalaxySearchText = string.Empty;
+        GalaxyTagFilter = string.Empty;
+        GalaxyGroupFilter = string.Empty;
+        ApplyGalaxyMemoryFilters();
+        OnPropertyChanged(nameof(HasGalaxyFilters));
+    }
+
+    [RelayCommand]
+    private void ShowMemoryConstellationOverview()
+    {
+        MemoryPreviewMode = "galaxy";
+        ClearGalaxyFilters();
+    }
+
+    [RelayCommand]
+    private void OpenMemoryConstellation(MemoryConstellationNodeViewModel? constellation)
+    {
+        if (constellation == null)
+        {
+            return;
+        }
+
+        MemoryPreviewMode = "galaxy";
+        _expandedMemoryConstellation = constellation.Title;
+        GalaxySearchText = string.Empty;
+        GalaxyTagFilter = string.Empty;
+        GalaxyGroupFilter = constellation.Title;
+        SelectedGalaxyMemory = ContextMemories
+            .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+            .ThenByDescending(memory => memory.Weight)
+            .FirstOrDefault();
+        StatusText = $"已展开分组：{constellation.Title}";
+    }
+
+    public void OpenMemoryReview()
+    {
+        IsGalaxyVisible = true;
+        IsStatisticsVisible = false;
+        if (PendingContextMemories.Count > 0)
+        {
+            SelectedGalaxyMemory = PendingContextMemories[0];
+        }
     }
 
     [RelayCommand]
@@ -624,7 +738,7 @@ public partial class MainViewModel : ObservableObject
             SelectedGalaxyMemory.Content,
             SelectedGalaxyMemory.Type,
             SelectedGalaxyMemory.Source,
-            SelectedGalaxyMemory.Tags,
+            GalaxyEditTags,
             SelectedGalaxyMemory.Weight,
             SelectedGalaxyMemory.Id,
             memoryAxis: SelectedGalaxyMemory.MemoryAxis,
@@ -635,7 +749,9 @@ public partial class MainViewModel : ObservableObject
             isCompleted: SelectedGalaxyMemory.IsPlan && GalaxyEditIsCompleted,
             isAbandoned: SelectedGalaxyMemory.IsPlan && GalaxyEditIsAbandoned,
             lifecycle: SelectedGalaxyMemory.Lifecycle,
-            aiWeightProfile: SelectedGalaxyMemory.AiWeightProfile);
+            aiWeightProfile: SelectedGalaxyMemory.AiWeightProfile,
+            reviewStatus: SelectedGalaxyMemory.ReviewStatus,
+            constellationName: GalaxyEditGroup.Trim());
 
         StatusText = T("Main_GalaxyTaskSaved");
         await RefreshContextMemoriesAsync(updated.Id);
@@ -643,6 +759,41 @@ public partial class MainViewModel : ObservableObject
         {
             EndFocusModeIfMatches(updated.Id);
         }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEditGalaxyTask))]
+    private async Task ConfirmSelectedMemory()
+    {
+        if (SelectedGalaxyMemory == null)
+        {
+            return;
+        }
+
+        if (SelectedGalaxyMemory.IsPendingReview)
+        {
+            await SaveGalaxyTask();
+            var confirmed = await _dbService.ConfirmPendingContextMemoryAsync(SelectedGalaxyMemory.Id);
+            StatusText = confirmed == null ? "无法确认这条记忆。" : $"已确认记忆：{confirmed.Title}";
+            await RefreshContextMemoriesAsync(confirmed?.Id);
+            IsGalaxyVisible = true;
+            return;
+        }
+
+        StatusText = "这条记忆已经在星图里。";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanEditGalaxyTask))]
+    private async Task RejectSelectedMemory()
+    {
+        if (SelectedGalaxyMemory == null)
+        {
+            return;
+        }
+
+        await _dbService.RejectPendingContextMemoryAsync(SelectedGalaxyMemory.Id);
+        StatusText = $"已忽略候选记忆：{SelectedGalaxyMemory.Title}";
+        SelectedGalaxyMemory = null;
+        await RefreshContextMemoriesAsync();
     }
 
     [RelayCommand(CanExecute = nameof(CanEditGalaxyTask))]
@@ -692,8 +843,10 @@ public partial class MainViewModel : ObservableObject
 
         current.X = x;
         current.Y = y;
-        GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(ContextMemories));
-        FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(ContextMemories));
+        if (ContextMemories.Count <= MaxInteractiveLinkRefreshNodes)
+        {
+            GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(ContextMemories));
+        }
     }
 
     private bool CanEditGalaxyTask()
@@ -1079,21 +1232,11 @@ public partial class MainViewModel : ObservableObject
             !string.IsNullOrWhiteSpace(candidate.Content) &&
             savedPlan == null)
         {
-            await _dbService.UpsertContextMemoryAsync(
-                MemoryExtractionService.NormalizeCandidateTitle(candidate.Title, candidate.Content),
-                candidate.Content,
-                MemoryExtractionService.ParseType(candidate.Type),
-                "ai-candidate",
-                string.Join(", ", candidate.Tags.Take(8)),
-                candidate.Weight,
-                memoryAxis: candidate.MemoryAxis,
-                aiDescription: candidate.Description,
-                aiExplanation: candidate.Explanation,
-                nextPrediction: candidate.NextPrediction,
-                isPlan: candidate.IsPlan || MemoryExtractionService.LooksLikePlanMemory(candidate.Content),
-                isCompleted: candidate.IsCompleted,
-                aiWeightProfile: candidate.WeightProfile);
-            await RefreshContextMemoriesAsync();
+            var pending = await _memoryExtractionService.SaveCandidateForReviewAsync(candidate);
+            await RefreshContextMemoriesAsync(pending?.Id);
+            StatusText = pending == null
+                ? StatusText
+                : $"发现一条候选记忆，已放到待确认：{pending.Title}";
         }
         else if (savedPlan == null)
         {
@@ -1750,15 +1893,24 @@ public partial class MainViewModel : ObservableObject
         var visibleMemories = (await _dbService.GetContextMemoriesAsync())
             .Where(memory => !IsSceneCheckpointMemory(memory))
             .ToList();
-        ContextMemories = new ObservableCollection<ContextMemory>(visibleMemories);
-        GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(ContextMemories));
-        FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(ContextMemories));
+        var pendingMemories = (await _dbService.GetPendingContextMemoriesAsync())
+            .Where(memory => !IsSceneCheckpointMemory(memory))
+            .ToList();
+        _allVisibleContextMemories = visibleMemories;
+        _memorySearchIndex = visibleMemories.ToDictionary(memory => memory.Id, CreateMemorySearchText);
+        PendingContextMemories = new ObservableCollection<ContextMemory>(pendingMemories);
+        AvailableGalaxyTags = new ObservableCollection<string>(CreateAvailableMemoryTags(visibleMemories));
+        AvailableGalaxyGroups = new ObservableCollection<string>(CreateAvailableMemoryGroups(visibleMemories));
+        ApplyGalaxyMemoryFilters();
         SelectedGalaxyMemory = highlightId.HasValue
-            ? ContextMemories.FirstOrDefault(memory => memory.Id == highlightId.Value)
+            ? ContextMemories.Concat(PendingContextMemories).FirstOrDefault(memory => memory.Id == highlightId.Value)
             : SelectedGalaxyMemory == null
                 ? null
-                : ContextMemories.FirstOrDefault(memory => memory.Id == SelectedGalaxyMemory.Id);
+                : ContextMemories.Concat(PendingContextMemories).FirstOrDefault(memory => memory.Id == SelectedGalaxyMemory.Id);
         OnPropertyChanged(nameof(MemoryCountText));
+        OnPropertyChanged(nameof(PendingMemoryCountText));
+        OnPropertyChanged(nameof(HasPendingMemories));
+        OnPropertyChanged(nameof(HasGalaxyFilters));
 
         if (highlightId.HasValue)
         {
@@ -1767,6 +1919,170 @@ public partial class MainViewModel : ObservableObject
 
         OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
         OnPropertyChanged(nameof(FocusModeStatusText));
+    }
+
+    private void ApplyGalaxyMemoryFilters()
+    {
+        var search = NormalizeGalaxyFilter(GalaxySearchText, "search");
+        var tagFilter = NormalizeGalaxyFilter(GalaxyTagFilter, "tag");
+        var groupFilter = NormalizeGalaxyFilter(GalaxyGroupFilter, "group");
+        var hasFilters = !string.IsNullOrWhiteSpace(search) ||
+            !string.IsNullOrWhiteSpace(tagFilter) ||
+            !string.IsNullOrWhiteSpace(groupFilter);
+        var isExpandedConstellation = !string.IsNullOrWhiteSpace(_expandedMemoryConstellation) &&
+            string.IsNullOrWhiteSpace(search) &&
+            string.IsNullOrWhiteSpace(tagFilter) &&
+            string.Equals(groupFilter, _expandedMemoryConstellation, StringComparison.OrdinalIgnoreCase);
+        var filtered = isExpandedConstellation
+            ? CreateExpandedConstellationMemorySlice(_allVisibleContextMemories, _expandedMemoryConstellation)
+            : _allVisibleContextMemories
+                .Where(memory => MatchesGalaxyFilters(memory, search, tagFilter, groupFilter))
+                .ToList();
+        var constellationNodes = hasFilters
+            ? []
+            : CreateMemoryConstellationNodes(filtered).ToList();
+        MemoryConstellations = new ObservableCollection<MemoryConstellationNodeViewModel>(constellationNodes);
+        if (!hasFilters)
+        {
+            ContextMemories = [];
+            GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(
+                CreateMemoryConstellationLinks(filtered, constellationNodes));
+            FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(filtered));
+            OnPropertyChanged(nameof(MemoryCountText));
+            OnPropertyChanged(nameof(IsMemoryConstellationLayer));
+            OnPropertyChanged(nameof(IsMemoryNodeLayer));
+            OnPropertyChanged(nameof(IsGalaxyEmpty));
+            return;
+        }
+
+        var displayed = CreateDisplayedMemorySlice(
+            filtered,
+            hasFilters,
+            SelectedGalaxyMemory?.Id);
+        ContextMemories = new ObservableCollection<ContextMemory>(displayed);
+        GalaxyLinks = new ObservableCollection<GalaxyLinkViewModel>(CreateMemoryGalaxyLinks(displayed));
+        FishboneBranches = new ObservableCollection<FishboneBranchViewModel>(CreateFishboneBranches(displayed));
+        OnPropertyChanged(nameof(MemoryCountText));
+        OnPropertyChanged(nameof(IsMemoryConstellationLayer));
+        OnPropertyChanged(nameof(IsMemoryNodeLayer));
+        OnPropertyChanged(nameof(IsGalaxyEmpty));
+    }
+
+    private bool MatchesGalaxyFilters(ContextMemory memory, string search, string tagFilter, string groupFilter)
+    {
+        if (!string.IsNullOrWhiteSpace(search) &&
+            !ContainsAllSearchTerms(memory, search))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(tagFilter) &&
+            !SplitTagsForInsight(memory.Tags)
+                .Any(tag => string.Equals(tag, tagFilter, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(groupFilter) &&
+            !string.Equals(memory.ConstellationName.Trim(), groupFilter, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static IReadOnlyList<ContextMemory> CreateDisplayedMemorySlice(
+        IReadOnlyList<ContextMemory> memories,
+        bool hasFilters,
+        int? pinnedMemoryId)
+    {
+        var limit = hasFilters ? MaxFilteredMemoryNodes : MaxDefaultMemoryNodes;
+        if (memories.Count <= limit)
+        {
+            return memories;
+        }
+
+        var displayed = memories
+            .OrderByDescending(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+            .ThenByDescending(memory => memory.Weight)
+            .ThenByDescending(memory => memory.UpdatedAt)
+            .Take(limit)
+            .ToList();
+
+        if (pinnedMemoryId.HasValue &&
+            displayed.All(memory => memory.Id != pinnedMemoryId.Value))
+        {
+            var pinned = memories.FirstOrDefault(memory => memory.Id == pinnedMemoryId.Value);
+            if (pinned != null)
+            {
+                displayed[^1] = pinned;
+            }
+        }
+
+        return displayed;
+    }
+
+    private static string NormalizeGalaxyFilter(string? value, string kind)
+    {
+        var normalized = value?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        var lower = normalized.ToLowerInvariant();
+        var isPlaceholder = kind switch
+        {
+            "tag" => lower is "tag" or "tags" or "\u6807\u7b7e",
+            "group" => lower is "group" or "groups" or "\u5206\u7ec4",
+            "search" => lower is "search" or "\u641c\u7d22" or "\u641c\u7d22\u6807\u9898\u3001\u5185\u5bb9\u3001\u6807\u7b7e",
+            _ => false
+        };
+
+        return isPlaceholder ? string.Empty : normalized;
+    }
+
+    private bool ContainsAllSearchTerms(ContextMemory memory, string search)
+    {
+        var haystack = _memorySearchIndex.TryGetValue(memory.Id, out var indexedText)
+            ? indexedText
+            : CreateMemorySearchText(memory);
+        return SplitTagsForInsight(search)
+            .DefaultIfEmpty(search.Trim().ToLowerInvariant())
+            .All(term => haystack.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string CreateMemorySearchText(ContextMemory memory)
+    {
+        return string.Join(
+            ' ',
+            memory.Title,
+            memory.Content,
+            memory.Tags,
+            memory.ConstellationName,
+            memory.AiDescription,
+            memory.AiExplanation,
+            memory.NextPrediction).ToLowerInvariant();
+    }
+
+    private static IReadOnlyList<string> CreateAvailableMemoryTags(IEnumerable<ContextMemory> memories)
+    {
+        return memories
+            .SelectMany(memory => SplitTagsForInsight(memory.Tags))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(tag => tag, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> CreateAvailableMemoryGroups(IEnumerable<ContextMemory> memories)
+    {
+        return memories
+            .Select(memory => memory.ConstellationName.Trim())
+            .Where(group => !string.IsNullOrWhiteSpace(group))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
     }
 
     private static bool IsSceneCheckpointMemory(ContextMemory memory)
@@ -2355,6 +2671,9 @@ public partial class MainViewModel : ObservableObject
     partial void OnMemoryPreviewModeChanged(string value)
     {
         OnPropertyChanged(nameof(IsGalaxyPreviewMode));
+        OnPropertyChanged(nameof(IsMemoryConstellationLayer));
+        OnPropertyChanged(nameof(IsMemoryNodeLayer));
+        OnPropertyChanged(nameof(IsGalaxyEmpty));
         OnPropertyChanged(nameof(IsFishbonePreviewMode));
     }
 
@@ -2363,6 +2682,13 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(MemoryCountText));
         OnPropertyChanged(nameof(CurrentFocusGoalDisplay));
         OnPropertyChanged(nameof(FocusModeStatusText));
+        OnPropertyChanged(nameof(IsGalaxyEmpty));
+    }
+
+    partial void OnMemoryConstellationsChanged(ObservableCollection<MemoryConstellationNodeViewModel> value)
+    {
+        OnPropertyChanged(nameof(MemoryCountText));
+        OnPropertyChanged(nameof(IsGalaxyEmpty));
     }
 
     partial void OnSelectedGalaxyMemoryChanged(ContextMemory? value)
@@ -2372,16 +2698,22 @@ public partial class MainViewModel : ObservableObject
         if (value == null)
         {
             GalaxyEditTitle = string.Empty;
+            GalaxyEditTags = string.Empty;
+            GalaxyEditGroup = string.Empty;
             GalaxyEditCreatedAtText = string.Empty;
             GalaxyEditIsCompleted = false;
             GalaxyEditIsAbandoned = false;
+            OnPropertyChanged(nameof(HasSelectedPendingMemory));
             return;
         }
 
         GalaxyEditTitle = value.Title;
+        GalaxyEditTags = value.Tags;
+        GalaxyEditGroup = value.ConstellationName;
         GalaxyEditCreatedAtText = value.UpdatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
         GalaxyEditIsCompleted = value.IsPlan && value.IsCompleted;
         GalaxyEditIsAbandoned = value.IsPlan && value.IsAbandoned;
+        OnPropertyChanged(nameof(HasSelectedPendingMemory));
     }
 
     partial void OnGalaxyEditIsCompletedChanged(bool value)
@@ -2398,6 +2730,47 @@ public partial class MainViewModel : ObservableObject
         {
             GalaxyEditIsCompleted = false;
         }
+    }
+
+    partial void OnPendingContextMemoriesChanged(ObservableCollection<ContextMemory> value)
+    {
+        OnPropertyChanged(nameof(HasPendingMemories));
+        OnPropertyChanged(nameof(PendingMemoryCountText));
+        OnPropertyChanged(nameof(MemoryCountText));
+    }
+
+    partial void OnGalaxySearchTextChanged(string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            _expandedMemoryConstellation = string.Empty;
+        }
+
+        ApplyGalaxyMemoryFilters();
+        OnPropertyChanged(nameof(HasGalaxyFilters));
+    }
+
+    partial void OnGalaxyTagFilterChanged(string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            _expandedMemoryConstellation = string.Empty;
+        }
+
+        ApplyGalaxyMemoryFilters();
+        OnPropertyChanged(nameof(HasGalaxyFilters));
+    }
+
+    partial void OnGalaxyGroupFilterChanged(string value)
+    {
+        var groupFilter = NormalizeGalaxyFilter(value, "group");
+        if (!string.Equals(groupFilter, _expandedMemoryConstellation, StringComparison.OrdinalIgnoreCase))
+        {
+            _expandedMemoryConstellation = string.Empty;
+        }
+
+        ApplyGalaxyMemoryFilters();
+        OnPropertyChanged(nameof(HasGalaxyFilters));
     }
 
     private static string T(string key) => TranslationService.Instance[key];

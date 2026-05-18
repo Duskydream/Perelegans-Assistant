@@ -18,6 +18,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private readonly BreakpointSnapshotService _breakpointSnapshotService;
     private readonly CodingClientMonitorService _codingClientMonitorService;
     private readonly Action _showDashboard;
+    private readonly Action _showMemoryReview;
     private readonly Action<BreakpointSnapshot> _showBreakpointSnapshot;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
@@ -28,6 +29,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private DateTime _codingClientCelebrationUntil = DateTime.MinValue;
     private string _codingClientCelebrationMessage = string.Empty;
     private bool _isAway;
+    private int _pendingMemoryCount;
 
     [ObservableProperty]
     private string _bubbleText = "Perelegans 正在待命";
@@ -56,7 +58,12 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _showCelebrationMarks;
 
+    [ObservableProperty]
+    private bool _hasPendingMemoryPrompt;
+
     public string BreakpointContinueText => "继续";
+
+    public string MemoryReviewText => _pendingMemoryCount <= 1 ? "查看" : $"查看 {_pendingMemoryCount}";
 
     public string SelectedPetSkinId => PetSkinPresets.Normalize(_settingsService.Settings.FloatingPetSkinId);
 
@@ -75,6 +82,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         BreakpointSnapshotService breakpointSnapshotService,
         CodingClientMonitorService codingClientMonitorService,
         Action showDashboard,
+        Action showMemoryReview,
         Action<BreakpointSnapshot> showBreakpointSnapshot,
         Action openSettings,
         Action exitApplication)
@@ -87,6 +95,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _breakpointSnapshotService = breakpointSnapshotService;
         _codingClientMonitorService = codingClientMonitorService;
         _showDashboard = showDashboard;
+        _showMemoryReview = showMemoryReview;
         _showBreakpointSnapshot = showBreakpointSnapshot;
         _openSettings = openSettings;
         _exitApplication = exitApplication;
@@ -145,6 +154,13 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         HasBreakpointPrompt = false;
         UpdatePetMood();
         _showBreakpointSnapshot(snapshot);
+    }
+
+    [RelayCommand]
+    private void OpenMemoryReview()
+    {
+        HasPendingMemoryPrompt = false;
+        _showMemoryReview();
     }
 
     [RelayCommand]
@@ -219,6 +235,22 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         {
             return;
         }
+
+        var pendingCount = await _databaseService.GetPendingContextMemoryCountAsync();
+        if (pendingCount > 0 && !IsCodingClientSnapshotActive(_codingClientSnapshot))
+        {
+            _pendingMemoryCount = pendingCount;
+            OnPropertyChanged(nameof(MemoryReviewText));
+            HasPendingMemoryPrompt = true;
+            ResetCodingClientAdornments();
+            PetMood = "question";
+            BubbleText = pendingCount == 1
+                ? "我发现 1 条可能值得留下的记忆，等你确认后再放进星图。"
+                : $"我发现 {pendingCount} 条候选记忆，等你确认后再放进星图。";
+            return;
+        }
+
+        HasPendingMemoryPrompt = false;
 
         if (!_settingsService.Settings.MonitorEnabled)
         {

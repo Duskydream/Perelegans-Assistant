@@ -62,6 +62,30 @@ public class AppSettings
     public int MonitorIntervalSeconds { get; set; } = 5;
 
     /// <summary>
+    /// One process name, window-title keyword, or executable-path keyword per line.
+    /// </summary>
+    public string ProductiveProcessRules { get; set; } = string.Join(Environment.NewLine, new[]
+    {
+        "Code",
+        "devenv",
+        "WINWORD",
+        "EXCEL",
+        "POWERPNT",
+        "ONENOTE",
+        "msedge",
+        "chrome",
+        "firefox",
+        "notion",
+        "Obsidian",
+        "Teams",
+        "OUTLOOK"
+    });
+
+    public int BreakpointIdleThresholdMinutes { get; set; } = 15;
+
+    public int BreakpointReturnThresholdSeconds { get; set; } = 8;
+
+    /// <summary>
     /// Whether process monitoring is enabled on startup.
     /// </summary>
     public bool MonitorEnabled { get; set; } = true;

@@ -49,6 +49,7 @@ public sealed class CodingClientMonitorService : IDisposable
     private static readonly TimeSpan CompletionVisibleWindow = TimeSpan.FromSeconds(14);
     private static readonly TimeSpan CompletionSettledDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan NotificationWaitingVisibleWindow = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan CodexApprovalReviewSuppressionWindow = TimeSpan.FromSeconds(35);
     private static readonly TimeSpan WorkspaceRefreshInterval = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan CodexLifecycleActiveWindow = TimeSpan.FromHours(2);
     private static readonly TimeSpan ClaudeLifecycleActiveWindow = TimeSpan.FromHours(2);
@@ -149,6 +150,7 @@ public sealed class CodingClientMonitorService : IDisposable
     private DateTime _lastNotificationStateAt = DateTime.MinValue;
     private DateTime _lastCodexLifecycleEventAt = DateTime.MinValue;
     private DateTime _lastCodexLifecycleCompletedAt = DateTime.MinValue;
+    private DateTime _lastCodexApprovalReviewAt = DateTime.MinValue;
     private DateTime _lastClaudeLifecycleEventAt = DateTime.MinValue;
     private DateTime _lastClaudeLifecycleCompletedAt = DateTime.MinValue;
     private CodingClientKind _lastNotificationClientKind = CodingClientKind.CodexDesktop;
@@ -277,6 +279,16 @@ public sealed class CodingClientMonitorService : IDisposable
             return;
         }
 
+        if (HasRecentApprovalReview(CodingClientKind.CodexDesktop, now))
+        {
+            Publish(CreateSnapshot(
+                CodingClientActivityState.WaitingForConfirmation,
+                now,
+                "Codex Desktop 正在处理权限确认，还不能算生成完成。",
+                lastChangedPath));
+            return;
+        }
+
         if (IsCompletionSettled(now, _lastCodexLifecycleCompletedAt))
         {
             Publish(CreateSnapshot(
@@ -357,6 +369,18 @@ public sealed class CodingClientMonitorService : IDisposable
                 CodingClientActivityState.Coding,
                 now,
                 "Claude Desktop 正在生成回复，我先陪它想一会儿。",
+                lastChangedPath));
+            return;
+        }
+
+        if (codexEnabled &&
+            HasRecentApprovalReview(CodingClientKind.CodexDesktop, now))
+        {
+            Publish(CreateSnapshot(
+                CodingClientKind.CodexDesktop,
+                CodingClientActivityState.WaitingForConfirmation,
+                now,
+                "Codex Desktop 正在处理权限确认，还不能算生成完成。",
                 lastChangedPath));
             return;
         }
@@ -511,8 +535,33 @@ public sealed class CodingClientMonitorService : IDisposable
             return;
         }
 
+        if (IsCompletionNotification(clientKind, combinedText))
+        {
+            if (clientKind == CodingClientKind.CodexDesktop)
+            {
+                lock (_gate)
+                {
+                    _lastCodexApprovalReviewAt = DateTime.MinValue;
+                }
+            }
+
+            MarkClientState(
+                clientKind,
+                CodingClientActivityState.Completed,
+                $"{GetClientName(clientKind)} completed generation; please review it.");
+            return;
+        }
+
         if (IsApprovalNotification(combinedText))
         {
+            if (clientKind == CodingClientKind.CodexDesktop)
+            {
+                lock (_gate)
+                {
+                    _lastCodexApprovalReviewAt = DateTime.Now;
+                }
+            }
+
             MarkClientState(
                 clientKind,
                 CodingClientActivityState.WaitingForConfirmation,
@@ -520,13 +569,6 @@ public sealed class CodingClientMonitorService : IDisposable
             return;
         }
 
-        if (IsCompletionNotification(clientKind, combinedText))
-        {
-            MarkClientState(
-                clientKind,
-                CodingClientActivityState.Completed,
-                $"{GetClientName(clientKind)} 刚发来完成通知，去看看吧。");
-        }
     }
 
     private static bool TryGetNotificationClientKind(string appName, out CodingClientKind kind)
@@ -599,6 +641,11 @@ public sealed class CodingClientMonitorService : IDisposable
 
         if (state == CodingClientActivityState.Completed)
         {
+            if (HasRecentApprovalReview(kind, now))
+            {
+                return false;
+            }
+
             if (!IsCompletionSettled(now, updatedAt) ||
                 IsClientCurrentlyCoding(
                     kind,
@@ -607,6 +654,22 @@ public sealed class CodingClientMonitorService : IDisposable
                     hasClaudeLifecycleActivity,
                     lastWorkspaceChangeAt) ||
                 HasClientActivityAfter(kind, updatedAt, lastWorkspaceChangeAt))
+            {
+                return false;
+            }
+        }
+        else if (state == CodingClientActivityState.WaitingForConfirmation)
+        {
+            var completedAt = kind == CodingClientKind.CodexDesktop
+                ? _lastCodexLifecycleCompletedAt
+                : _lastClaudeLifecycleCompletedAt;
+            if (completedAt > updatedAt &&
+                IsCompletionSettled(now, completedAt))
+            {
+                return false;
+            }
+
+            if (now - updatedAt > NotificationWaitingVisibleWindow)
             {
                 return false;
             }
@@ -625,6 +688,15 @@ public sealed class CodingClientMonitorService : IDisposable
         return completedAt != DateTime.MinValue &&
                now - completedAt >= CompletionSettledDelay &&
                now - completedAt <= CompletionVisibleWindow;
+    }
+
+    private bool HasRecentApprovalReview(CodingClientKind kind, DateTime now)
+    {
+        return kind == CodingClientKind.CodexDesktop &&
+               _lastCodexApprovalReviewAt != DateTime.MinValue &&
+               !(_lastCodexLifecycleCompletedAt != DateTime.MinValue &&
+                 now - _lastCodexLifecycleCompletedAt <= CompletionVisibleWindow) &&
+               now - _lastCodexApprovalReviewAt <= CodexApprovalReviewSuppressionWindow;
     }
 
     private bool IsClientCurrentlyCoding(
@@ -734,7 +806,20 @@ public sealed class CodingClientMonitorService : IDisposable
 
     private bool UpdateCodexLifecycleState(DateTime now)
     {
-        if (!TryGetLatestCodexLifecycleEvent(out var isRunning, out var eventAt, out var signature, out var sourcePath))
+        var hasLifecycleEvent = TryGetLatestCodexLifecycleEvent(
+            out var isRunning,
+            out var eventAt,
+            out var signature,
+            out var sourcePath,
+            out var approvalReviewAt);
+
+        if (approvalReviewAt > _lastCodexApprovalReviewAt)
+        {
+            _lastCodexApprovalReviewAt = approvalReviewAt;
+            _lastCodexLifecycleCompletedAt = DateTime.MinValue;
+        }
+
+        if (!hasLifecycleEvent)
         {
             return _isCodexLifecycleRunning &&
                    now - _lastCodexLifecycleEventAt <= CodexLifecycleActiveWindow;
@@ -763,6 +848,7 @@ public sealed class CodingClientMonitorService : IDisposable
             else if (wasRunning)
             {
                 _lastCodexLifecycleCompletedAt = now;
+
                 _activeCodexLifecyclePath = string.Empty;
             }
         }
@@ -775,22 +861,48 @@ public sealed class CodingClientMonitorService : IDisposable
         out bool isRunning,
         out DateTime eventAt,
         out string signature,
-        out string sourcePath)
+        out string sourcePath,
+        out DateTime approvalReviewAt)
     {
         isRunning = false;
         eventAt = DateTime.MinValue;
         signature = string.Empty;
         sourcePath = string.Empty;
+        approvalReviewAt = DateTime.MinValue;
 
         foreach (var path in EnumerateRecentCodexRolloutFiles())
         {
             var fileRunning = false;
             DateTime fileEventAt = DateTime.MinValue;
             var fileSignature = string.Empty;
+            var fileIsApprovalReview = false;
 
             foreach (var line in ReadRecentLines(path, CodexRolloutTailLineCount))
             {
-                if (!TryParseCodexLifecycleLine(line, out var kind, out var lineAt))
+                if (!TryParseCodexLifecycleLine(
+                        line,
+                        out var kind,
+                        out var lineAt,
+                        out var isApprovalReviewContext))
+                {
+                    continue;
+                }
+
+                if (isApprovalReviewContext)
+                {
+                    fileIsApprovalReview = true;
+                    fileRunning = false;
+                    fileEventAt = DateTime.MinValue;
+                    fileSignature = string.Empty;
+                    if (lineAt > approvalReviewAt)
+                    {
+                        approvalReviewAt = lineAt;
+                    }
+
+                    continue;
+                }
+
+                if (fileIsApprovalReview)
                 {
                     continue;
                 }
@@ -877,10 +989,12 @@ public sealed class CodingClientMonitorService : IDisposable
     private static bool TryParseCodexLifecycleLine(
         string line,
         out CodexLifecycleEventKind kind,
-        out DateTime eventAt)
+        out DateTime eventAt,
+        out bool isApprovalReviewContext)
     {
         kind = CodexLifecycleEventKind.None;
         eventAt = DateTime.MinValue;
+        isApprovalReviewContext = false;
 
         if (string.IsNullOrWhiteSpace(line))
         {
@@ -902,6 +1016,13 @@ public sealed class CodingClientMonitorService : IDisposable
                 payload.ValueKind == JsonValueKind.Object)
             {
                 payloadType = TryGetStringProperty(payload, "type");
+                isApprovalReviewContext = IsCodexApprovalReviewContext(rootType, payload);
+            }
+
+            if (isApprovalReviewContext)
+            {
+                kind = CodexLifecycleEventKind.Active;
+                return true;
             }
 
             if (IsCodexCompletedEvent(rootType, payloadType))
@@ -956,13 +1077,46 @@ public sealed class CodingClientMonitorService : IDisposable
 
     private static bool IsCodexStartedEvent(string rootType, string payloadType)
     {
-        return rootType.Equals("turn_context", StringComparison.OrdinalIgnoreCase) ||
-               payloadType.Equals("task_started", StringComparison.OrdinalIgnoreCase);
+        return rootType.Equals("turn_context", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsCodexCompletedEvent(string rootType, string payloadType)
     {
         return payloadType.Equals("task_complete", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsCodexApprovalReviewContext(string rootType, JsonElement payload)
+    {
+        if (!rootType.Equals("turn_context", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var model = TryGetStringProperty(payload, "model");
+        if (ContainsAny(model, "auto-review", "approval-review"))
+        {
+            return true;
+        }
+
+        if (payload.TryGetProperty("collaboration_mode", out var collaborationMode) &&
+            collaborationMode.ValueKind == JsonValueKind.Object &&
+            collaborationMode.TryGetProperty("settings", out var settings) &&
+            settings.ValueKind == JsonValueKind.Object &&
+            ContainsAny(TryGetStringProperty(settings, "model"), "auto-review", "approval-review"))
+        {
+            return true;
+        }
+
+        if (payload.TryGetProperty("final_output_json_schema", out var schema) &&
+            schema.ValueKind == JsonValueKind.Object &&
+            schema.TryGetProperty("properties", out var properties) &&
+            properties.ValueKind == JsonValueKind.Object &&
+            properties.TryGetProperty("outcome", out _))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static bool IsCodexActiveEvent(string rootType, string payloadType)
@@ -1617,9 +1771,7 @@ public sealed class CodingClientMonitorService : IDisposable
             "admin permission",
             "do you want to allow",
             "do you want to run",
-            "review",
             "needs your",
-            "waiting for",
             "waiting on you",
             "requires input",
             "需要确认",
@@ -1644,14 +1796,12 @@ public sealed class CodingClientMonitorService : IDisposable
 
     private static bool IsCompletionNotification(CodingClientKind kind, string text)
     {
-        if (IsApprovalNotification(text) ||
-            ContainsAny(
+        if (ContainsAny(
                 text,
                 "running",
                 "in progress",
                 "generating",
                 "writing",
-                "working",
                 "executing",
                 "command completed",
                 "tool completed",

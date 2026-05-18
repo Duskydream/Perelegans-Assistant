@@ -25,24 +25,63 @@ public class DatabaseService
         await DropLegacyGameTablesAsync();
     }
 
-    public async Task<List<ContextMemory>> GetContextMemoriesAsync()
+    public async Task<List<ContextMemory>> GetContextMemoriesAsync(bool includePending = false, bool includeRejected = false)
     {
         await using var db = new PerelegansDbContext();
-        return await db.ContextMemories
+        var memories = await db.ContextMemories
             .AsNoTracking()
             .OrderByDescending(m => m.UpdatedAt)
             .ToListAsync();
+
+        if (!includeRejected)
+        {
+            memories = memories
+                .Where(m => m.ReviewStatus != ContextMemoryReviewStatus.Rejected)
+                .ToList();
+        }
+
+        if (!includePending)
+        {
+            memories = memories
+                .Where(IsConfirmedMemory)
+                .ToList();
+        }
+
+        return memories;
+    }
+
+    public async Task<List<ContextMemory>> GetPendingContextMemoriesAsync()
+    {
+        await using var db = new PerelegansDbContext();
+        var memories = await db.ContextMemories
+            .AsNoTracking()
+            .OrderByDescending(m => m.SuggestedAt ?? m.CreatedAt)
+            .ToListAsync();
+        return memories
+            .Where(m => m.ReviewStatus == ContextMemoryReviewStatus.Pending)
+            .ToList();
+    }
+
+    public async Task<int> GetPendingContextMemoryCountAsync()
+    {
+        await using var db = new PerelegansDbContext();
+        var memories = await db.ContextMemories
+            .AsNoTracking()
+            .ToListAsync();
+        return memories.Count(m => m.ReviewStatus == ContextMemoryReviewStatus.Pending);
     }
 
     public async Task<List<ContextMemory>> SearchContextMemoriesAsync(string query, int limit = 8)
     {
         await using var db = new PerelegansDbContext();
-        var memories = await db.ContextMemories
+        var memories = (await db.ContextMemories
             .AsNoTracking()
             .OrderByDescending(m => m.Weight)
             .ThenByDescending(m => m.UpdatedAt)
+            .ToListAsync())
+            .Where(IsConfirmedMemory)
             .Take(200)
-            .ToListAsync();
+            .ToList();
 
         var terms = CreateSearchTerms(query);
         if (terms.Count == 0)
@@ -68,11 +107,11 @@ public class DatabaseService
     public async Task<ContextMemory?> GetLatestOpenPlanMemoryAsync()
     {
         await using var db = new PerelegansDbContext();
-        return await db.ContextMemories
+        return (await db.ContextMemories
             .AsNoTracking()
-            .Where(m => m.IsPlan && !m.IsCompleted && !m.IsAbandoned)
             .OrderByDescending(m => m.UpdatedAt)
-            .FirstOrDefaultAsync();
+            .ToListAsync())
+            .FirstOrDefault(m => IsConfirmedMemory(m) && m.IsPlan && !m.IsCompleted && !m.IsAbandoned);
     }
 
     public async Task<ContextMemory?> CompleteContextMemoryAsync(int id)
@@ -122,7 +161,10 @@ public class DatabaseService
     public async Task<int> RefreshMemoryLifecycleForDailyReviewAsync()
     {
         await using var db = new PerelegansDbContext();
-        var memories = await db.ContextMemories.ToListAsync();
+        var memories = (await db.ContextMemories
+                .ToListAsync())
+            .Where(IsConfirmedMemory)
+            .ToList();
         var changed = 0;
         foreach (var memory in memories)
         {
@@ -164,7 +206,9 @@ public class DatabaseService
         bool? isAbandoned = null,
         ContextMemoryLifecycle? lifecycle = null,
         bool suppressPlanDetection = false,
-        string aiWeightProfile = "")
+        string aiWeightProfile = "",
+        ContextMemoryReviewStatus reviewStatus = ContextMemoryReviewStatus.Confirmed,
+        string constellationName = "")
     {
         var normalizedTitle = string.IsNullOrWhiteSpace(title) || IsGenericMemoryTitle(title)
             ? CreateMemoryTitle(content)
@@ -184,15 +228,24 @@ public class DatabaseService
 
         if (memory == null)
         {
-            var memoryCount = await db.ContextMemories.CountAsync();
+            var memoryCount = (await db.ContextMemories
+                    .AsNoTracking()
+                    .ToListAsync())
+                .Count(IsConfirmedMemory);
             var (x, y) = CreateGalaxyCoordinate(memoryCount, normalizedTitle);
             memory = new ContextMemory
             {
                 CreatedAt = DateTime.Now,
                 X = x,
-                Y = y
+                Y = y,
+                SuggestedAt = reviewStatus == ContextMemoryReviewStatus.Pending ? DateTime.Now : null
             };
             db.ContextMemories.Add(memory);
+        }
+        else if (memory.ReviewStatus == ContextMemoryReviewStatus.Pending &&
+                 reviewStatus == ContextMemoryReviewStatus.Confirmed)
+        {
+            memory.ReviewedAt = DateTime.Now;
         }
 
         var normalizedTags = NormalizeMemoryTags(tags, normalizedContent, suppressPlanDetection);
@@ -237,12 +290,67 @@ public class DatabaseService
             ? CreateMemoryWeightProfile(planDetected, memory.IsCompleted, memory.IsAbandoned, weight)
             : aiWeightProfile.Trim();
         memory.Weight = CreateEffectiveMemoryWeight(weight, planDetected, memory.IsCompleted, memory.IsAbandoned);
-        memory.ConstellationName = CreateMemoryConstellationName(type, memory.Tags, normalizedTitle, normalizedContent);
+        memory.ConstellationName = string.IsNullOrWhiteSpace(constellationName)
+            ? CreateMemoryConstellationName(type, memory.Tags, normalizedTitle, normalizedContent)
+            : NormalizeLongText(constellationName, CreateMemoryConstellationName(type, memory.Tags, normalizedTitle, normalizedContent), 240);
+        memory.ReviewStatus = reviewStatus;
+        if (reviewStatus == ContextMemoryReviewStatus.Pending)
+        {
+            memory.SuggestedAt ??= DateTime.Now;
+            memory.ReviewedAt = null;
+        }
+        else if (reviewStatus == ContextMemoryReviewStatus.Confirmed && memory.SuggestedAt.HasValue)
+        {
+            memory.ReviewedAt ??= DateTime.Now;
+        }
         memory.NodeSize = CreateMemoryNodeSize(memory.Weight, normalizedContent);
         memory.UpdatedAt = DateTime.Now;
 
         await db.SaveChangesAsync();
         return memory;
+    }
+
+    public async Task<ContextMemory?> ConfirmPendingContextMemoryAsync(int id)
+    {
+        await using var db = new PerelegansDbContext();
+        var memory = await db.ContextMemories.FirstOrDefaultAsync(m => m.Id == id);
+        if (memory == null)
+        {
+            return null;
+        }
+
+        memory.ReviewStatus = ContextMemoryReviewStatus.Confirmed;
+        memory.ReviewedAt = DateTime.Now;
+        memory.UpdatedAt = DateTime.Now;
+        var confirmedCount = (await db.ContextMemories
+                .AsNoTracking()
+                .Where(m => m.Id != id)
+                .ToListAsync())
+            .Count(IsConfirmedMemory);
+        if (memory.X <= 0 && memory.Y <= 0)
+        {
+            var (x, y) = CreateGalaxyCoordinate(confirmedCount, memory.Title);
+            memory.X = x;
+            memory.Y = y;
+        }
+
+        await db.SaveChangesAsync();
+        return memory;
+    }
+
+    public async Task RejectPendingContextMemoryAsync(int id)
+    {
+        await using var db = new PerelegansDbContext();
+        var memory = await db.ContextMemories.FirstOrDefaultAsync(m => m.Id == id);
+        if (memory == null)
+        {
+            return;
+        }
+
+        memory.ReviewStatus = ContextMemoryReviewStatus.Rejected;
+        memory.ReviewedAt = DateTime.Now;
+        memory.UpdatedAt = DateTime.Now;
+        await db.SaveChangesAsync();
     }
 
     public async Task<List<ApplicationUsageSession>> GetApplicationUsageSessionsSinceAsync(DateTime since)
@@ -261,7 +369,10 @@ public class DatabaseService
         var since = currentTime.AddDays(-30);
 
         await using var db = new PerelegansDbContext();
-        var memories = await db.ContextMemories.ToListAsync();
+        var memories = (await db.ContextMemories
+                .ToListAsync())
+            .Where(IsConfirmedMemory)
+            .ToList();
         if (memories.Count == 0)
         {
             return 0;
@@ -298,9 +409,11 @@ public class DatabaseService
         }
 
         await using var db = new PerelegansDbContext();
-        var memories = await db.ContextMemories
-            .Where(m => idList.Contains(m.Id))
-            .ToListAsync();
+        var memories = (await db.ContextMemories
+                .Where(m => idList.Contains(m.Id))
+                .ToListAsync())
+            .Where(IsConfirmedMemory)
+            .ToList();
         var now = DateTime.Now;
         var since = now.AddDays(-30);
         var recentSessions = await db.ApplicationUsageSessions
@@ -727,6 +840,11 @@ public class DatabaseService
         }.ToString();
     }
 
+    private static bool IsConfirmedMemory(ContextMemory memory)
+    {
+        return memory.ReviewStatus == ContextMemoryReviewStatus.Confirmed;
+    }
+
     private async Task EnsureApplicationUsageSchemaAsync()
     {
         await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
@@ -888,6 +1006,9 @@ public class DatabaseService
                 "Lifecycle" INTEGER NOT NULL DEFAULT 0,
                 "AiWeightProfile" TEXT NOT NULL DEFAULT '',
                 "ConstellationName" TEXT NOT NULL DEFAULT '',
+                "ReviewStatus" INTEGER NOT NULL DEFAULT 0,
+                "SuggestedAt" TEXT NULL,
+                "ReviewedAt" TEXT NULL,
                 "CreatedAt" TEXT NOT NULL,
                 "UpdatedAt" TEXT NOT NULL,
                 "LastUsedAt" TEXT NULL,
@@ -901,6 +1022,9 @@ public class DatabaseService
 
             CREATE INDEX IF NOT EXISTS "IX_ContextMemories_UpdatedAt"
             ON "ContextMemories" ("UpdatedAt");
+
+            CREATE INDEX IF NOT EXISTS "IX_ContextMemories_ReviewStatus"
+            ON "ContextMemories" ("ReviewStatus");
             """;
         await command.ExecuteNonQueryAsync();
 
@@ -920,6 +1044,9 @@ public class DatabaseService
         await EnsureColumnAsync(connection, "ContextMemories", "X", "REAL NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "Y", "REAL NOT NULL DEFAULT 0");
         await EnsureColumnAsync(connection, "ContextMemories", "NodeSize", "REAL NOT NULL DEFAULT 18");
+        await EnsureColumnAsync(connection, "ContextMemories", "ReviewStatus", "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(connection, "ContextMemories", "SuggestedAt", "TEXT NULL");
+        await EnsureColumnAsync(connection, "ContextMemories", "ReviewedAt", "TEXT NULL");
     }
 
     private async Task EnsureBreakpointSnapshotSchemaAsync()
@@ -1182,7 +1309,7 @@ public class DatabaseService
             }
 
             var constellation = CreateMemoryConstellationName(memory.Type, memory.Tags, memory.Title, memory.Content);
-            if (!string.Equals(memory.ConstellationName, constellation, StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(memory.ConstellationName))
             {
                 memory.ConstellationName = constellation;
                 changed = true;
@@ -1804,8 +1931,27 @@ public class DatabaseService
             memory.NextPrediction,
             memory.ConstellationName).ToLowerInvariant();
         var score = 0d;
+        var title = memory.Title.ToLowerInvariant();
+        var tags = memory.Tags.ToLowerInvariant();
+        var constellation = memory.ConstellationName.ToLowerInvariant();
         foreach (var term in terms)
         {
+            if (title.Contains(term, StringComparison.OrdinalIgnoreCase))
+            {
+                score += term.Length >= 4 ? 3.5 : 2.2;
+            }
+
+            if (tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Any(tag => string.Equals(tag.Trim().TrimStart('#'), term, StringComparison.OrdinalIgnoreCase)))
+            {
+                score += 3.2;
+            }
+
+            if (constellation.Contains(term, StringComparison.OrdinalIgnoreCase))
+            {
+                score += 2.4;
+            }
+
             if (haystack.Contains(term, StringComparison.OrdinalIgnoreCase))
             {
                 score += term.Length >= 4 ? 2 : 1;

@@ -79,6 +79,13 @@
                             HorizontalAlignment="Center"
                             FontSize="11"
                             Visibility="{Binding HasBreakpointPrompt, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                    <Button Content="{Binding MemoryReviewText}"
+                            Command="{Binding OpenMemoryReviewCommand}"
+                            Margin="0,7,0,0"
+                            Padding="10,3"
+                            HorizontalAlignment="Center"
+                            FontSize="11"
+                            Visibility="{Binding HasPendingMemoryPrompt, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                 </StackPanel>
             </Border>
 

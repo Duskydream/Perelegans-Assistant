@@ -54,12 +54,23 @@ public sealed class MemoryExtractionService
             return null;
         }
 
+        return await SaveCandidateForReviewAsync(candidate);
+    }
+
+    public async Task<ContextMemory?> SaveCandidateForReviewAsync(MemoryCandidateResult candidate)
+    {
+        if (candidate is not { ShouldRemember: true } ||
+            string.IsNullOrWhiteSpace(candidate.Content))
+        {
+            return null;
+        }
+
         var title = NormalizeCandidateTitle(candidate.Title, candidate.Content);
         return await _databaseService.UpsertContextMemoryAsync(
             title,
             candidate.Content,
             ParseType(candidate.Type),
-            "ai-candidate",
+            "ai-candidate-pending",
             string.Join(", ", candidate.Tags.Take(8)),
             Math.Clamp(candidate.Weight, 0.2, 1.0),
             memoryAxis: candidate.MemoryAxis,
@@ -68,7 +79,8 @@ public sealed class MemoryExtractionService
             nextPrediction: candidate.NextPrediction,
             isPlan: candidate.IsPlan || LooksLikePlanMemory(candidate.Content),
             isCompleted: candidate.IsCompleted,
-            aiWeightProfile: candidate.WeightProfile);
+            aiWeightProfile: candidate.WeightProfile,
+            reviewStatus: ContextMemoryReviewStatus.Pending);
     }
 
     public static ContextMemoryType ParseType(string? type)
