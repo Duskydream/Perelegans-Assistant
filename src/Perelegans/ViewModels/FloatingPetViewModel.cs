@@ -76,6 +76,8 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
     public bool IsBlackPetSkinSelected => IsPetSkinSelected(PetSkinPresets.Black);
 
+    public bool IsCustomPetSkinSelected => IsPetSkinSelected(PetSkinPresets.Custom);
+
     public FloatingPetViewModel(
         ProcessMonitorService processMonitor,
         FocusClassificationClient focusClassificationClient,
@@ -596,6 +598,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsPinkPetSkinSelected));
         OnPropertyChanged(nameof(IsWhiteOddEyesPetSkinSelected));
         OnPropertyChanged(nameof(IsBlackPetSkinSelected));
+        OnPropertyChanged(nameof(IsCustomPetSkinSelected));
     }
 
     private static bool ContainsAny(string text, params string[] terms)

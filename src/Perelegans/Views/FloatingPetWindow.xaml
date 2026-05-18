@@ -45,6 +45,11 @@
                               CommandParameter="black"
                               IsCheckable="True"
                               IsChecked="{Binding IsBlackPetSkinSelected, Mode=OneWay}"/>
+                    <MenuItem Header="自定义"
+                              Command="{Binding SelectPetSkinCommand}"
+                              CommandParameter="custom"
+                              IsCheckable="True"
+                              IsChecked="{Binding IsCustomPetSkinSelected, Mode=OneWay}"/>
                 </MenuItem>
                 <Separator/>
                 <MenuItem Header="设置"
