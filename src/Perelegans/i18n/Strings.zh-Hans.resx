@@ -36,6 +36,96 @@
   <data name="Settings_Language" xml:space="preserve">
     <value>语言：</value>
   </data>
+  <data name="Settings_PetSprite" xml:space="preserve">
+    <value>桌宠精灵：</value>
+  </data>
+  <data name="Settings_PetSpriteChoose" xml:space="preserve">
+    <value>选择 PNG</value>
+  </data>
+  <data name="Settings_PetSpriteReset" xml:space="preserve">
+    <value>重置</value>
+  </data>
+  <data name="Settings_PetSpriteDefault" xml:space="preserve">
+    <value>使用内置精灵</value>
+  </data>
+  <data name="Settings_PetSpriteRemoveBackground" xml:space="preserve">
+    <value>导入时去除背景</value>
+  </data>
+  <data name="Settings_PetSpriteTolerance" xml:space="preserve">
+    <value>容差：</value>
+  </data>
+  <data name="Settings_PetSpriteFrameWidth" xml:space="preserve">
+    <value>帧宽</value>
+  </data>
+  <data name="Settings_PetSpriteFrameHeight" xml:space="preserve">
+    <value>帧高</value>
+  </data>
+  <data name="Settings_PetSpriteFrameCount" xml:space="preserve">
+    <value>帧数</value>
+  </data>
+  <data name="Settings_PetSpriteRowCount" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="Settings_PetSpriteInterval" xml:space="preserve">
+    <value>间隔（ms）</value>
+  </data>
+  <data name="Settings_PetSpritePoseRows" xml:space="preserve">
+    <value>事件行使用从 0 开始的行号。</value>
+  </data>
+  <data name="Settings_PetSpriteIdleRow" xml:space="preserve">
+    <value>待机行</value>
+  </data>
+  <data name="Settings_PetSpriteProductiveRow" xml:space="preserve">
+    <value>生产力行</value>
+  </data>
+  <data name="Settings_PetSpriteDistractedRow" xml:space="preserve">
+    <value>分心行</value>
+  </data>
+  <data name="Settings_PetSpritePausedRow" xml:space="preserve">
+    <value>暂停行</value>
+  </data>
+  <data name="Settings_PetSpriteFocusRow" xml:space="preserve">
+    <value>专注行</value>
+  </data>
+  <data name="Settings_PetSpriteBreakpointRow" xml:space="preserve">
+    <value>断点行</value>
+  </data>
+  <data name="Settings_PetSpriteInvalidPng" xml:space="preserve">
+    <value>请选择 PNG 精灵表。</value>
+  </data>
+  <data name="Settings_PetSpriteInvalidNumbers" xml:space="preserve">
+    <value>帧宽、帧高、帧数、行数和播放间隔必须是正整数。</value>
+  </data>
+  <data name="Settings_PetSpriteInvalidRows" xml:space="preserve">
+    <value>事件行号必须是 0 或正整数。</value>
+  </data>
+  <data name="Settings_PetSpriteRowOutOfRange" xml:space="preserve">
+    <value>事件行号必须在 0 到 {0} 之间。</value>
+  </data>
+  <data name="Settings_PetSpriteInvalidTolerance" xml:space="preserve">
+    <value>背景容差必须是 0 到 255 之间的整数。</value>
+  </data>
+  <data name="Settings_PetSpriteInvalidSize" xml:space="preserve">
+    <value>图片尺寸为 {0}x{1}px，但当前配置至少需要 {2}x{3}px。</value>
+  </data>
+  <data name="Settings_PetSpriteLoadFailed" xml:space="preserve">
+    <value>无法读取精灵图：{0}</value>
+  </data>
+  <data name="Settings_PetSpriteMissingFile" xml:space="preserve">
+    <value>已选择的精灵图文件不存在。</value>
+  </data>
+  <data name="Settings_PetSpriteImported" xml:space="preserve">
+    <value>精灵图已导入。保存设置后生效。</value>
+  </data>
+  <data name="Settings_PetSpriteImportedTransparent" xml:space="preserve">
+    <value>精灵图已导入并去除背景。保存设置后生效。</value>
+  </data>
+  <data name="Settings_PetSpriteImportFailed" xml:space="preserve">
+    <value>导入精灵图失败：{0}</value>
+  </data>
+  <data name="Settings_PetSpriteResetReady" xml:space="preserve">
+    <value>已选择内置精灵。保存设置后生效。</value>
+  </data>
   <data name="Settings_Monitor" xml:space="preserve">
     <value>监控</value>
   </data>

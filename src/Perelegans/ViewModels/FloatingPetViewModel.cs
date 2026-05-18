@@ -36,6 +36,9 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _hasBreakpointPrompt;
 
+    [ObservableProperty]
+    private PetSpritePose _currentPetSpritePose = PetSpritePose.Idle;
+
     public string BreakpointContinueText => "继续";
 
     public FloatingPetViewModel(
@@ -76,11 +79,24 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
     public bool IsMonitorEnabled => _settingsService.Settings.MonitorEnabled;
 
+    public AppSettings Settings => _settingsService.Settings;
+
+    public event Action? SettingsChanged
+    {
+        add => _settingsService.SettingsChanged += value;
+        remove => _settingsService.SettingsChanged -= value;
+    }
+
     public string MonitorMenuText => IsMonitorEnabled ? "先歇一会" : "开始陪伴";
 
     public bool IsFocusModeActive => _focusModeService.IsActive;
 
     public string FocusModeMenuText => IsFocusModeActive ? "结束专注" : "专注模式";
+
+    public void SetPetSpritePose(PetSpritePose pose)
+    {
+        CurrentPetSpritePose = pose;
+    }
 
     [RelayCommand]
     private void ShowDashboard()
@@ -106,6 +122,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         var snapshot = _activeBreakpointSnapshot;
         _activeBreakpointSnapshot = null;
         HasBreakpointPrompt = false;
+        CurrentPetSpritePose = PetSpritePose.Idle;
         _showBreakpointSnapshot(snapshot);
     }
 
@@ -121,6 +138,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         if (_focusModeService.IsActive)
         {
             _focusModeService.Stop();
+            CurrentPetSpritePose = PetSpritePose.Idle;
             BubbleText = "专注模式已结束。";
             return;
         }
@@ -134,6 +152,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
         _focusModeService.Start(memory);
         SetMonitorEnabled(true);
+        CurrentPetSpritePose = PetSpritePose.Focus;
         BubbleText = $"已为「{memory.Title}」开启专注模式，我会轻轻提醒。";
     }
 
@@ -163,12 +182,14 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
 
         if (!_settingsService.Settings.MonitorEnabled)
         {
+            CurrentPetSpritePose = PetSpritePose.Paused;
             BubbleText = "Perelegans 先歇一会";
             return;
         }
 
         if (snapshot == null)
         {
+            CurrentPetSpritePose = PetSpritePose.Idle;
             BubbleText = "正在等你打开下一个窗口";
             return;
         }
@@ -187,10 +208,14 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         var latestPlan = await _databaseService.GetLatestOpenPlanMemoryAsync();
         if (latestPlan != null && !snapshot.IsKnownProductivityApp && minutes >= 8)
         {
+            CurrentPetSpritePose = PetSpritePose.Distracted;
             BubbleText = $"如果你愿意，等会儿可以回到「{latestPlan.Title}」。我会在旁边安静记着。";
             return;
         }
 
+        CurrentPetSpritePose = snapshot.IsKnownProductivityApp
+            ? PetSpritePose.Productive
+            : PetSpritePose.Distracted;
         BubbleText = snapshot.IsKnownProductivityApp
             ? $"{snapshot.ProcessName} 已陪你 {minutes} 分钟"
             : $"{snapshot.ProcessName} 停留 {minutes} 分钟";
@@ -201,10 +226,12 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         var relevant = IsProcessRelevantToFocus(snapshot.ProcessName, _focusModeService.TaskTags);
         if (relevant)
         {
+            CurrentPetSpritePose = PetSpritePose.Focus;
             BubbleText = $"正在陪你推进「{_focusModeService.TaskTitle}」。";
             return;
         }
 
+        CurrentPetSpritePose = PetSpritePose.Distracted;
         BubbleText = minutes >= 3
             ? $"我先轻轻提醒一下：你在 {snapshot.ProcessName} 停了 {minutes} 分钟。要不要回到「{_focusModeService.TaskTitle}」？可以先做它的下一步。"
             : $"专注模式中：「{_focusModeService.TaskTitle}」。";
@@ -247,6 +274,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     {
         _activeBreakpointSnapshot = snapshot;
         HasBreakpointPrompt = true;
+        CurrentPetSpritePose = PetSpritePose.Breakpoint;
         BubbleText = string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle)
             ? $"欢迎回来。你离开前停在 {snapshot.ProcessName}，要不要接着刚才的思路？"
             : $"欢迎回来。你离开前可能在推进「{snapshot.RelatedPlanTitle}」，要不要继续？";

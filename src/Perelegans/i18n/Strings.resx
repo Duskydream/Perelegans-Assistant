@@ -12,6 +12,36 @@
   <data name="Settings_Appearance" xml:space="preserve"><value>Appearance</value></data>
   <data name="Settings_ThemeMode" xml:space="preserve"><value>Theme:</value></data>
   <data name="Settings_Language" xml:space="preserve"><value>Language:</value></data>
+  <data name="Settings_PetSprite" xml:space="preserve"><value>Desktop pet sprite:</value></data>
+  <data name="Settings_PetSpriteChoose" xml:space="preserve"><value>Choose PNG</value></data>
+  <data name="Settings_PetSpriteReset" xml:space="preserve"><value>Reset</value></data>
+  <data name="Settings_PetSpriteDefault" xml:space="preserve"><value>Using built-in sprite</value></data>
+  <data name="Settings_PetSpriteRemoveBackground" xml:space="preserve"><value>Remove background on import</value></data>
+  <data name="Settings_PetSpriteTolerance" xml:space="preserve"><value>Tolerance:</value></data>
+  <data name="Settings_PetSpriteFrameWidth" xml:space="preserve"><value>Frame width</value></data>
+  <data name="Settings_PetSpriteFrameHeight" xml:space="preserve"><value>Frame height</value></data>
+  <data name="Settings_PetSpriteFrameCount" xml:space="preserve"><value>Frames</value></data>
+  <data name="Settings_PetSpriteRowCount" xml:space="preserve"><value>Rows</value></data>
+  <data name="Settings_PetSpriteInterval" xml:space="preserve"><value>Interval (ms)</value></data>
+  <data name="Settings_PetSpritePoseRows" xml:space="preserve"><value>Event rows use zero-based row indexes.</value></data>
+  <data name="Settings_PetSpriteIdleRow" xml:space="preserve"><value>Idle row</value></data>
+  <data name="Settings_PetSpriteProductiveRow" xml:space="preserve"><value>Productive row</value></data>
+  <data name="Settings_PetSpriteDistractedRow" xml:space="preserve"><value>Distracted row</value></data>
+  <data name="Settings_PetSpritePausedRow" xml:space="preserve"><value>Paused row</value></data>
+  <data name="Settings_PetSpriteFocusRow" xml:space="preserve"><value>Focus row</value></data>
+  <data name="Settings_PetSpriteBreakpointRow" xml:space="preserve"><value>Breakpoint row</value></data>
+  <data name="Settings_PetSpriteInvalidPng" xml:space="preserve"><value>Please choose a PNG sprite sheet.</value></data>
+  <data name="Settings_PetSpriteInvalidNumbers" xml:space="preserve"><value>Frame width, frame height, frame count, row count, and interval must be positive whole numbers.</value></data>
+  <data name="Settings_PetSpriteInvalidRows" xml:space="preserve"><value>Event rows must be zero or positive whole numbers.</value></data>
+  <data name="Settings_PetSpriteRowOutOfRange" xml:space="preserve"><value>Event rows must be between 0 and {0}.</value></data>
+  <data name="Settings_PetSpriteInvalidTolerance" xml:space="preserve"><value>Background tolerance must be a whole number from 0 to 255.</value></data>
+  <data name="Settings_PetSpriteInvalidSize" xml:space="preserve"><value>The image is {0}x{1}px, but this configuration needs at least {2}x{3}px.</value></data>
+  <data name="Settings_PetSpriteLoadFailed" xml:space="preserve"><value>Could not read sprite image: {0}</value></data>
+  <data name="Settings_PetSpriteMissingFile" xml:space="preserve"><value>The selected sprite file no longer exists.</value></data>
+  <data name="Settings_PetSpriteImported" xml:space="preserve"><value>Sprite imported. Save settings to apply it.</value></data>
+  <data name="Settings_PetSpriteImportedTransparent" xml:space="preserve"><value>Sprite imported with transparent background. Save settings to apply it.</value></data>
+  <data name="Settings_PetSpriteImportFailed" xml:space="preserve"><value>Could not import sprite: {0}</value></data>
+  <data name="Settings_PetSpriteResetReady" xml:space="preserve"><value>Built-in sprite selected. Save settings to apply it.</value></data>
   <data name="Settings_Monitor" xml:space="preserve"><value>Monitor</value></data>
   <data name="Settings_Enabled" xml:space="preserve"><value>Enabled:</value></data>
   <data name="Settings_Interval" xml:space="preserve"><value>Interval:</value></data>

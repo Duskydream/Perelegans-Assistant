@@ -16,6 +16,16 @@ public enum AiProvider
     Anthropic = 3
 }
 
+public enum PetSpritePose
+{
+    Idle = 0,
+    Productive = 1,
+    Distracted = 2,
+    Paused = 3,
+    Focus = 4,
+    Breakpoint = 5
+}
+
 /// <summary>
 /// Application settings persisted as JSON.
 /// </summary>
@@ -102,6 +112,76 @@ public class AppSettings
     /// User-editable assistant personality prompt for conversational replies.
     /// </summary>
     public string AiPersonalityPrompt { get; set; } = DefaultAiPersonalityPrompt;
+
+    /// <summary>
+    /// Optional path to a user-imported horizontal PNG sprite sheet.
+    /// </summary>
+    public string PetSpritePath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Width of a single pet sprite frame in pixels.
+    /// </summary>
+    public int PetSpriteFrameWidth { get; set; } = 48;
+
+    /// <summary>
+    /// Height of a single pet sprite frame in pixels.
+    /// </summary>
+    public int PetSpriteFrameHeight { get; set; } = 48;
+
+    /// <summary>
+    /// Number of horizontal frames in the pet sprite sheet.
+    /// </summary>
+    public int PetSpriteFrameCount { get; set; } = 6;
+
+    /// <summary>
+    /// Number of vertical pose rows in the pet sprite sheet.
+    /// </summary>
+    public int PetSpriteRowCount { get; set; } = 1;
+
+    /// <summary>
+    /// Pet sprite animation interval in milliseconds.
+    /// </summary>
+    public int PetSpriteFrameIntervalMs { get; set; } = 180;
+
+    /// <summary>
+    /// Zero-based row index for the idle pet pose.
+    /// </summary>
+    public int PetSpriteIdleRow { get; set; }
+
+    /// <summary>
+    /// Zero-based row index for known productivity apps.
+    /// </summary>
+    public int PetSpriteProductiveRow { get; set; }
+
+    /// <summary>
+    /// Zero-based row index for distracting or unrelated apps.
+    /// </summary>
+    public int PetSpriteDistractedRow { get; set; }
+
+    /// <summary>
+    /// Zero-based row index when monitoring is paused.
+    /// </summary>
+    public int PetSpritePausedRow { get; set; }
+
+    /// <summary>
+    /// Zero-based row index while focus mode is active and relevant.
+    /// </summary>
+    public int PetSpriteFocusRow { get; set; }
+
+    /// <summary>
+    /// Zero-based row index when a breakpoint prompt is ready.
+    /// </summary>
+    public int PetSpriteBreakpointRow { get; set; }
+
+    /// <summary>
+    /// Whether sprite imports should convert the top-left background color to transparency.
+    /// </summary>
+    public bool PetSpriteRemoveBackgroundOnImport { get; set; } = true;
+
+    /// <summary>
+    /// Color tolerance used when removing sprite backgrounds during import.
+    /// </summary>
+    public int PetSpriteBackgroundTolerance { get; set; } = 70;
 
     /// <summary>
     /// Optional user-defined context goal retained for compatibility with older settings.

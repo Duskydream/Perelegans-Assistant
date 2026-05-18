@@ -331,6 +331,127 @@
                         <ComboBox Style="{StaticResource SettingsComboBoxStyle}" ItemsSource="{Binding Source={StaticResource ThemeModes}}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"/>
                         <TextBlock Text="{i18n:Translate Settings_Language}" Margin="0,16,0,8" Style="{StaticResource FieldLabelStyle}"/>
                         <ComboBox Style="{StaticResource SettingsComboBoxStyle}" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage, Mode=TwoWay}"/>
+                        <TextBlock Text="{i18n:Translate Settings_PetSprite}" Margin="0,20,0,8" Style="{StaticResource FieldLabelStyle}"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Width="112"
+                                    Height="34"
+                                    Margin="0,0,10,0"
+                                    Style="{StaticResource AccentLineButtonStyle}"
+                                    Content="{i18n:Translate Settings_PetSpriteChoose}"
+                                    Command="{Binding ChoosePetSpriteCommand}"/>
+                            <Button Width="112"
+                                    Height="34"
+                                    HorizontalContentAlignment="Center"
+                                    BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                    Style="{StaticResource LineButtonStyle}"
+                                    Content="{i18n:Translate Settings_PetSpriteReset}"
+                                    Command="{Binding ResetPetSpriteCommand}"/>
+                        </StackPanel>
+                        <DockPanel Margin="0,10,0,0" LastChildFill="True">
+                            <CheckBox DockPanel.Dock="Left"
+                                      Margin="0,0,16,0"
+                                      VerticalAlignment="Center"
+                                      Content="{i18n:Translate Settings_PetSpriteRemoveBackground}"
+                                      IsChecked="{Binding PetSpriteRemoveBackgroundOnImport, Mode=TwoWay}"/>
+                            <TextBlock DockPanel.Dock="Left"
+                                       Margin="0,0,8,0"
+                                       VerticalAlignment="Center"
+                                       Text="{i18n:Translate Settings_PetSpriteTolerance}"
+                                       Style="{StaticResource QuietTextStyle}"/>
+                            <TextBox Width="72"
+                                     Height="34"
+                                     Padding="8,0"
+                                     HorizontalAlignment="Left"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding PetSpriteBackgroundToleranceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </DockPanel>
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="7"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Column="0" Text="{i18n:Translate Settings_PetSpriteFrameWidth}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBlock Grid.Column="2" Text="{i18n:Translate Settings_PetSpriteFrameHeight}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBlock Grid.Column="4" Text="{i18n:Translate Settings_PetSpriteFrameCount}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBlock Grid.Column="6" Text="{i18n:Translate Settings_PetSpriteRowCount}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBlock Grid.Column="8" Text="{i18n:Translate Settings_PetSpriteInterval}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBox Grid.Row="2"
+                                     Grid.Column="0"
+                                     Height="34"
+                                     Padding="8,0"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding PetSpriteFrameWidthText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Grid.Row="2"
+                                     Grid.Column="2"
+                                     Height="34"
+                                     Padding="8,0"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding PetSpriteFrameHeightText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Grid.Row="2"
+                                     Grid.Column="4"
+                                     Height="34"
+                                     Padding="8,0"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding PetSpriteFrameCountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Grid.Row="2"
+                                     Grid.Column="6"
+                                     Height="34"
+                                     Padding="8,0"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding PetSpriteRowCountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Grid.Row="2"
+                                     Grid.Column="8"
+                                     Height="34"
+                                     Padding="8,0"
+                                     VerticalContentAlignment="Center"
+                                     Text="{Binding PetSpriteFrameIntervalMsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                        <TextBlock Text="{i18n:Translate Settings_PetSpritePoseRows}" Margin="0,14,0,7" Style="{StaticResource QuietTextStyle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="7"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="10"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="7"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{i18n:Translate Settings_PetSpriteIdleRow}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="{i18n:Translate Settings_PetSpriteProductiveRow}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="4" Text="{i18n:Translate Settings_PetSpriteDistractedRow}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBox Grid.Row="2" Grid.Column="0" Height="34" Padding="8,0" VerticalContentAlignment="Center" Text="{Binding PetSpriteIdleRowText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Grid.Row="2" Grid.Column="2" Height="34" Padding="8,0" VerticalContentAlignment="Center" Text="{Binding PetSpriteProductiveRowText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Grid.Row="2" Grid.Column="4" Height="34" Padding="8,0" VerticalContentAlignment="Center" Text="{Binding PetSpriteDistractedRowText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="{i18n:Translate Settings_PetSpritePausedRow}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="2" Text="{i18n:Translate Settings_PetSpriteFocusRow}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="4" Text="{i18n:Translate Settings_PetSpriteBreakpointRow}" Style="{StaticResource QuietTextStyle}"/>
+                            <TextBox Grid.Row="6" Grid.Column="0" Height="34" Padding="8,0" VerticalContentAlignment="Center" Text="{Binding PetSpritePausedRowText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Grid.Row="6" Grid.Column="2" Height="34" Padding="8,0" VerticalContentAlignment="Center" Text="{Binding PetSpriteFocusRowText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Grid.Row="6" Grid.Column="4" Height="34" Padding="8,0" VerticalContentAlignment="Center" Text="{Binding PetSpriteBreakpointRowText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                        <Border Margin="0,12,0,0" Padding="12,9" Background="{DynamicResource Perelegans.PanelBackground}" BorderBrush="{DynamicResource Perelegans.BorderBrush}" BorderThickness="1" Visibility="{Binding HasPetSpriteStatus, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{Binding PetSpriteStatusText}" TextWrapping="Wrap" Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}" FontSize="12"/>
+                        </Border>
                     </StackPanel>
                 </Border>
 

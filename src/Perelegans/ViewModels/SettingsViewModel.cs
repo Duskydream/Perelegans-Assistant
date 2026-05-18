@@ -1,10 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Perelegans.Models;
@@ -17,6 +23,12 @@ namespace Perelegans.ViewModels;
 public partial class SettingsViewModel : ObservableObject
 {
     private static readonly TimeSpan AiTestTimeout = TimeSpan.FromSeconds(30);
+    private const int DefaultPetSpriteFrameWidth = 48;
+    private const int DefaultPetSpriteFrameHeight = 48;
+    private const int DefaultPetSpriteFrameCount = 6;
+    private const int DefaultPetSpriteRowCount = 1;
+    private const int DefaultPetSpriteFrameIntervalMs = 180;
+    private const int DefaultPetSpriteBackgroundTolerance = 70;
 
     private readonly ThemeService _themeService;
     private readonly SettingsService _settingsService;
@@ -50,6 +62,51 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private string _aiPersonalityPrompt = string.Empty;
+
+    [ObservableProperty]
+    private string _petSpritePath = string.Empty;
+
+    [ObservableProperty]
+    private string _petSpriteFrameWidthText = DefaultPetSpriteFrameWidth.ToString(CultureInfo.InvariantCulture);
+
+    [ObservableProperty]
+    private string _petSpriteFrameHeightText = DefaultPetSpriteFrameHeight.ToString(CultureInfo.InvariantCulture);
+
+    [ObservableProperty]
+    private string _petSpriteFrameCountText = DefaultPetSpriteFrameCount.ToString(CultureInfo.InvariantCulture);
+
+    [ObservableProperty]
+    private string _petSpriteRowCountText = DefaultPetSpriteRowCount.ToString(CultureInfo.InvariantCulture);
+
+    [ObservableProperty]
+    private string _petSpriteFrameIntervalMsText = DefaultPetSpriteFrameIntervalMs.ToString(CultureInfo.InvariantCulture);
+
+    [ObservableProperty]
+    private string _petSpriteIdleRowText = "0";
+
+    [ObservableProperty]
+    private string _petSpriteProductiveRowText = "0";
+
+    [ObservableProperty]
+    private string _petSpriteDistractedRowText = "0";
+
+    [ObservableProperty]
+    private string _petSpritePausedRowText = "0";
+
+    [ObservableProperty]
+    private string _petSpriteFocusRowText = "0";
+
+    [ObservableProperty]
+    private string _petSpriteBreakpointRowText = "0";
+
+    [ObservableProperty]
+    private bool _petSpriteRemoveBackgroundOnImport = true;
+
+    [ObservableProperty]
+    private string _petSpriteBackgroundToleranceText = DefaultPetSpriteBackgroundTolerance.ToString(CultureInfo.InvariantCulture);
+
+    [ObservableProperty]
+    private string _petSpriteStatusText = string.Empty;
 
     [ObservableProperty]
     private string _aiTestStatusText = string.Empty;
@@ -91,6 +148,8 @@ public partial class SettingsViewModel : ObservableObject
     public bool HasDataMaintenanceStatus => !string.IsNullOrWhiteSpace(DataMaintenanceStatusText);
 
     public bool HasAiTestStatus => !string.IsNullOrWhiteSpace(AiTestStatusText);
+
+    public bool HasPetSpriteStatus => !string.IsNullOrWhiteSpace(PetSpriteStatusText);
 
     public bool HasMemoryStatus => !string.IsNullOrWhiteSpace(MemoryStatusText);
 
@@ -170,6 +229,20 @@ public partial class SettingsViewModel : ObservableObject
         AiApiKey = s.AiApiKey;
         AiModel = s.AiModel;
         AiPersonalityPrompt = s.AiPersonalityPrompt;
+        PetSpritePath = s.PetSpritePath;
+        PetSpriteFrameWidthText = NormalizePositiveSetting(s.PetSpriteFrameWidth, DefaultPetSpriteFrameWidth);
+        PetSpriteFrameHeightText = NormalizePositiveSetting(s.PetSpriteFrameHeight, DefaultPetSpriteFrameHeight);
+        PetSpriteFrameCountText = NormalizePositiveSetting(s.PetSpriteFrameCount, DefaultPetSpriteFrameCount);
+        PetSpriteRowCountText = NormalizePositiveSetting(s.PetSpriteRowCount, DefaultPetSpriteRowCount);
+        PetSpriteFrameIntervalMsText = NormalizePositiveSetting(s.PetSpriteFrameIntervalMs, DefaultPetSpriteFrameIntervalMs);
+        PetSpriteIdleRowText = NormalizeZeroBasedSetting(s.PetSpriteIdleRow);
+        PetSpriteProductiveRowText = NormalizeZeroBasedSetting(s.PetSpriteProductiveRow);
+        PetSpriteDistractedRowText = NormalizeZeroBasedSetting(s.PetSpriteDistractedRow);
+        PetSpritePausedRowText = NormalizeZeroBasedSetting(s.PetSpritePausedRow);
+        PetSpriteFocusRowText = NormalizeZeroBasedSetting(s.PetSpriteFocusRow);
+        PetSpriteBreakpointRowText = NormalizeZeroBasedSetting(s.PetSpriteBreakpointRow);
+        PetSpriteRemoveBackgroundOnImport = s.PetSpriteRemoveBackgroundOnImport;
+        PetSpriteBackgroundToleranceText = NormalizePositiveSetting(s.PetSpriteBackgroundTolerance, DefaultPetSpriteBackgroundTolerance);
         AutoSaveMemories = s.AutoSaveMemories;
         _ = RefreshMemoriesAsync();
     }
@@ -190,6 +263,11 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnDataMaintenanceStatusTextChanged(string value)
     {
         OnPropertyChanged(nameof(HasDataMaintenanceStatus));
+    }
+
+    partial void OnPetSpriteStatusTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasPetSpriteStatus));
     }
 
     partial void OnMemoryStatusTextChanged(string value)
@@ -236,6 +314,101 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         AiPersonalityPrompt = AppSettings.DefaultAiPersonalityPrompt;
+    }
+
+    [RelayCommand]
+    private void ChoosePetSprite()
+    {
+        if (!TryReadPetSpriteNumbers(
+            out var frameWidth,
+            out var frameHeight,
+            out var frameCount,
+            out var rowCount,
+            out _,
+            out var validationMessage))
+        {
+            PetSpriteStatusText = validationMessage;
+            return;
+        }
+
+        if (!TryReadBackgroundTolerance(out var backgroundTolerance, out validationMessage))
+        {
+            PetSpriteStatusText = validationMessage;
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Filter = "PNG Image (*.png)|*.png",
+            CheckFileExists = true
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        if (!string.Equals(Path.GetExtension(dialog.FileName), ".png", StringComparison.OrdinalIgnoreCase))
+        {
+            PetSpriteStatusText = TranslationService.Instance["Settings_PetSpriteInvalidPng"];
+            return;
+        }
+
+        if (!TryValidateSpriteDimensions(dialog.FileName, frameWidth, frameHeight, frameCount, rowCount, out validationMessage))
+        {
+            PetSpriteStatusText = validationMessage;
+            return;
+        }
+
+        try
+        {
+            var spritesDir = GetSpritesDirectory();
+            Directory.CreateDirectory(spritesDir);
+
+            var fileName = BuildImportedSpriteFileName(dialog.FileName);
+            var destinationPath = Path.Combine(spritesDir, fileName);
+
+            if (PetSpriteRemoveBackgroundOnImport)
+            {
+                RemoveSpriteBackground(dialog.FileName, destinationPath, backgroundTolerance);
+            }
+            else
+            {
+                File.Copy(dialog.FileName, destinationPath, overwrite: false);
+            }
+
+            PetSpritePath = destinationPath;
+            PetSpriteStatusText = PetSpriteRemoveBackgroundOnImport
+                ? TranslationService.Instance["Settings_PetSpriteImportedTransparent"]
+                : TranslationService.Instance["Settings_PetSpriteImported"];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ExternalException)
+        {
+            PetSpriteStatusText = string.Format(
+                CultureInfo.CurrentCulture,
+                TranslationService.Instance["Settings_PetSpriteImportFailed"],
+                ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private void ResetPetSprite()
+    {
+        PetSpritePath = string.Empty;
+        PetSpriteFrameWidthText = DefaultPetSpriteFrameWidth.ToString(CultureInfo.InvariantCulture);
+        PetSpriteFrameHeightText = DefaultPetSpriteFrameHeight.ToString(CultureInfo.InvariantCulture);
+        PetSpriteFrameCountText = DefaultPetSpriteFrameCount.ToString(CultureInfo.InvariantCulture);
+        PetSpriteRowCountText = DefaultPetSpriteRowCount.ToString(CultureInfo.InvariantCulture);
+        PetSpriteFrameIntervalMsText = DefaultPetSpriteFrameIntervalMs.ToString(CultureInfo.InvariantCulture);
+        PetSpriteIdleRowText = "0";
+        PetSpriteProductiveRowText = "0";
+        PetSpriteDistractedRowText = "0";
+        PetSpritePausedRowText = "0";
+        PetSpriteFocusRowText = "0";
+        PetSpriteBreakpointRowText = "0";
+        PetSpriteRemoveBackgroundOnImport = true;
+        PetSpriteBackgroundToleranceText = DefaultPetSpriteBackgroundTolerance.ToString(CultureInfo.InvariantCulture);
+        PetSpriteStatusText = TranslationService.Instance["Settings_PetSpriteResetReady"];
     }
 
     [RelayCommand(CanExecute = nameof(CanTestAi))]
@@ -306,6 +479,27 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private void Save()
     {
+        if (!TryValidatePetSpriteSettings(
+            out var petSpritePath,
+            out var petSpriteFrameWidth,
+            out var petSpriteFrameHeight,
+            out var petSpriteFrameCount,
+            out var petSpriteRowCount,
+            out var petSpriteFrameIntervalMs,
+            out var petSpriteIdleRow,
+            out var petSpriteProductiveRow,
+            out var petSpriteDistractedRow,
+            out var petSpritePausedRow,
+            out var petSpriteFocusRow,
+            out var petSpriteBreakpointRow,
+            out var petSpriteRemoveBackgroundOnImport,
+            out var petSpriteBackgroundTolerance,
+            out var petSpriteValidationMessage))
+        {
+            PetSpriteStatusText = petSpriteValidationMessage;
+            throw new InvalidOperationException(petSpriteValidationMessage);
+        }
+
         var s = _settingsService.Settings;
         s.Theme = SelectedTheme;
         s.Language = TranslationService.NormalizeLanguageCode(SelectedLanguage);
@@ -316,6 +510,20 @@ public partial class SettingsViewModel : ObservableObject
         s.AiApiKey = AiApiKey.Trim();
         s.AiModel = AiModel.Trim();
         s.AiPersonalityPrompt = AiPersonalityPrompt.Trim();
+        s.PetSpritePath = petSpritePath;
+        s.PetSpriteFrameWidth = petSpriteFrameWidth;
+        s.PetSpriteFrameHeight = petSpriteFrameHeight;
+        s.PetSpriteFrameCount = petSpriteFrameCount;
+        s.PetSpriteRowCount = petSpriteRowCount;
+        s.PetSpriteFrameIntervalMs = petSpriteFrameIntervalMs;
+        s.PetSpriteIdleRow = petSpriteIdleRow;
+        s.PetSpriteProductiveRow = petSpriteProductiveRow;
+        s.PetSpriteDistractedRow = petSpriteDistractedRow;
+        s.PetSpritePausedRow = petSpritePausedRow;
+        s.PetSpriteFocusRow = petSpriteFocusRow;
+        s.PetSpriteBreakpointRow = petSpriteBreakpointRow;
+        s.PetSpriteRemoveBackgroundOnImport = petSpriteRemoveBackgroundOnImport;
+        s.PetSpriteBackgroundTolerance = petSpriteBackgroundTolerance;
         s.AutoSaveMemories = AutoSaveMemories;
         _settingsService.Save();
         _themeService.ApplyTheme(s.Theme);
@@ -550,6 +758,335 @@ public partial class SettingsViewModel : ObservableObject
         return start >= 0 && end > start
             ? text[start..(end + 1)]
             : null;
+    }
+
+    private bool TryValidatePetSpriteSettings(
+        out string petSpritePath,
+        out int frameWidth,
+        out int frameHeight,
+        out int frameCount,
+        out int rowCount,
+        out int frameIntervalMs,
+        out int idleRow,
+        out int productiveRow,
+        out int distractedRow,
+        out int pausedRow,
+        out int focusRow,
+        out int breakpointRow,
+        out bool removeBackgroundOnImport,
+        out int backgroundTolerance,
+        out string validationMessage)
+    {
+        petSpritePath = PetSpritePath.Trim();
+        if (!TryReadPetSpriteNumbers(
+            out frameWidth,
+            out frameHeight,
+            out frameCount,
+            out rowCount,
+            out frameIntervalMs,
+            out validationMessage))
+        {
+            idleRow = 0;
+            productiveRow = 0;
+            distractedRow = 0;
+            pausedRow = 0;
+            focusRow = 0;
+            breakpointRow = 0;
+            removeBackgroundOnImport = PetSpriteRemoveBackgroundOnImport;
+            backgroundTolerance = DefaultPetSpriteBackgroundTolerance;
+            return false;
+        }
+
+        if (!TryReadPetSpritePoseRows(
+            rowCount,
+            out idleRow,
+            out productiveRow,
+            out distractedRow,
+            out pausedRow,
+            out focusRow,
+            out breakpointRow,
+            out validationMessage))
+        {
+            removeBackgroundOnImport = PetSpriteRemoveBackgroundOnImport;
+            backgroundTolerance = DefaultPetSpriteBackgroundTolerance;
+            return false;
+        }
+
+        removeBackgroundOnImport = PetSpriteRemoveBackgroundOnImport;
+        if (!TryReadBackgroundTolerance(out backgroundTolerance, out validationMessage))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(petSpritePath))
+        {
+            validationMessage = string.Empty;
+            return true;
+        }
+
+        if (!string.Equals(Path.GetExtension(petSpritePath), ".png", StringComparison.OrdinalIgnoreCase))
+        {
+            validationMessage = TranslationService.Instance["Settings_PetSpriteInvalidPng"];
+            return false;
+        }
+
+        if (!File.Exists(petSpritePath))
+        {
+            validationMessage = TranslationService.Instance["Settings_PetSpriteMissingFile"];
+            return false;
+        }
+
+        return TryValidateSpriteDimensions(
+            petSpritePath,
+            frameWidth,
+            frameHeight,
+            frameCount,
+            rowCount,
+            out validationMessage);
+    }
+
+    private bool TryReadPetSpriteNumbers(
+        out int frameWidth,
+        out int frameHeight,
+        out int frameCount,
+        out int rowCount,
+        out int frameIntervalMs,
+        out string validationMessage)
+    {
+        var hasFrameWidth = TryReadPositiveInteger(PetSpriteFrameWidthText, out frameWidth);
+        var hasFrameHeight = TryReadPositiveInteger(PetSpriteFrameHeightText, out frameHeight);
+        var hasFrameCount = TryReadPositiveInteger(PetSpriteFrameCountText, out frameCount);
+        var hasRowCount = TryReadPositiveInteger(PetSpriteRowCountText, out rowCount);
+        var hasFrameInterval = TryReadPositiveInteger(PetSpriteFrameIntervalMsText, out frameIntervalMs);
+
+        if (!hasFrameWidth || !hasFrameHeight || !hasFrameCount || !hasRowCount || !hasFrameInterval)
+        {
+            validationMessage = TranslationService.Instance["Settings_PetSpriteInvalidNumbers"];
+            return false;
+        }
+
+        validationMessage = string.Empty;
+        return true;
+    }
+
+    private bool TryReadPetSpritePoseRows(
+        int rowCount,
+        out int idleRow,
+        out int productiveRow,
+        out int distractedRow,
+        out int pausedRow,
+        out int focusRow,
+        out int breakpointRow,
+        out string validationMessage)
+    {
+        var hasIdleRow = TryReadZeroBasedInteger(PetSpriteIdleRowText, out idleRow);
+        var hasProductiveRow = TryReadZeroBasedInteger(PetSpriteProductiveRowText, out productiveRow);
+        var hasDistractedRow = TryReadZeroBasedInteger(PetSpriteDistractedRowText, out distractedRow);
+        var hasPausedRow = TryReadZeroBasedInteger(PetSpritePausedRowText, out pausedRow);
+        var hasFocusRow = TryReadZeroBasedInteger(PetSpriteFocusRowText, out focusRow);
+        var hasBreakpointRow = TryReadZeroBasedInteger(PetSpriteBreakpointRowText, out breakpointRow);
+
+        if (!hasIdleRow ||
+            !hasProductiveRow ||
+            !hasDistractedRow ||
+            !hasPausedRow ||
+            !hasFocusRow ||
+            !hasBreakpointRow)
+        {
+            validationMessage = TranslationService.Instance["Settings_PetSpriteInvalidRows"];
+            return false;
+        }
+
+        if (new[] { idleRow, productiveRow, distractedRow, pausedRow, focusRow, breakpointRow }
+            .Any(row => row >= rowCount))
+        {
+            validationMessage = string.Format(
+                CultureInfo.CurrentCulture,
+                TranslationService.Instance["Settings_PetSpriteRowOutOfRange"],
+                rowCount - 1);
+            return false;
+        }
+
+        validationMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryValidateSpriteDimensions(
+        string path,
+        int frameWidth,
+        int frameHeight,
+        int frameCount,
+        int rowCount,
+        out string validationMessage)
+    {
+        try
+        {
+            var frame = BitmapFrame.Create(
+                new Uri(path, UriKind.Absolute),
+                BitmapCreateOptions.PreservePixelFormat,
+                BitmapCacheOption.OnLoad);
+
+            var requiredWidth = frameWidth * frameCount;
+            var requiredHeight = frameHeight * rowCount;
+            if (frame.PixelWidth < requiredWidth || frame.PixelHeight < requiredHeight)
+            {
+                validationMessage = string.Format(
+                    CultureInfo.CurrentCulture,
+                    TranslationService.Instance["Settings_PetSpriteInvalidSize"],
+                    frame.PixelWidth,
+                    frame.PixelHeight,
+                    requiredWidth,
+                    requiredHeight);
+                return false;
+            }
+
+            validationMessage = string.Empty;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or NotSupportedException or UnauthorizedAccessException)
+        {
+            validationMessage = string.Format(
+                CultureInfo.CurrentCulture,
+                TranslationService.Instance["Settings_PetSpriteLoadFailed"],
+                ex.Message);
+            return false;
+        }
+    }
+
+    private static bool TryReadPositiveInteger(string text, out int value)
+    {
+        return int.TryParse(
+                text.Trim(),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out value) &&
+            value > 0;
+    }
+
+    private static bool TryReadBackgroundTolerance(string text, out int value)
+    {
+        return int.TryParse(
+                text.Trim(),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out value) &&
+            value is >= 0 and <= 255;
+    }
+
+    private bool TryReadBackgroundTolerance(out int value, out string validationMessage)
+    {
+        if (!TryReadBackgroundTolerance(PetSpriteBackgroundToleranceText, out value))
+        {
+            validationMessage = TranslationService.Instance["Settings_PetSpriteInvalidTolerance"];
+            return false;
+        }
+
+        validationMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryReadZeroBasedInteger(string text, out int value)
+    {
+        return int.TryParse(
+                text.Trim(),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out value) &&
+            value >= 0;
+    }
+
+    private static string NormalizePositiveSetting(int value, int defaultValue)
+    {
+        return Math.Max(value, 1) == value
+            ? value.ToString(CultureInfo.InvariantCulture)
+            : defaultValue.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string NormalizeZeroBasedSetting(int value)
+    {
+        return Math.Max(value, 0).ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static void RemoveSpriteBackground(string sourcePath, string destinationPath, int tolerance)
+    {
+        using var source = new Bitmap(sourcePath);
+        using var bitmap = new Bitmap(source.Width, source.Height, PixelFormat.Format32bppArgb);
+
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.Transparent);
+            graphics.DrawImageUnscaled(source, 0, 0);
+        }
+
+        var keyColor = bitmap.GetPixel(0, 0);
+        var bounds = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+        var data = bitmap.LockBits(bounds, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+
+        try
+        {
+            var byteCount = Math.Abs(data.Stride) * bitmap.Height;
+            var pixels = new byte[byteCount];
+            Marshal.Copy(data.Scan0, pixels, 0, byteCount);
+
+            for (var y = 0; y < bitmap.Height; y++)
+            {
+                var row = data.Stride > 0
+                    ? y * data.Stride
+                    : (bitmap.Height - 1 - y) * Math.Abs(data.Stride);
+                for (var x = 0; x < bitmap.Width; x++)
+                {
+                    var offset = row + x * 4;
+                    var blue = pixels[offset];
+                    var green = pixels[offset + 1];
+                    var red = pixels[offset + 2];
+
+                    if (IsWithinTolerance(red, green, blue, keyColor, tolerance))
+                    {
+                        pixels[offset + 3] = 0;
+                    }
+                }
+            }
+
+            Marshal.Copy(pixels, 0, data.Scan0, byteCount);
+        }
+        finally
+        {
+            bitmap.UnlockBits(data);
+        }
+
+        bitmap.Save(destinationPath, ImageFormat.Png);
+    }
+
+    private static bool IsWithinTolerance(byte red, byte green, byte blue, Color keyColor, int tolerance)
+    {
+        return Math.Abs(red - keyColor.R) <= tolerance &&
+            Math.Abs(green - keyColor.G) <= tolerance &&
+            Math.Abs(blue - keyColor.B) <= tolerance;
+    }
+
+    private static string GetSpritesDirectory()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Perelegans",
+            "Sprites");
+    }
+
+    private static string BuildImportedSpriteFileName(string sourcePath)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(sourcePath);
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var safeName = new string(baseName
+            .Select(ch => invalidChars.Contains(ch) ? '_' : ch)
+            .ToArray())
+            .Trim();
+
+        if (string.IsNullOrWhiteSpace(safeName))
+        {
+            safeName = "sprite";
+        }
+
+        return $"{safeName}_{DateTime.Now:yyyyMMddHHmmssfff}.png";
     }
 }
 
