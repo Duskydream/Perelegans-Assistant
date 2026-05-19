@@ -11,6 +11,7 @@ src/Perelegans/obj/
 .build-check/
 artifacts/
 .codex/
+.build-verify/
 
 CLAUDE.md
 DEVELOPMENT_STEPS.md
