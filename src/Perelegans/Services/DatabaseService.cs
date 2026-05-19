@@ -467,6 +467,15 @@ public class DatabaseService
         await db.SaveChangesAsync();
     }
 
+    public async Task<List<BreakpointSnapshot>> GetBreakpointSnapshotsAsync()
+    {
+        await using var db = new PerelegansDbContext();
+        return await db.BreakpointSnapshots
+            .AsNoTracking()
+            .OrderByDescending(item => item.CreatedAt)
+            .ToListAsync();
+    }
+
     public async Task<bool> DeleteContextMemoryAsync(int id)
     {
         try

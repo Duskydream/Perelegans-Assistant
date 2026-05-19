@@ -109,6 +109,7 @@ public partial class App : System.Windows.Application
                 _codingClientMonitorService,
                 ShowDashboard,
                 ShowMemoryReview,
+                ShowCompanionRoom,
                 ShowBreakpointSnapshot,
                 OpenSettingsFromAgent,
                 RequestShutdown)
@@ -202,6 +203,16 @@ public partial class App : System.Windows.Application
         if (_mainWindow?.DataContext is MainViewModel viewModel)
         {
             viewModel.OpenMemoryReview();
+        }
+
+        ShowDashboard();
+    }
+
+    private void ShowCompanionRoom()
+    {
+        if (_mainWindow?.DataContext is MainViewModel viewModel)
+        {
+            viewModel.OpenCompanionRoom();
         }
 
         ShowDashboard();

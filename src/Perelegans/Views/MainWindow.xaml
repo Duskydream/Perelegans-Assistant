@@ -325,6 +325,17 @@
                             <TextBlock Text="{i18n:Translate Main_DailyReview}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+                    <Button Command="{Binding ToggleCompanionRoomCommand}"
+                            Style="{StaticResource LineButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <Viewbox Width="21" Height="16" Margin="0,0,10,0">
+                                <Path Style="{StaticResource LineIconPathStyle}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="{StaticResource Icon.BrainCircuit}"/>
+                            </Viewbox>
+                            <TextBlock Text="伙伴档案" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                     <Button Command="{Binding ClearUsageDataCommand}"
                             Style="{StaticResource LineButtonStyle}">
                         <StackPanel Orientation="Horizontal">
@@ -447,15 +458,165 @@
                                                               Style="{StaticResource LineIconPathStyle}"/>
                                                     </Viewbox>
                                                 </Button>
-                                                 <Button Content="{i18n:Translate Main_ChatStop}"
-                                                         Command="{Binding DataContext.StopAssistantOutputCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
-                                                         Style="{StaticResource PresetButtonStyle}"
-                                                         Margin="0"
-                                                         Visibility="{Binding IsStreaming, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                                             </StackPanel>
-                                             <Border Margin="0,14,0,0"
-                                                     Padding="13"
-                                                     Background="{DynamicResource Perelegans.WindowBackground}"
+                                                  <Button Content="{i18n:Translate Main_ChatStop}"
+                                                          Command="{Binding DataContext.StopAssistantOutputCommand, RelativeSource={RelativeSource AncestorType=mah:MetroWindow}}"
+                                                          Style="{StaticResource PresetButtonStyle}"
+                                                          Margin="0"
+                                                          Visibility="{Binding IsStreaming, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                              </StackPanel>
+                                              <Border Margin="0,14,0,0"
+                                                      Padding="14"
+                                                      Background="{DynamicResource Perelegans.WindowBackground}"
+                                                      BorderBrush="{DynamicResource Perelegans.AccentBrush}"
+                                                      BorderThickness="1"
+                                                      Visibility="{Binding HasDailyReviewCard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                  <StackPanel>
+                                                      <DockPanel Margin="0,0,0,12">
+                                                          <StackPanel DockPanel.Dock="Left">
+                                                              <TextBlock Text="{Binding DailyReviewCard.Title}"
+                                                                         FontSize="15"
+                                                                         FontWeight="SemiBold"/>
+                                                              <TextBlock Text="{Binding DailyReviewCard.Subtitle}"
+                                                                         Margin="0,3,0,0"
+                                                                         FontSize="11"
+                                                                         Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                          </StackPanel>
+                                                          <ItemsControl ItemsSource="{Binding DailyReviewCard.Metrics}"
+                                                                        HorizontalAlignment="Right">
+                                                              <ItemsControl.ItemsPanel>
+                                                                  <ItemsPanelTemplate>
+                                                                      <WrapPanel Orientation="Horizontal"/>
+                                                                  </ItemsPanelTemplate>
+                                                              </ItemsControl.ItemsPanel>
+                                                              <ItemsControl.ItemTemplate>
+                                                                  <DataTemplate>
+                                                                      <Border MinWidth="58"
+                                                                              Padding="8,5"
+                                                                              Margin="6,0,0,6"
+                                                                              Background="{DynamicResource Perelegans.StatsChartHighlightBackground}"
+                                                                              BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                                                              BorderThickness="1">
+                                                                          <StackPanel>
+                                                                              <TextBlock Text="{Binding Value}"
+                                                                                         FontSize="13"
+                                                                                         FontWeight="SemiBold"
+                                                                                         HorizontalAlignment="Center"
+                                                                                         Foreground="#FFFF8FC3"/>
+                                                                              <TextBlock Text="{Binding Caption}"
+                                                                                         Margin="0,2,0,0"
+                                                                                         MaxWidth="92"
+                                                                                         FontSize="10"
+                                                                                         TextAlignment="Center"
+                                                                                         TextTrimming="CharacterEllipsis"
+                                                                                         Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                                          </StackPanel>
+                                                                      </Border>
+                                                                  </DataTemplate>
+                                                              </ItemsControl.ItemTemplate>
+                                                          </ItemsControl>
+                                                      </DockPanel>
+
+                                                      <Border Padding="10,8"
+                                                              Margin="0,0,0,10"
+                                                              Background="{DynamicResource Perelegans.StatsChartHighlightBackground}"
+                                                              BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                                              BorderThickness="1">
+                                                          <StackPanel>
+                                                              <TextBlock Text="{Binding DailyReviewCard.EncouragementTitle}"
+                                                                         FontSize="11"
+                                                                         FontWeight="SemiBold"
+                                                                         Foreground="#FFFF8FC3"/>
+                                                              <TextBlock Text="{Binding DailyReviewCard.Encouragement}"
+                                                                         Margin="0,5,0,0"
+                                                                         FontSize="12"
+                                                                         LineHeight="18"
+                                                                         TextWrapping="Wrap"/>
+                                                          </StackPanel>
+                                                      </Border>
+
+                                                      <TextBlock Text="{Binding DailyReviewCard.OverviewTitle}"
+                                                                 FontSize="11"
+                                                                 FontWeight="SemiBold"
+                                                                 Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                      <TextBlock Text="{Binding DailyReviewCard.Overview}"
+                                                                 Margin="0,4,0,12"
+                                                                 FontSize="12"
+                                                                 LineHeight="18"
+                                                                 TextWrapping="Wrap"/>
+
+                                                      <Grid>
+                                                          <Grid.ColumnDefinitions>
+                                                              <ColumnDefinition Width="*"/>
+                                                              <ColumnDefinition Width="12"/>
+                                                              <ColumnDefinition Width="*"/>
+                                                          </Grid.ColumnDefinitions>
+                                                          <StackPanel Grid.Column="0">
+                                                              <TextBlock Text="{Binding DailyReviewCard.HighlightsTitle}"
+                                                                         Margin="0,0,0,5"
+                                                                         FontSize="11"
+                                                                         FontWeight="SemiBold"
+                                                                         Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                              <ItemsControl ItemsSource="{Binding DailyReviewCard.Highlights}">
+                                                                  <ItemsControl.ItemTemplate>
+                                                                      <DataTemplate>
+                                                                          <TextBlock Text="{Binding}"
+                                                                                     Margin="0,0,0,5"
+                                                                                     FontSize="12"
+                                                                                     LineHeight="17"
+                                                                                     TextWrapping="Wrap"/>
+                                                                      </DataTemplate>
+                                                                  </ItemsControl.ItemTemplate>
+                                                              </ItemsControl>
+                                                          </StackPanel>
+                                                          <StackPanel Grid.Column="2">
+                                                              <TextBlock Text="{Binding DailyReviewCard.RisksTitle}"
+                                                                         Margin="0,0,0,5"
+                                                                         FontSize="11"
+                                                                         FontWeight="SemiBold"
+                                                                         Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                              <ItemsControl ItemsSource="{Binding DailyReviewCard.Risks}">
+                                                                  <ItemsControl.ItemTemplate>
+                                                                      <DataTemplate>
+                                                                          <TextBlock Text="{Binding}"
+                                                                                     Margin="0,0,0,5"
+                                                                                     FontSize="12"
+                                                                                     LineHeight="17"
+                                                                                     TextWrapping="Wrap"/>
+                                                                      </DataTemplate>
+                                                                  </ItemsControl.ItemTemplate>
+                                                              </ItemsControl>
+                                                          </StackPanel>
+                                                      </Grid>
+
+                                                      <Border Padding="10,8"
+                                                              Margin="0,9,0,0"
+                                                              Background="{DynamicResource Perelegans.PanelBackground}"
+                                                              BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                                              BorderThickness="1"
+                                                              Visibility="{Binding DailyReviewCard.HasNextAction, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                          <StackPanel>
+                                                              <TextBlock Text="{Binding DailyReviewCard.NextActionTitle}"
+                                                                         FontSize="11"
+                                                                         FontWeight="SemiBold"
+                                                                         Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                              <TextBlock Text="{Binding DailyReviewCard.NextAction}"
+                                                                         Margin="0,5,0,0"
+                                                                         FontSize="12"
+                                                                         LineHeight="18"
+                                                                         TextWrapping="Wrap"/>
+                                                          </StackPanel>
+                                                      </Border>
+                                                      <TextBlock Text="{Binding DailyReviewCard.SavedContextText}"
+                                                                 Margin="0,9,0,0"
+                                                                 FontSize="11"
+                                                                 TextWrapping="Wrap"
+                                                                 Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"
+                                                                 Visibility="{Binding DailyReviewCard.HasSavedContext, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                  </StackPanel>
+                                              </Border>
+                                              <Border Margin="0,14,0,0"
+                                                      Padding="13"
+                                                      Background="{DynamicResource Perelegans.WindowBackground}"
                                                      BorderBrush="{DynamicResource Perelegans.AccentBrush}"
                                                      BorderThickness="1"
                                                      Visibility="{Binding HasBreakpointCard, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -787,6 +948,237 @@
                         </Grid>
                     </Border>
                 </StackPanel>
+            </Border>
+
+            <Border Grid.RowSpan="4"
+                    Margin="24"
+                    Padding="18"
+                    CornerRadius="0"
+                    Background="{DynamicResource Perelegans.WindowBackground}"
+                    BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                    BorderThickness="1"
+                    Visibility="{Binding IsCompanionRoomVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="0,0,0,16">
+                        <Button DockPanel.Dock="Right"
+                                Content="关闭"
+                                Command="{Binding ToggleCompanionRoomCommand}"
+                                Style="{StaticResource LineButtonStyle}"
+                                Width="76"
+                                HorizontalContentAlignment="Center"/>
+                        <StackPanel>
+                            <TextBlock Text="伙伴小房间"
+                                       FontSize="22"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding PetRoomSummaryText}"
+                                       Margin="0,5,0,0"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource QuietTextStyle}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.05*"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="1.35*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <Border Padding="16"
+                                        Background="{DynamicResource Perelegans.PanelBackground}"
+                                        BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                        BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="112"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid Width="96"
+                                              Height="96"
+                                              HorizontalAlignment="Left"
+                                              RenderOptions.BitmapScalingMode="NearestNeighbor">
+                                            <Ellipse Width="84"
+                                                     Height="18"
+                                                     Margin="0,70,0,0"
+                                                     HorizontalAlignment="Center"
+                                                     Fill="#30FF9BB9"/>
+                                            <Image Width="82"
+                                                   Height="82"
+                                                   Source="{Binding PetRoomSpriteSource}"
+                                                   Stretch="Uniform"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Top"/>
+                                        </Grid>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding PetGrowthStageTitle}"
+                                                       FontSize="20"
+                                                       FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding PetGrowthProgressText}"
+                                                       Margin="0,4,0,0"
+                                                       Foreground="#FFFF8FC3"
+                                                       FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding PetGrowthStageDescription}"
+                                                       Margin="0,9,0,0"
+                                                       FontSize="12"
+                                                       LineHeight="18"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <TextBlock Text="成长维度"
+                                           Margin="0,18,0,9"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"/>
+                                <ItemsControl ItemsSource="{Binding PetGrowthDimensions}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,10"
+                                                    Padding="11"
+                                                    Background="{DynamicResource Perelegans.PanelBackground}"
+                                                    BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                                    BorderThickness="1">
+                                                <StackPanel>
+                                                    <DockPanel>
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   FontSize="13"
+                                                                   FontWeight="SemiBold"
+                                                                   DockPanel.Dock="Left"/>
+                                                        <TextBlock Text="{Binding ProgressText}"
+                                                                   FontSize="12"
+                                                                   HorizontalAlignment="Right"
+                                                                   Foreground="{Binding AccentBrush}"/>
+                                                    </DockPanel>
+                                                    <ProgressBar Height="6"
+                                                                 Margin="0,8,0,7"
+                                                                 Minimum="0"
+                                                                 Maximum="100"
+                                                                 Value="{Binding Percentage, Mode=OneWay}"
+                                                                 Foreground="{Binding AccentBrush}"
+                                                                 Background="{DynamicResource Perelegans.StatsChartHighlightBackground}"
+                                                                 BorderThickness="0"/>
+                                                    <TextBlock Text="{Binding Description}"
+                                                               FontSize="11"
+                                                               LineHeight="16"
+                                                               TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="能力徽章"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding PetUnlockedBadgeCountText}"
+                                           Margin="0,4,0,10"
+                                           Style="{StaticResource QuietTextStyle}"/>
+                                <ItemsControl ItemsSource="{Binding PetAbilityBadges}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="188"
+                                                    MinHeight="118"
+                                                    Margin="0,0,10,10"
+                                                    Padding="12"
+                                                    Opacity="{Binding VisualOpacity}"
+                                                    Background="{DynamicResource Perelegans.PanelBackground}"
+                                                    BorderBrush="{Binding AccentBrush}"
+                                                    BorderThickness="1">
+                                                <StackPanel>
+                                                    <DockPanel Margin="0,0,0,7">
+                                                        <Border Width="24"
+                                                                Height="24"
+                                                                DockPanel.Dock="Left"
+                                                                Background="{Binding AccentBrush}">
+                                                            <TextBlock Text="{Binding MarkerText}"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       FontWeight="Bold"
+                                                                       Foreground="{DynamicResource Perelegans.WindowBackground}"/>
+                                                        </Border>
+                                                        <TextBlock Text="{Binding StatusText}"
+                                                                   FontSize="11"
+                                                                   HorizontalAlignment="Right"
+                                                                   Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                    </DockPanel>
+                                                    <TextBlock Text="{Binding Title}"
+                                                               FontSize="13"
+                                                               FontWeight="SemiBold"
+                                                               TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding Description}"
+                                                               Margin="0,5,0,7"
+                                                               FontSize="11"
+                                                               LineHeight="16"
+                                                               TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                    <TextBlock Text="{Binding DimensionName}"
+                                                               FontSize="11"
+                                                               Foreground="{Binding AccentBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <TextBlock Text="房间陈列"
+                                           Margin="0,12,0,9"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"/>
+                                <ItemsControl ItemsSource="{Binding PetRoomItems}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,8"
+                                                    Padding="11"
+                                                    Background="{DynamicResource Perelegans.PanelBackground}"
+                                                    BorderBrush="{DynamicResource Perelegans.BorderBrush}"
+                                                    BorderThickness="1">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="10"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Width="6"
+                                                            Height="36"
+                                                            Background="{Binding AccentBrush}"
+                                                            VerticalAlignment="Top"/>
+                                                    <StackPanel Grid.Column="1" Margin="9,0,0,0">
+                                                        <TextBlock Text="{Binding Title}"
+                                                                   FontSize="13"
+                                                                   FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding Description}"
+                                                                   Margin="0,4,0,0"
+                                                                   FontSize="11"
+                                                                   LineHeight="16"
+                                                                   TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
             </Border>
 
             <Border Grid.RowSpan="4"

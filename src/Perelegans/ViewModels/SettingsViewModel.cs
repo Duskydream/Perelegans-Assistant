@@ -58,6 +58,9 @@ public partial class SettingsViewModel : ObservableObject
     private bool _claudeDesktopMonitorEnabled;
 
     [ObservableProperty]
+    private bool _openCodeDesktopMonitorEnabled;
+
+    [ObservableProperty]
     private string _productiveProcessRules = string.Empty;
 
     [ObservableProperty]
@@ -245,6 +248,7 @@ public partial class SettingsViewModel : ObservableObject
         CodingClientMonitorEnabled = s.CodingClientMonitorEnabled;
         CodexDesktopMonitorEnabled = s.CodexDesktopMonitorEnabled;
         ClaudeDesktopMonitorEnabled = s.ClaudeDesktopMonitorEnabled;
+        OpenCodeDesktopMonitorEnabled = s.OpenCodeDesktopMonitorEnabled;
         ProductiveProcessRules = s.ProductiveProcessRules;
         BreakpointIdleThresholdMinutes = s.BreakpointIdleThresholdMinutes;
         BreakpointReturnThresholdSeconds = s.BreakpointReturnThresholdSeconds;
@@ -532,6 +536,7 @@ public partial class SettingsViewModel : ObservableObject
         s.CodingClientMonitorEnabled = CodingClientMonitorEnabled;
         s.CodexDesktopMonitorEnabled = CodexDesktopMonitorEnabled;
         s.ClaudeDesktopMonitorEnabled = ClaudeDesktopMonitorEnabled;
+        s.OpenCodeDesktopMonitorEnabled = OpenCodeDesktopMonitorEnabled;
         s.ProductiveProcessRules = ProductiveProcessRules.Trim();
         s.BreakpointIdleThresholdMinutes = Math.Clamp(BreakpointIdleThresholdMinutes, 1, 240);
         s.BreakpointReturnThresholdSeconds = Math.Clamp(BreakpointReturnThresholdSeconds, 1, 120);

@@ -597,6 +597,11 @@
                                           IsChecked="{Binding ClaudeDesktopMonitorEnabled, Mode=TwoWay}"
                                           IsEnabled="{Binding CodingClientMonitorEnabled}"
                                           VerticalAlignment="Center"/>
+                                <CheckBox Content="OpenCode"
+                                          Margin="0,9,0,0"
+                                          IsChecked="{Binding OpenCodeDesktopMonitorEnabled, Mode=TwoWay}"
+                                          IsEnabled="{Binding CodingClientMonitorEnabled}"
+                                          VerticalAlignment="Center"/>
                                 <TextBlock Text="Uses client process activity, local state timestamps, Windows notifications, and active workspace file changes when available."
                                            Margin="0,8,0,0"
                                            TextWrapping="Wrap"

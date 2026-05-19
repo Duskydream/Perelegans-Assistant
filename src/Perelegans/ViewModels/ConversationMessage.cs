@@ -14,12 +14,14 @@ public partial class ConversationMessage : ObservableObject
         string text,
         bool isUser,
         UsageStatsSnapshot? usageStats = null,
-        BreakpointResumeCardViewModel? breakpointCard = null)
+        BreakpointResumeCardViewModel? breakpointCard = null,
+        DailyReviewCardViewModel? dailyReviewCard = null)
     {
         _text = isUser ? text : string.Empty;
         IsUser = isUser;
         UsageStats = usageStats;
         BreakpointCard = breakpointCard;
+        DailyReviewCard = dailyReviewCard;
         Timestamp = DateTime.Now;
         Alignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left;
 
@@ -39,8 +41,10 @@ public partial class ConversationMessage : ObservableObject
     public bool IsAssistant => !IsUser;
     public bool HasUsageStats => UsageStats?.HasSlices == true;
     public bool HasBreakpointCard => BreakpointCard != null;
+    public bool HasDailyReviewCard => DailyReviewCard != null;
     public UsageStatsSnapshot? UsageStats { get; }
     public BreakpointResumeCardViewModel? BreakpointCard { get; }
+    public DailyReviewCardViewModel? DailyReviewCard { get; }
     public DateTime Timestamp { get; }
     public HorizontalAlignment Alignment { get; }
 
@@ -48,6 +52,8 @@ public partial class ConversationMessage : ObservableObject
     public static ConversationMessage Assistant(string text) => new(text, false);
     public static ConversationMessage AssistantWithUsageStats(string text, UsageStatsSnapshot usageStats) => new(text, false, usageStats);
     public static ConversationMessage AssistantWithBreakpointCard(string text, BreakpointResumeCardViewModel breakpointCard) => new(text, false, breakpointCard: breakpointCard);
+    public static ConversationMessage AssistantWithDailyReviewCard(string text, DailyReviewCardViewModel dailyReviewCard, UsageStatsSnapshot? usageStats = null) =>
+        new(text, false, usageStats, dailyReviewCard: dailyReviewCard);
 
     public void StopStreaming()
     {

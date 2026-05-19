@@ -19,6 +19,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private readonly CodingClientMonitorService _codingClientMonitorService;
     private readonly Action _showDashboard;
     private readonly Action _showMemoryReview;
+    private readonly Action _showCompanionRoom;
     private readonly Action<BreakpointSnapshot> _showBreakpointSnapshot;
     private readonly Action _openSettings;
     private readonly Action _exitApplication;
@@ -88,6 +89,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         CodingClientMonitorService codingClientMonitorService,
         Action showDashboard,
         Action showMemoryReview,
+        Action showCompanionRoom,
         Action<BreakpointSnapshot> showBreakpointSnapshot,
         Action openSettings,
         Action exitApplication)
@@ -101,6 +103,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         _codingClientMonitorService = codingClientMonitorService;
         _showDashboard = showDashboard;
         _showMemoryReview = showMemoryReview;
+        _showCompanionRoom = showCompanionRoom;
         _showBreakpointSnapshot = showBreakpointSnapshot;
         _openSettings = openSettings;
         _exitApplication = exitApplication;
@@ -186,6 +189,12 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     {
         HasPendingMemoryPrompt = false;
         _showMemoryReview();
+    }
+
+    [RelayCommand]
+    private void OpenCompanionRoom()
+    {
+        _showCompanionRoom();
     }
 
     [RelayCommand]
@@ -572,6 +581,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         return kind switch
         {
             CodingClientKind.ClaudeDesktop => _settingsService.Settings.ClaudeDesktopMonitorEnabled,
+            CodingClientKind.OpenCodeDesktop => _settingsService.Settings.OpenCodeDesktopMonitorEnabled,
             _ => _settingsService.Settings.CodexDesktopMonitorEnabled
         };
     }

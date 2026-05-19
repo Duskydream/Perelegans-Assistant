@@ -13,7 +13,8 @@ namespace Perelegans.Services;
 public enum CodingClientKind
 {
     CodexDesktop,
-    ClaudeDesktop
+    ClaudeDesktop,
+    OpenCodeDesktop
 }
 
 public enum CodingClientActivityState
@@ -53,6 +54,7 @@ public sealed class CodingClientMonitorService : IDisposable
     private static readonly TimeSpan WorkspaceRefreshInterval = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan CodexLifecycleActiveWindow = TimeSpan.FromHours(2);
     private static readonly TimeSpan ClaudeLifecycleActiveWindow = TimeSpan.FromHours(2);
+    private static readonly TimeSpan OpenCodeLifecycleActiveWindow = TimeSpan.FromHours(2);
     private const int CodexRolloutTailLineCount = 1000;
     private const int CodexRecentRolloutFileLimit = 4;
     private const int ClaudeMainLogTailLineCount = 1000;
@@ -136,15 +138,19 @@ public sealed class CodingClientMonitorService : IDisposable
     private readonly object _gate = new();
     private readonly Dictionary<string, DateTime> _codexSignalWriteTimes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTime> _claudeSignalWriteTimes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DateTime> _openCodeSignalWriteTimes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FileSystemWatcher> _workspaceWatchers = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _workspaceRoots = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _codexHome;
     private readonly string _claudeRoamingDir;
     private readonly string _claudeLocalDir;
     private readonly string _claudeLocal3pDir;
+    private readonly string _openCodeRoamingDir;
+    private readonly string _openCodeLocalDir;
     private CodingClientActivitySnapshot _currentSnapshot = CreateIdleSnapshot(DateTime.Now);
     private DateTime _lastCodexSignalAt = DateTime.MinValue;
     private DateTime _lastClaudeSignalAt = DateTime.MinValue;
+    private DateTime _lastOpenCodeSignalAt = DateTime.MinValue;
     private DateTime _lastWorkspaceChangeAt = DateTime.MinValue;
     private DateTime _lastWorkspaceRefreshAt = DateTime.MinValue;
     private DateTime _lastNotificationStateAt = DateTime.MinValue;
@@ -153,6 +159,8 @@ public sealed class CodingClientMonitorService : IDisposable
     private DateTime _lastCodexApprovalReviewAt = DateTime.MinValue;
     private DateTime _lastClaudeLifecycleEventAt = DateTime.MinValue;
     private DateTime _lastClaudeLifecycleCompletedAt = DateTime.MinValue;
+    private DateTime _lastOpenCodeLifecycleEventAt = DateTime.MinValue;
+    private DateTime _lastOpenCodeLifecycleCompletedAt = DateTime.MinValue;
     private CodingClientKind _lastNotificationClientKind = CodingClientKind.CodexDesktop;
     private CodingClientActivityState _lastNotificationState = CodingClientActivityState.Idle;
     private UserNotificationListener? _notificationListener;
@@ -161,9 +169,11 @@ public sealed class CodingClientMonitorService : IDisposable
     private string _lastCodexLifecycleSignature = string.Empty;
     private string _activeCodexLifecyclePath = string.Empty;
     private string _lastClaudeLifecycleSignature = string.Empty;
+    private string _lastOpenCodeLifecycleSignature = string.Empty;
     private readonly HashSet<uint> _processedNotificationIds = [];
     private bool _isCodexLifecycleRunning;
     private bool _isClaudeLifecycleRunning;
+    private bool _isOpenCodeLifecycleRunning;
     private bool _disposed;
 
     public event Action<CodingClientActivitySnapshot>? ActivityChanged;
@@ -183,6 +193,12 @@ public sealed class CodingClientMonitorService : IDisposable
         _claudeLocal3pDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Claude-3p");
+        _openCodeRoamingDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "ai.opencode.desktop");
+        _openCodeLocalDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ai.opencode.desktop");
         _timer = new DispatcherTimer
         {
             Interval = PollInterval
@@ -199,6 +215,8 @@ public sealed class CodingClientMonitorService : IDisposable
 
         UpdateCodexSignalFiles(DateTime.Now, baselineOnly: true);
         UpdateClaudeSignalFiles(DateTime.Now, baselineOnly: true);
+        UpdateOpenCodeSignalFiles(DateTime.Now, baselineOnly: true);
+        UpdateOpenCodeLifecycleState(DateTime.Now);
         RefreshWorkspaceWatchers();
         _timer.Start();
         _ = InitializeNotificationListenerAsync();
@@ -259,6 +277,7 @@ public sealed class CodingClientMonitorService : IDisposable
                 lastChangedPath,
                 hasCodexLifecycleActivity,
                 hasClaudeLifecycleActivity: false,
+                hasOpenCodeLifecycleActivity: false,
                 lastWorkspaceChangeAt,
                 out var notificationSnapshot))
         {
@@ -307,7 +326,8 @@ public sealed class CodingClientMonitorService : IDisposable
         var now = DateTime.Now;
         if (!_settingsService.Settings.CodingClientMonitorEnabled ||
             (!_settingsService.Settings.CodexDesktopMonitorEnabled &&
-             !_settingsService.Settings.ClaudeDesktopMonitorEnabled))
+             !_settingsService.Settings.ClaudeDesktopMonitorEnabled &&
+             !_settingsService.Settings.OpenCodeDesktopMonitorEnabled))
         {
             Publish(CreateIdleSnapshot(now));
             return;
@@ -315,11 +335,14 @@ public sealed class CodingClientMonitorService : IDisposable
 
         var codexEnabled = _settingsService.Settings.CodexDesktopMonitorEnabled;
         var claudeEnabled = _settingsService.Settings.ClaudeDesktopMonitorEnabled;
+        var openCodeEnabled = _settingsService.Settings.OpenCodeDesktopMonitorEnabled;
         var hasCodexSignal = codexEnabled && UpdateCodexSignalFiles(now, baselineOnly: false);
         var hasCodexLifecycleActivity = codexEnabled && UpdateCodexLifecycleState(now);
         var hasClaudeSignal = claudeEnabled && UpdateClaudeSignalFiles(now, baselineOnly: false);
         var hasClaudeLifecycleActivity = claudeEnabled && UpdateClaudeLifecycleState(now);
-        if (hasCodexSignal || now - _lastWorkspaceRefreshAt >= WorkspaceRefreshInterval)
+        var hasOpenCodeSignal = openCodeEnabled && UpdateOpenCodeSignalFiles(now, baselineOnly: false);
+        var hasOpenCodeLifecycleActivity = openCodeEnabled && UpdateOpenCodeLifecycleState(now);
+        if (hasCodexSignal || hasOpenCodeSignal || now - _lastWorkspaceRefreshAt >= WorkspaceRefreshInterval)
         {
             RefreshWorkspaceWatchers();
         }
@@ -337,6 +360,7 @@ public sealed class CodingClientMonitorService : IDisposable
                 lastChangedPath,
                 hasCodexLifecycleActivity,
                 hasClaudeLifecycleActivity,
+                hasOpenCodeLifecycleActivity,
                 lastWorkspaceChangeAt,
                 out var notificationSnapshot))
         {
@@ -346,6 +370,7 @@ public sealed class CodingClientMonitorService : IDisposable
 
         var hasRecentCodexSignal = now - _lastCodexSignalAt <= CodexSignalWindow;
         var hasRecentClaudeSignal = now - _lastClaudeSignalAt <= CodexSignalWindow;
+        var hasRecentOpenCodeSignal = now - _lastOpenCodeSignalAt <= CodexSignalWindow;
         var hasRecentWorkspaceChange = now - lastWorkspaceChangeAt <= WorkspaceWriteWindow;
         if (codexEnabled &&
             (hasCodexLifecycleActivity ||
@@ -369,6 +394,19 @@ public sealed class CodingClientMonitorService : IDisposable
                 CodingClientActivityState.Coding,
                 now,
                 "Claude Desktop 正在生成回复，我先陪它想一会儿。",
+                lastChangedPath));
+            return;
+        }
+
+        if (openCodeEnabled &&
+            (hasOpenCodeLifecycleActivity ||
+             (IsOpenCodeProcessRunning() && hasRecentWorkspaceChange && hasRecentOpenCodeSignal)))
+        {
+            Publish(CreateSnapshot(
+                CodingClientKind.OpenCodeDesktop,
+                CodingClientActivityState.Coding,
+                now,
+                "OpenCode 正在改代码，我先陪它跑一会儿。",
                 lastChangedPath));
             return;
         }
@@ -405,6 +443,18 @@ public sealed class CodingClientMonitorService : IDisposable
                 CodingClientActivityState.Completed,
                 now,
                 "Claude Desktop 刚完成回复，去看看吧。",
+                lastChangedPath));
+            return;
+        }
+
+        if (openCodeEnabled &&
+            IsCompletionSettled(now, _lastOpenCodeLifecycleCompletedAt))
+        {
+            Publish(CreateSnapshot(
+                CodingClientKind.OpenCodeDesktop,
+                CodingClientActivityState.Completed,
+                now,
+                "OpenCode 刚完成生成，去看看结果吧。",
                 lastChangedPath));
             return;
         }
@@ -506,7 +556,8 @@ public sealed class CodingClientMonitorService : IDisposable
     {
         if (!_settingsService.Settings.CodingClientMonitorEnabled ||
             (!_settingsService.Settings.CodexDesktopMonitorEnabled &&
-             !_settingsService.Settings.ClaudeDesktopMonitorEnabled))
+             !_settingsService.Settings.ClaudeDesktopMonitorEnabled &&
+             !_settingsService.Settings.OpenCodeDesktopMonitorEnabled))
         {
             return;
         }
@@ -530,7 +581,9 @@ public sealed class CodingClientMonitorService : IDisposable
         if ((clientKind == CodingClientKind.CodexDesktop &&
              !_settingsService.Settings.CodexDesktopMonitorEnabled) ||
             (clientKind == CodingClientKind.ClaudeDesktop &&
-             !_settingsService.Settings.ClaudeDesktopMonitorEnabled))
+             !_settingsService.Settings.ClaudeDesktopMonitorEnabled) ||
+            (clientKind == CodingClientKind.OpenCodeDesktop &&
+             !_settingsService.Settings.OpenCodeDesktopMonitorEnabled))
         {
             return;
         }
@@ -573,6 +626,12 @@ public sealed class CodingClientMonitorService : IDisposable
 
     private static bool TryGetNotificationClientKind(string appName, out CodingClientKind kind)
     {
+        if (ContainsAny(appName, "opencode", "open code", "ai.opencode"))
+        {
+            kind = CodingClientKind.OpenCodeDesktop;
+            return true;
+        }
+
         if (ContainsAny(appName, "claude", "anthropic"))
         {
             kind = CodingClientKind.ClaudeDesktop;
@@ -617,6 +676,7 @@ public sealed class CodingClientMonitorService : IDisposable
         string lastChangedPath,
         bool hasCodexLifecycleActivity,
         bool hasClaudeLifecycleActivity,
+        bool hasOpenCodeLifecycleActivity,
         DateTime lastWorkspaceChangeAt,
         out CodingClientActivitySnapshot snapshot)
     {
@@ -652,6 +712,7 @@ public sealed class CodingClientMonitorService : IDisposable
                     now,
                     hasCodexLifecycleActivity,
                     hasClaudeLifecycleActivity,
+                    hasOpenCodeLifecycleActivity,
                     lastWorkspaceChangeAt) ||
                 HasClientActivityAfter(kind, updatedAt, lastWorkspaceChangeAt))
             {
@@ -662,7 +723,9 @@ public sealed class CodingClientMonitorService : IDisposable
         {
             var completedAt = kind == CodingClientKind.CodexDesktop
                 ? _lastCodexLifecycleCompletedAt
-                : _lastClaudeLifecycleCompletedAt;
+                : kind == CodingClientKind.ClaudeDesktop
+                    ? _lastClaudeLifecycleCompletedAt
+                    : _lastOpenCodeLifecycleCompletedAt;
             if (completedAt > updatedAt &&
                 IsCompletionSettled(now, completedAt))
             {
@@ -704,14 +767,23 @@ public sealed class CodingClientMonitorService : IDisposable
         DateTime now,
         bool hasCodexLifecycleActivity,
         bool hasClaudeLifecycleActivity,
+        bool hasOpenCodeLifecycleActivity,
         DateTime lastWorkspaceChangeAt)
     {
-        var hasLifecycleActivity = kind == CodingClientKind.CodexDesktop
-            ? hasCodexLifecycleActivity
-            : hasClaudeLifecycleActivity;
-        var lastSignalAt = kind == CodingClientKind.CodexDesktop
-            ? _lastCodexSignalAt
-            : _lastClaudeSignalAt;
+        var hasLifecycleActivity = kind switch
+        {
+            CodingClientKind.CodexDesktop => hasCodexLifecycleActivity,
+            CodingClientKind.ClaudeDesktop => hasClaudeLifecycleActivity,
+            CodingClientKind.OpenCodeDesktop => hasOpenCodeLifecycleActivity,
+            _ => false
+        };
+        var lastSignalAt = kind switch
+        {
+            CodingClientKind.CodexDesktop => _lastCodexSignalAt,
+            CodingClientKind.ClaudeDesktop => _lastClaudeSignalAt,
+            CodingClientKind.OpenCodeDesktop => _lastOpenCodeSignalAt,
+            _ => DateTime.MinValue
+        };
 
         return hasLifecycleActivity ||
                (now - lastSignalAt <= CodexSignalWindow &&
@@ -723,9 +795,13 @@ public sealed class CodingClientMonitorService : IDisposable
         DateTime timestamp,
         DateTime lastWorkspaceChangeAt)
     {
-        var lastSignalAt = kind == CodingClientKind.CodexDesktop
-            ? _lastCodexSignalAt
-            : _lastClaudeSignalAt;
+        var lastSignalAt = kind switch
+        {
+            CodingClientKind.CodexDesktop => _lastCodexSignalAt,
+            CodingClientKind.ClaudeDesktop => _lastClaudeSignalAt,
+            CodingClientKind.OpenCodeDesktop => _lastOpenCodeSignalAt,
+            _ => DateTime.MinValue
+        };
 
         return lastSignalAt > timestamp.AddMilliseconds(500) ||
                lastWorkspaceChangeAt > timestamp.AddMilliseconds(500);
@@ -1397,6 +1473,178 @@ public sealed class CodingClientMonitorService : IDisposable
         }
     }
 
+    private bool UpdateOpenCodeSignalFiles(DateTime now, bool baselineOnly)
+    {
+        var changed = false;
+        foreach (var path in EnumerateOpenCodeSignalFiles())
+        {
+            DateTime lastWriteUtc;
+            try
+            {
+                lastWriteUtc = File.GetLastWriteTimeUtc(path);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (!_openCodeSignalWriteTimes.TryGetValue(path, out var previousWriteUtc))
+            {
+                _openCodeSignalWriteTimes[path] = lastWriteUtc;
+                continue;
+            }
+
+            if (lastWriteUtc <= previousWriteUtc.AddMilliseconds(500))
+            {
+                continue;
+            }
+
+            _openCodeSignalWriteTimes[path] = lastWriteUtc;
+            changed = true;
+        }
+
+        if (changed && !baselineOnly)
+        {
+            _lastOpenCodeSignalAt = now;
+        }
+
+        return changed && !baselineOnly;
+    }
+
+    private IEnumerable<string> EnumerateOpenCodeSignalFiles()
+    {
+        foreach (var path in EnumerateExistingFiles(_openCodeRoamingDir, string.Empty, "opencode.global.dat", SearchOption.TopDirectoryOnly))
+        {
+            yield return path;
+        }
+
+        foreach (var path in EnumerateExistingFiles(_openCodeRoamingDir, string.Empty, "opencode.workspace.*.dat", SearchOption.TopDirectoryOnly))
+        {
+            yield return path;
+        }
+
+        foreach (var path in EnumerateExistingFiles(_openCodeRoamingDir, string.Empty, ".window-state.json", SearchOption.TopDirectoryOnly))
+        {
+            yield return path;
+        }
+
+        foreach (var path in EnumerateExistingFiles(_openCodeLocalDir, "logs", "opencode-desktop_*.log", SearchOption.TopDirectoryOnly))
+        {
+            yield return path;
+        }
+    }
+
+    private bool UpdateOpenCodeLifecycleState(DateTime now)
+    {
+        if (!TryGetLatestOpenCodeCompletionEvent(out var eventAt, out var signature))
+        {
+            return _isOpenCodeLifecycleRunning &&
+                   now - _lastOpenCodeLifecycleEventAt <= OpenCodeLifecycleActiveWindow;
+        }
+
+        if (!string.Equals(signature, _lastOpenCodeLifecycleSignature, StringComparison.Ordinal))
+        {
+            var hadPreviousEvent = !string.IsNullOrWhiteSpace(_lastOpenCodeLifecycleSignature);
+            _isOpenCodeLifecycleRunning = false;
+            _lastOpenCodeLifecycleEventAt = eventAt;
+            _lastOpenCodeLifecycleSignature = signature;
+
+            if (hadPreviousEvent)
+            {
+                _lastOpenCodeLifecycleCompletedAt = now;
+            }
+        }
+
+        return _isOpenCodeLifecycleRunning &&
+               now - _lastOpenCodeLifecycleEventAt <= OpenCodeLifecycleActiveWindow;
+    }
+
+    private bool TryGetLatestOpenCodeCompletionEvent(
+        out DateTime eventAt,
+        out string signature)
+    {
+        eventAt = DateTime.MinValue;
+        signature = string.Empty;
+
+        var globalPath = Path.Combine(_openCodeRoamingDir, "opencode.global.dat");
+        if (!File.Exists(globalPath) ||
+            !TryReadJsonFile(globalPath, out var json))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(
+                json,
+                new JsonDocumentOptions
+                {
+                    AllowTrailingCommas = true
+                });
+
+            if (!TryGetNestedJsonString(document.RootElement, "notification", out var notificationJson))
+            {
+                return false;
+            }
+
+            using var notificationDocument = JsonDocument.Parse(notificationJson);
+            if (!notificationDocument.RootElement.TryGetProperty("list", out var list) ||
+                list.ValueKind != JsonValueKind.Array)
+            {
+                return false;
+            }
+
+            long latestTime = long.MinValue;
+            var latestSignature = string.Empty;
+            foreach (var item in list.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object ||
+                    !TryGetStringProperty(item, "type").Equals("turn-complete", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var time = item.TryGetProperty("time", out var timeElement) &&
+                           timeElement.TryGetInt64(out var rawTime)
+                    ? rawTime
+                    : 0;
+                if (time < latestTime)
+                {
+                    continue;
+                }
+
+                latestTime = time;
+                latestSignature = string.Join(
+                    "|",
+                    TryGetStringProperty(item, "session"),
+                    TryGetStringProperty(item, "directory"),
+                    time.ToString(CultureInfo.InvariantCulture),
+                    TryGetStringProperty(item, "type"));
+            }
+
+            if (string.IsNullOrWhiteSpace(latestSignature))
+            {
+                return false;
+            }
+
+            signature = latestSignature;
+            eventAt = File.GetLastWriteTime(globalPath);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     private static IEnumerable<string> EnumerateExistingFiles(
         string root,
         string relativeDir,
@@ -1436,7 +1684,8 @@ public sealed class CodingClientMonitorService : IDisposable
     {
         _lastWorkspaceRefreshAt = DateTime.Now;
         var roots = DiscoverCodexWorkspaceRoots()
-            .Take(8)
+            .Concat(DiscoverOpenCodeWorkspaceRoots())
+            .Take(12)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var staleRoot in _workspaceRoots.Except(roots, StringComparer.OrdinalIgnoreCase).ToArray())
@@ -1478,7 +1727,7 @@ public sealed class CodingClientMonitorService : IDisposable
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to watch Codex workspace '{root}': {ex.Message}");
+                Debug.WriteLine($"Failed to watch coding workspace '{root}': {ex.Message}");
             }
         }
     }
@@ -1519,6 +1768,38 @@ public sealed class CodingClientMonitorService : IDisposable
         {
             AddRootsFromArrayField(json, "active-workspace-roots", roots);
             AddRootsFromArrayField(json, "electron-saved-workspace-roots", roots);
+        }
+
+        return roots;
+    }
+
+    private IEnumerable<string> DiscoverOpenCodeWorkspaceRoots()
+    {
+        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var globalStatePath = Path.Combine(_openCodeRoamingDir, "opencode.global.dat");
+        if (!File.Exists(globalStatePath) ||
+            !TryReadJsonFile(globalStatePath, out var json))
+        {
+            return roots;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(
+                json,
+                new JsonDocumentOptions
+                {
+                    AllowTrailingCommas = true
+                });
+
+            var root = document.RootElement;
+            AddOpenCodeProjectRoots(root, roots);
+            AddOpenCodeServerRoots(root, roots);
+            AddOpenCodeLayoutRoots(root, roots);
+        }
+        catch (JsonException)
+        {
+            AddRootsFromArrayField(json, "worktree", roots);
         }
 
         return roots;
@@ -1570,16 +1851,19 @@ public sealed class CodingClientMonitorService : IDisposable
             state,
             GetClientName(kind),
             message,
-            kind == CodingClientKind.CodexDesktop ? workspace : string.Empty,
+            kind is CodingClientKind.CodexDesktop or CodingClientKind.OpenCodeDesktop ? workspace : string.Empty,
             lastChangedPath,
             now);
     }
 
     private static string GetClientName(CodingClientKind kind)
     {
-        return kind == CodingClientKind.ClaudeDesktop
-            ? "Claude Desktop"
-            : "Codex Desktop";
+        return kind switch
+        {
+            CodingClientKind.ClaudeDesktop => "Claude Desktop",
+            CodingClientKind.OpenCodeDesktop => "OpenCode",
+            _ => "Codex Desktop"
+        };
     }
 
     private string FindWorkspaceForPath(string path)
@@ -1688,6 +1972,49 @@ public sealed class CodingClientMonitorService : IDisposable
 
                     if (title.Contains("Claude", StringComparison.OrdinalIgnoreCase) ||
                         title.Contains("Anthropic", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool IsOpenCodeProcessRunning()
+    {
+        try
+        {
+            foreach (var process in Process.GetProcesses())
+            {
+                using (process)
+                {
+                    var name = process.ProcessName;
+                    if (name.Equals("OpenCode", StringComparison.OrdinalIgnoreCase) ||
+                        name.Equals("opencode-cli", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("OpenCode", StringComparison.OrdinalIgnoreCase) ||
+                        name.Contains("opencode", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+
+                    string title;
+                    try
+                    {
+                        title = process.MainWindowTitle;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (title.Contains("OpenCode", StringComparison.OrdinalIgnoreCase) ||
+                        title.Contains("opencode", StringComparison.OrdinalIgnoreCase))
                     {
                         return true;
                     }
@@ -1812,6 +2139,24 @@ public sealed class CodingClientMonitorService : IDisposable
             return false;
         }
 
+        if (kind == CodingClientKind.OpenCodeDesktop)
+        {
+            return ContainsAny(
+                text,
+                "opencode completed",
+                "opencode finished",
+                "open code completed",
+                "open code finished",
+                "turn complete",
+                "turn-complete",
+                "task complete",
+                "task completed",
+                "response ready",
+                "ready for review",
+                "finished working",
+                "has completed",
+                "has finished");
+        }
         return kind == CodingClientKind.CodexDesktop
             ? ContainsAny(
                 text,
@@ -1859,6 +2204,155 @@ public sealed class CodingClientMonitorService : IDisposable
         return string.IsNullOrWhiteSpace(profile)
             ? string.Empty
             : Path.Combine(profile, ".codex");
+    }
+
+    private static bool TryReadJsonFile(string path, out string json)
+    {
+        json = string.Empty;
+        try
+        {
+            using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream);
+            json = reader.ReadToEnd();
+            return !string.IsNullOrWhiteSpace(json);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryGetNestedJsonString(JsonElement root, string propertyName, out string json)
+    {
+        json = string.Empty;
+        if (!root.TryGetProperty(propertyName, out var property) ||
+            property.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        json = property.GetString() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(json);
+    }
+
+    private static void AddOpenCodeProjectRoots(JsonElement root, HashSet<string> roots)
+    {
+        if (!TryGetNestedJsonString(root, "globalSync.project", out var projectJson))
+        {
+            return;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(projectJson);
+            if (!document.RootElement.TryGetProperty("value", out var value) ||
+                value.ValueKind != JsonValueKind.Array)
+            {
+                return;
+            }
+
+            foreach (var project in value.EnumerateArray())
+            {
+                AddRoot(TryGetStringProperty(project, "worktree"), roots);
+            }
+        }
+        catch (JsonException)
+        {
+            // Ignore malformed OpenCode state.
+        }
+    }
+
+    private static void AddOpenCodeServerRoots(JsonElement root, HashSet<string> roots)
+    {
+        if (!TryGetNestedJsonString(root, "server", out var serverJson))
+        {
+            return;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(serverJson);
+            var server = document.RootElement;
+            if (server.TryGetProperty("projects", out var projects) &&
+                projects.ValueKind == JsonValueKind.Object &&
+                projects.TryGetProperty("local", out var localProjects) &&
+                localProjects.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var project in localProjects.EnumerateArray())
+                {
+                    AddRoot(TryGetStringProperty(project, "worktree"), roots);
+                }
+            }
+
+            if (server.TryGetProperty("lastProject", out var lastProject) &&
+                lastProject.ValueKind == JsonValueKind.Object)
+            {
+                AddRoot(TryGetStringProperty(lastProject, "local"), roots);
+            }
+        }
+        catch (JsonException)
+        {
+            // Ignore malformed OpenCode state.
+        }
+    }
+
+    private static void AddOpenCodeLayoutRoots(JsonElement root, HashSet<string> roots)
+    {
+        if (!TryGetNestedJsonString(root, "layout", out var layoutJson))
+        {
+            return;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(layoutJson);
+            AddOpenCodeRootsRecursive(document.RootElement, roots);
+        }
+        catch (JsonException)
+        {
+            // Ignore malformed OpenCode layout state.
+        }
+    }
+
+    private static void AddOpenCodeRootsRecursive(JsonElement element, HashSet<string> roots)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (property.Name.Equals("worktree", StringComparison.OrdinalIgnoreCase) ||
+                    property.Name.Equals("directory", StringComparison.OrdinalIgnoreCase))
+                {
+                    AddRoot(property.Value.ValueKind == JsonValueKind.String ? property.Value.GetString() : null, roots);
+                }
+
+                if (LooksLikeOpenCodeLocalPath(property.Name))
+                {
+                    AddRoot(property.Name, roots);
+                }
+
+                AddOpenCodeRootsRecursive(property.Value, roots);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                AddOpenCodeRootsRecursive(item, roots);
+            }
+        }
+    }
+
+    private static bool LooksLikeOpenCodeLocalPath(string value)
+    {
+        return value.Length >= 3 &&
+               char.IsLetter(value[0]) &&
+               value[1] == ':' &&
+               (value[2] == Path.DirectorySeparatorChar || value[2] == Path.AltDirectorySeparatorChar);
     }
 
     private static void AddRootsFromJsonArray(JsonElement root, string propertyName, HashSet<string> roots)

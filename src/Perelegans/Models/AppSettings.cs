@@ -116,6 +116,11 @@ public class AppSettings
     public bool ClaudeDesktopMonitorEnabled { get; set; } = true;
 
     /// <summary>
+    /// Whether OpenCode Desktop activity should be monitored.
+    /// </summary>
+    public bool OpenCodeDesktopMonitorEnabled { get; set; } = true;
+
+    /// <summary>
     /// Selected floating pet skin preset.
     /// </summary>
     public string FloatingPetSkinId { get; set; } = PetSkinPresets.Pink;

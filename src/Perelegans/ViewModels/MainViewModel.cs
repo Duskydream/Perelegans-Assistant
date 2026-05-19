@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -140,6 +141,9 @@ public partial class MainViewModel : ObservableObject
     private bool _isGalaxyVisible;
 
     [ObservableProperty]
+    private bool _isCompanionRoomVisible;
+
+    [ObservableProperty]
     private bool _hasConversationStarted;
 
     [ObservableProperty]
@@ -153,6 +157,33 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private string _galaxyGroupFilter = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<PetGrowthDimensionViewModel> _petGrowthDimensions = new();
+
+    [ObservableProperty]
+    private ObservableCollection<PetAbilityBadgeViewModel> _petAbilityBadges = new();
+
+    [ObservableProperty]
+    private ObservableCollection<PetRoomItemViewModel> _petRoomItems = new();
+
+    [ObservableProperty]
+    private string _petGrowthStageTitle = "观察期";
+
+    [ObservableProperty]
+    private string _petGrowthStageDescription = "桌宠正在学习用本地、可解释的信号陪伴你。";
+
+    [ObservableProperty]
+    private string _petGrowthProgressText = string.Empty;
+
+    [ObservableProperty]
+    private string _petRoomSummaryText = string.Empty;
+
+    [ObservableProperty]
+    private string _petUnlockedBadgeCountText = string.Empty;
+
+    [ObservableProperty]
+    private BitmapSource? _petRoomSpriteSource;
 
     private List<ContextMemory> _allVisibleContextMemories = [];
 
@@ -297,6 +328,7 @@ public partial class MainViewModel : ObservableObject
         await RefreshAsync();
         await RefreshFocusTasksAsync();
         await RefreshContextMemoriesAsync();
+        await RefreshPetGrowthProfileAsync();
 
         _processMonitor.SetInterval(_settingsService.Settings.MonitorIntervalSeconds);
         if (_settingsService.Settings.MonitorEnabled)
@@ -491,10 +523,16 @@ public partial class MainViewModel : ObservableObject
     {
         IsGalaxyVisible = true;
         IsStatisticsVisible = false;
+        IsCompanionRoomVisible = false;
         if (PendingContextMemories.Count > 0)
         {
             SelectedGalaxyMemory = PendingContextMemories[0];
         }
+    }
+
+    public void OpenCompanionRoom()
+    {
+        _ = ShowCompanionRoomAsync();
     }
 
     [RelayCommand]
@@ -646,7 +684,29 @@ public partial class MainViewModel : ObservableObject
         if (IsGalaxyVisible)
         {
             IsStatisticsVisible = false;
+            IsCompanionRoomVisible = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task ToggleCompanionRoom()
+    {
+        if (IsCompanionRoomVisible)
+        {
+            IsCompanionRoomVisible = false;
+            return;
+        }
+
+        await ShowCompanionRoomAsync();
+    }
+
+    private async Task ShowCompanionRoomAsync()
+    {
+        IsCompanionRoomVisible = true;
+        IsGalaxyVisible = false;
+        IsStatisticsVisible = false;
+        HasConversationStarted = true;
+        await RefreshPetGrowthProfileAsync();
     }
 
     [RelayCommand]
@@ -692,14 +752,15 @@ public partial class MainViewModel : ObservableObject
             var archivePath = await ArchiveLocalContextDigestAsync("daily", insightMemories, sessions, insight);
             await _dbService.RefreshMemoryLifecycleForDailyReviewAsync();
             await RefreshContextMemoriesAsync();
+            await RefreshPetGrowthProfileAsync();
 
             review ??= CreateFallbackDailyReview();
-            var reviewText = FormatDailyReview(review) +
-                "\n\n我也把今天能用的上下文悄悄存好了。等你愿意的时候，可以只回答一个小问题：明天开场时，哪件事最值得先开始？";
             var statsSnapshot = CreateDailyReviewUsageStatsSnapshot(sessions);
-            ConversationMessages.Add(statsSnapshot.HasSlices
-                ? ConversationMessage.AssistantWithUsageStats(reviewText, statsSnapshot)
-                : ConversationMessage.Assistant(reviewText));
+            var reviewCard = CreateDailyReviewCard(review, memories, sessions, archivePath ?? string.Empty);
+            ConversationMessages.Add(ConversationMessage.AssistantWithDailyReviewCard(
+                T("Main_DailyReviewReady"),
+                reviewCard,
+                statsSnapshot.HasSlices ? statsSnapshot : null));
             StatusText = T("Main_DailyReviewReady");
         }
         finally
@@ -755,6 +816,7 @@ public partial class MainViewModel : ObservableObject
 
         StatusText = T("Main_GalaxyTaskSaved");
         await RefreshContextMemoriesAsync(updated.Id);
+        await RefreshPetGrowthProfileAsync();
         if (updated.IsPlan && (updated.IsCompleted || updated.IsAbandoned))
         {
             EndFocusModeIfMatches(updated.Id);
@@ -774,9 +836,10 @@ public partial class MainViewModel : ObservableObject
             await SaveGalaxyTask();
             var confirmed = await _dbService.ConfirmPendingContextMemoryAsync(SelectedGalaxyMemory.Id);
             StatusText = confirmed == null ? "无法确认这条记忆。" : $"已确认记忆：{confirmed.Title}";
-            await RefreshContextMemoriesAsync(confirmed?.Id);
-            IsGalaxyVisible = true;
-            return;
+        await RefreshContextMemoriesAsync(confirmed?.Id);
+        await RefreshPetGrowthProfileAsync();
+        IsGalaxyVisible = true;
+        return;
         }
 
         StatusText = "这条记忆已经在星图里。";
@@ -794,6 +857,7 @@ public partial class MainViewModel : ObservableObject
         StatusText = $"已忽略候选记忆：{SelectedGalaxyMemory.Title}";
         SelectedGalaxyMemory = null;
         await RefreshContextMemoriesAsync();
+        await RefreshPetGrowthProfileAsync();
     }
 
     [RelayCommand(CanExecute = nameof(CanEditGalaxyTask))]
@@ -1785,7 +1849,9 @@ public partial class MainViewModel : ObservableObject
 
         SetFocusGoal(string.Join("；", created.Select(t => t.Title)));
         await RefreshFocusTasksAsync();
+        await RefreshPetGrowthProfileAsync();
         IsGalaxyVisible = true;
+        IsCompanionRoomVisible = false;
     }
 
     private async Task<TaskAdventureDraft?> CreateAdventureDraftAsync(string task)
@@ -1830,8 +1896,10 @@ public partial class MainViewModel : ObservableObject
                 ConversationMessages.Add(ConversationMessage.Assistant(
                     string.Format(T("Main_FocusModeCompletedFormat"), completedMemory.Title)));
                 await RefreshContextMemoriesAsync(completedMemory.Id);
+                await RefreshPetGrowthProfileAsync();
                 EndFocusModeIfMatches(completedMemory.Id);
                 IsGalaxyVisible = true;
+                IsCompanionRoomVisible = false;
                 return;
             }
         }
@@ -1874,7 +1942,9 @@ public partial class MainViewModel : ObservableObject
 
         ConversationMessages.Add(ConversationMessage.Assistant(completed.CompletionNarrative));
         await RefreshFocusTasksAsync(completed.Id);
+        await RefreshPetGrowthProfileAsync();
         IsGalaxyVisible = true;
+        IsCompanionRoomVisible = false;
     }
 
     private async Task RefreshFocusTasksAsync(int? selectedTaskId = null)
@@ -2143,6 +2213,249 @@ public partial class MainViewModel : ObservableObject
                 .DefaultIfEmpty(T("Main_DailyReviewNoRisk"))
                 .ToList(),
             SuggestedNextAction = T("Main_DailyReviewFallbackNextAction")
+        };
+    }
+
+    private DailyReviewCardViewModel CreateDailyReviewCard(
+        DailyReviewDraft review,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        string archivePath)
+    {
+        var today = DateTime.Today;
+        var todayTasks = FocusTasks
+            .Where(task => task.CreatedAt.Date == today || task.CompletedAt?.Date == today)
+            .ToList();
+        var memorySignals = _allVisibleContextMemories.Count > 0
+            ? _allVisibleContextMemories
+            : memories;
+        var completedTasks = todayTasks.Count(task => task.Status == FocusTaskStatus.Completed);
+        var activeTasks = todayTasks.Count(task => task.Status == FocusTaskStatus.Active);
+        var openPlans = memorySignals.Count(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned);
+        var updatedMemories = memorySignals.Count(memory => memory.UpdatedAt.Date == today || memory.CreatedAt.Date == today);
+        var topProcess = sessions
+            .GroupBy(session => session.ProcessName)
+            .Select(group => new
+            {
+                ProcessName = group.Key,
+                Duration = group.Aggregate(TimeSpan.Zero, (total, session) => total + session.Duration)
+            })
+            .OrderByDescending(item => item.Duration)
+            .FirstOrDefault();
+
+        var metrics = new List<DailyReviewMetricViewModel>
+        {
+            new("done", completedTasks.ToString(CultureInfo.CurrentCulture), "完成任务"),
+            new("open", activeTasks.ToString(CultureInfo.CurrentCulture), "进行中"),
+            new("memory", updatedMemories.ToString(CultureInfo.CurrentCulture), "今日记忆线索")
+        };
+        if (topProcess != null)
+        {
+            metrics.Add(new(
+                "focus",
+                FormatDurationForStats(topProcess.Duration),
+                topProcess.ProcessName));
+        }
+        else if (openPlans > 0)
+        {
+            metrics.Add(new("plan", openPlans.ToString(CultureInfo.CurrentCulture), "未完成 plan"));
+        }
+
+        var savedContextText = string.IsNullOrWhiteSpace(archivePath)
+            ? string.Empty
+            : $"上下文已保存：{Path.GetFileName(archivePath)}";
+
+        return new DailyReviewCardViewModel(
+            T("Main_DailyReview"),
+            DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture),
+            T("Main_DailyReviewEncouragement"),
+            NormalizeReviewCardText(review.Encouragement, T("Main_DailyReviewFallbackEncouragement")),
+            T("Main_DailyReviewOverview"),
+            NormalizeReviewCardText(review.Review, string.Format(T("Main_FallbackDailyReviewFormat"), completedTasks, activeTasks)),
+            T("Main_DailyReviewHighlights"),
+            NormalizeReviewCardItems(review.Highlights, T("Main_DailyReviewNoCompletedTasks")),
+            T("Main_DailyReviewRisks"),
+            NormalizeReviewCardItems(review.Risks, T("Main_DailyReviewNoRisk")),
+            T("Main_DailyReviewNextAction"),
+            NormalizeReviewCardText(review.SuggestedNextAction, T("Main_DailyReviewFallbackNextAction")),
+            metrics,
+            savedContextText);
+    }
+
+    private static IReadOnlyList<string> NormalizeReviewCardItems(IReadOnlyCollection<string> items, string fallback)
+    {
+        var normalized = items
+            .Select(item => item.Trim())
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Take(4)
+            .ToList();
+        return normalized.Count > 0 ? normalized : [fallback];
+    }
+
+    private static string NormalizeReviewCardText(string text, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(text) ? fallback : text.Trim();
+    }
+
+    private async Task RefreshPetGrowthProfileAsync()
+    {
+        var memories = await _dbService.GetContextMemoriesAsync(includePending: true, includeRejected: true);
+        var breakpoints = await _dbService.GetBreakpointSnapshotsAsync();
+        var confirmedMemories = memories.Count(memory =>
+            memory.ReviewStatus == ContextMemoryReviewStatus.Confirmed &&
+            !IsSceneCheckpointMemory(memory));
+        var rejectedMemories = memories.Count(memory => memory.ReviewStatus == ContextMemoryReviewStatus.Rejected);
+        var reviewMemories = memories.Count(memory =>
+            memory.ReviewStatus == ContextMemoryReviewStatus.Confirmed &&
+            memory.Type == ContextMemoryType.Review);
+        var completedTasks = FocusTasks.Count(task => task.Status == FocusTaskStatus.Completed);
+        var completedPlans = memories.Count(memory =>
+            memory.ReviewStatus == ContextMemoryReviewStatus.Confirmed &&
+            memory.IsPlan &&
+            memory.IsCompleted);
+        var shownBreakpoints = breakpoints.Count(snapshot => snapshot.WasShown);
+
+        var memoryValue = confirmedMemories;
+        var understandingValue = reviewMemories * 8 + Math.Min(12, confirmedMemories / 4d);
+        var actionValue = completedTasks * 3 + completedPlans * 4;
+        var companionshipValue = shownBreakpoints * 6 + reviewMemories * 2;
+        var restraintValue = 12 + rejectedMemories * 4;
+
+        PetGrowthDimensions = new ObservableCollection<PetGrowthDimensionViewModel>
+        {
+            new("记忆力", "确认后的线索越多，桌宠越能把上下文放回星图。", memoryValue, 30, "线索", "#FFFF8FC3"),
+            new("理解力", "复盘和上下文压缩会让桌宠更会解释节奏。", understandingValue, 40, "点", "#FF79B5E0"),
+            new("行动力", "完成任务和 plan 会让桌宠从提醒走向闭环。", actionValue, 30, "点", "#FF9CC978"),
+            new("陪伴感", "断点恢复和复盘让桌宠更会在你回来时接住现场。", companionshipValue, 30, "点", "#FFE0B65E"),
+            new("克制感", "拒绝不需要的建议也会让桌宠学会少打扰。", restraintValue, 28, "点", "#FFB08DD8")
+        };
+
+        var badges = new List<PetAbilityBadgeViewModel>
+        {
+            new("不窥屏守护", "不依赖截图监视，用本地可解释信号陪伴。", "克制感", 10, restraintValue, "#FFB08DD8"),
+            new("星图整理者", "已经能把确认后的线索稳定放入星图。", "记忆力", 8, memoryValue, "#FFFF8FC3"),
+            new("复盘伙伴", "能从复盘里整理今日推进、风险和下一问。", "理解力", 16, understandingValue, "#FF79B5E0"),
+            new("行动闭环者", "见证过足够多任务从计划走到完成。", "行动力", 12, actionValue, "#FF9CC978"),
+            new("断点守护者", "能在离开和回来之间保存上下文现场。", "陪伴感", 6, companionshipValue, "#FFE0B65E"),
+            new("安静陪伴者", "会把被忽略的建议当作边界，而不是失败。", "克制感", 20, restraintValue, "#FF66C8BA")
+        };
+        PetAbilityBadges = new ObservableCollection<PetAbilityBadgeViewModel>(badges);
+
+        var unlocked = badges.Count(badge => badge.IsUnlocked);
+        (PetGrowthStageTitle, PetGrowthStageDescription) = CreatePetGrowthStage(unlocked);
+        PetGrowthProgressText = $"已解锁 {unlocked}/{badges.Count} 枚能力徽章";
+        PetUnlockedBadgeCountText = PetGrowthProgressText;
+        PetRoomSummaryText = $"这个小房间由 {confirmedMemories} 条确认记忆、{completedTasks + completedPlans} 个完成闭环、{reviewMemories} 次复盘和 {shownBreakpoints} 次断点恢复搭起来。";
+        PetRoomItems = new ObservableCollection<PetRoomItemViewModel>
+        {
+            new("星图墙", $"{confirmedMemories} 条确认线索正在构成它的长期记忆。", "#FFFF8FC3"),
+            new("复盘便签", $"{reviewMemories} 张复盘卡片贴在墙上，帮它理解节奏。", "#FF79B5E0"),
+            new("行动架", $"{completedTasks + completedPlans} 个完成闭环让它学会陪你收束。", "#FF9CC978"),
+            new("断点灯", $"{shownBreakpoints} 次回到现场让它更会安静守候。", "#FFE0B65E"),
+            new("安静角", $"{rejectedMemories} 次忽略建议被记录成边界感。", "#FF66C8BA")
+        };
+        PetRoomSpriteSource = CreatePetRoomIdleSpriteSource();
+    }
+
+    private BitmapSource CreatePetRoomIdleSpriteSource()
+    {
+        var settings = _settingsService.Settings;
+        if (PetSkinPresets.Normalize(settings.FloatingPetSkinId) == PetSkinPresets.Custom &&
+            TryCreateCustomPetRoomSpriteSource(settings, out var customSprite))
+        {
+            return customSprite;
+        }
+
+        var skinId = PetSkinPresets.Normalize(settings.FloatingPetSkinId);
+        if (TryLoadPackBitmap($"Images/Pet/Skins/{skinId}_idle.png", out var presetSheet))
+        {
+            return CropPetSpriteFrame(presetSheet, 0, Math.Max(1, presetSheet.PixelWidth / 6), Math.Max(1, presetSheet.PixelHeight), 0);
+        }
+
+        if (TryLoadPackBitmap("Images/Pet/pixel_cat_idle.png", out var legacySheet))
+        {
+            return CropPetSpriteFrame(legacySheet, 0, Math.Max(1, legacySheet.PixelWidth / 6), Math.Max(1, legacySheet.PixelHeight), 0);
+        }
+
+        return BitmapSource.Create(1, 1, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null, new byte[] { 0, 0, 0, 0 }, 4);
+    }
+
+    private static bool TryCreateCustomPetRoomSpriteSource(AppSettings settings, out BitmapSource sprite)
+    {
+        sprite = null!;
+        if (string.IsNullOrWhiteSpace(settings.PetSpritePath) ||
+            !Uri.TryCreate(settings.PetSpritePath, UriKind.Absolute, out var uri) ||
+            !TryLoadBitmap(uri, out var sheet))
+        {
+            return false;
+        }
+
+        var frameWidth = NormalizePositive(settings.PetSpriteFrameWidth, 48);
+        var frameHeight = NormalizePositive(settings.PetSpriteFrameHeight, 48);
+        var rowCount = NormalizePositive(settings.PetSpriteRowCount, 1);
+        var idleRow = Math.Clamp(settings.PetSpriteIdleRow, 0, rowCount - 1);
+        if (sheet.PixelWidth < frameWidth || sheet.PixelHeight < frameHeight * (idleRow + 1))
+        {
+            return false;
+        }
+
+        sprite = CropPetSpriteFrame(sheet, idleRow, frameWidth, frameHeight, 0);
+        return true;
+    }
+
+    private static BitmapSource CropPetSpriteFrame(BitmapSource sheet, int rowIndex, int frameWidth, int frameHeight, int frameIndex)
+    {
+        var frame = new CroppedBitmap(
+            sheet,
+            new Int32Rect(
+                Math.Clamp(frameIndex * frameWidth, 0, Math.Max(0, sheet.PixelWidth - frameWidth)),
+                Math.Clamp(rowIndex * frameHeight, 0, Math.Max(0, sheet.PixelHeight - frameHeight)),
+                Math.Min(frameWidth, sheet.PixelWidth),
+                Math.Min(frameHeight, sheet.PixelHeight)));
+        frame.Freeze();
+        return frame;
+    }
+
+    private static bool TryLoadPackBitmap(string path, out BitmapSource image)
+    {
+        return TryLoadBitmap(new Uri($"pack://application:,,,/{path}", UriKind.Absolute), out image);
+    }
+
+    private static bool TryLoadBitmap(Uri uri, out BitmapSource image)
+    {
+        try
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = uri;
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            image = bitmap;
+            return true;
+        }
+        catch
+        {
+            image = null!;
+            return false;
+        }
+    }
+
+    private static int NormalizePositive(int value, int fallback)
+    {
+        return value > 0 ? value : fallback;
+    }
+
+    private static (string Title, string Description) CreatePetGrowthStage(int unlockedBadgeCount)
+    {
+        return unlockedBadgeCount switch
+        {
+            <= 1 => ("观察期", "桌宠正在学习只用必要、本地、可解释的信号理解你。"),
+            2 => ("记忆期", "它已经能把你确认过的线索当作可靠上下文。"),
+            3 => ("星图期", "它开始把记忆、复盘和行动连接成更完整的结构。"),
+            4 => ("复盘期", "它能把一天里的推进、卡点和下一问整理成可继续的现场。"),
+            _ => ("共生期", "它的成长来自你的选择、边界和行动闭环，而不是监视。")
         };
     }
 
@@ -2469,11 +2782,16 @@ public partial class MainViewModel : ObservableObject
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
         if (dispatcher != null && !dispatcher.CheckAccess())
         {
-            dispatcher.Invoke(RefreshMonitorStateProperties);
+            dispatcher.Invoke(() =>
+            {
+                RefreshMonitorStateProperties();
+                PetRoomSpriteSource = CreatePetRoomIdleSpriteSource();
+            });
             return;
         }
 
         RefreshMonitorStateProperties();
+        PetRoomSpriteSource = CreatePetRoomIdleSpriteSource();
     }
 
     private void OnFocusModeStateChanged()
@@ -2523,6 +2841,7 @@ public partial class MainViewModel : ObservableObject
     {
         HasConversationStarted = true;
         IsGalaxyVisible = false;
+        IsCompanionRoomVisible = false;
         var returned = snapshot.ReturnedAt?.ToString("HH:mm", CultureInfo.CurrentCulture)
             ?? DateTime.Now.ToString("HH:mm", CultureInfo.CurrentCulture);
         var title = string.IsNullOrWhiteSpace(snapshot.WindowTitle)

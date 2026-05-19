@@ -84,6 +84,7 @@ public partial class MainViewModel
         if (IsStatisticsVisible)
         {
             IsGalaxyVisible = false;
+            IsCompanionRoomVisible = false;
             await RefreshUsageStatisticsAsync();
         }
     }

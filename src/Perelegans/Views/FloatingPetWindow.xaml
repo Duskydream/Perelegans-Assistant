@@ -28,6 +28,8 @@
                           Command="{Binding ToggleMonitorCommand}"/>
                 <MenuItem Header="{Binding FocusModeMenuText}"
                           Command="{Binding ToggleFocusModeCommand}"/>
+                <MenuItem Header="伙伴档案"
+                          Command="{Binding OpenCompanionRoomCommand}"/>
                 <Separator/>
                 <MenuItem Header="皮肤">
                     <MenuItem Header="粉色小猫"
