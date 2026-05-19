@@ -11,24 +11,24 @@ namespace Perelegans.ViewModels;
 
 public partial class MainViewModel
 {
-    private const byte UsageStatsFillAlpha = 238;
+    private const byte UsageStatsFillAlpha = 188;
     private const double UsagePieCenter = 50;
-    private const double UsagePieMinRadius = 28;
-    private const double UsagePieMaxRadius = 42;
-    private const double UsagePieExplodeOffset = 4.5;
+    private const double UsageDonutInnerRadius = 27;
+    private const double UsageDonutOuterRadius = 42;
+    private const double UsagePieExplodeOffset = 2.2;
 
     private static readonly MediaColor[] UsageStatsPalette =
     [
-        MediaColor.FromRgb(0x67, 0x7F, 0xE4),
-        MediaColor.FromRgb(0x8F, 0xCF, 0x73),
-        MediaColor.FromRgb(0xFF, 0xCA, 0x57),
-        MediaColor.FromRgb(0xF4, 0x63, 0x67),
-        MediaColor.FromRgb(0x6E, 0xC4, 0xE2),
-        MediaColor.FromRgb(0xA2, 0x73, 0xD4),
-        MediaColor.FromRgb(0xF6, 0x98, 0x4F),
-        MediaColor.FromRgb(0x55, 0xCC, 0xB2),
-        MediaColor.FromRgb(0xE8, 0x64, 0xAE),
-        MediaColor.FromRgb(0xB7, 0xCA, 0x4E)
+        MediaColor.FromRgb(0xEC, 0x82, 0xAD),
+        MediaColor.FromRgb(0x79, 0xB5, 0xE0),
+        MediaColor.FromRgb(0x9C, 0xC9, 0x78),
+        MediaColor.FromRgb(0xE0, 0xB6, 0x5E),
+        MediaColor.FromRgb(0xB0, 0x8D, 0xD8),
+        MediaColor.FromRgb(0x66, 0xC8, 0xBA),
+        MediaColor.FromRgb(0xDC, 0x8A, 0x70),
+        MediaColor.FromRgb(0xC0, 0xA0, 0x8F),
+        MediaColor.FromRgb(0x9B, 0xAF, 0xC8),
+        MediaColor.FromRgb(0xD0, 0x8F, 0xB0)
     ];
 
     private string? _hoveredUsagePieKey;
@@ -68,6 +68,9 @@ public partial class MainViewModel
     public bool HasUsageStatsSlices => UsageStatsSlices.Count > 0;
     public bool HasUsageTimelineRows => UsageTimelineRows.Count > 0;
     public double UsageTimelineChartHeight => Math.Max(96, UsageTimelineRows.Count * 18 + 18);
+    public string UsagePieCenterTitle => HighlightedUsageStatsSlice?.Title ?? "Total";
+    public string UsagePieCenterValue => HighlightedUsageStatsSlice?.DurationText ?? UsageStatsTotalText;
+    public string UsagePieCenterCaption => HighlightedUsageStatsSlice?.PercentageText ?? "tracked time";
     public string UsageStatsEmptyText => T("Main_UsageStatsEmpty");
     public string UsageStatsTimelineTitle => T("Main_UsageStatsTimelineTitle");
     public string UsageTimelineStartLabel => UsageTimelineAxisLabels.ElementAtOrDefault(0)?.Text ?? string.Empty;
@@ -135,6 +138,9 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(UsageTimelineStartLabel));
         OnPropertyChanged(nameof(UsageTimelineMiddleLabel));
         OnPropertyChanged(nameof(UsageTimelineEndLabel));
+        OnPropertyChanged(nameof(UsagePieCenterTitle));
+        OnPropertyChanged(nameof(UsagePieCenterValue));
+        OnPropertyChanged(nameof(UsagePieCenterCaption));
     }
 
     private static UsageStatsSnapshot CreateDailyReviewUsageStatsSnapshot(IReadOnlyCollection<ApplicationUsageSession> sessions)
@@ -269,54 +275,61 @@ public partial class MainViewModel
     private static void AssignUsagePieGeometries(IReadOnlyList<UsageStatsSliceViewModel> slices)
     {
         var startAngle = -90d;
-        var maxShare = Math.Max(0.001d, slices.Max(slice => slice.Share));
         for (var i = 0; i < slices.Count; i++)
         {
             var slice = slices[i];
             var sweep = i == slices.Count - 1
                 ? 270d - startAngle
                 : Math.Max(0d, slice.Share * 360d);
-            var midAngle = startAngle + sweep / 2d;
-            var radius = UsagePieMinRadius + Math.Sqrt(slice.Share / maxShare) * (UsagePieMaxRadius - UsagePieMinRadius);
             var explodeOffset = slices.Count > 1 ? UsagePieExplodeOffset : 0;
-            slice.PieGeometry = CreateUsagePieSliceGeometry(startAngle, sweep, explodeOffset, radius);
+            slice.PieGeometry = CreateUsageDonutSliceGeometry(startAngle, sweep, explodeOffset);
             slice.PieLabelLineGeometry = Geometry.Empty;
             slice.IsPieLabelVisible = false;
             startAngle += sweep;
         }
     }
 
-    private static Geometry CreateUsagePieSliceGeometry(double startAngle, double sweepAngle, double explodeOffset, double radius)
+    private static Geometry CreateUsageDonutSliceGeometry(double startAngle, double sweepAngle, double explodeOffset)
     {
         var midAngle = startAngle + sweepAngle / 2d;
         var center = GetUsagePieShiftedCenter(midAngle, explodeOffset);
         if (sweepAngle >= 359.9)
         {
-            var ellipse = new EllipseGeometry(
-                center,
-                radius,
-                radius);
-            ellipse.Freeze();
-            return ellipse;
+            var ringGeometry = new GeometryGroup
+            {
+                FillRule = FillRule.EvenOdd
+            };
+            ringGeometry.Children.Add(new EllipseGeometry(center, UsageDonutOuterRadius, UsageDonutOuterRadius));
+            ringGeometry.Children.Add(new EllipseGeometry(center, UsageDonutInnerRadius, UsageDonutInnerRadius));
+            ringGeometry.Freeze();
+            return ringGeometry;
         }
 
-        var start = GetUsagePiePoint(center, startAngle, radius);
-        var end = GetUsagePiePoint(center, startAngle + sweepAngle, radius);
+        var outerStart = GetUsagePiePoint(center, startAngle, UsageDonutOuterRadius);
+        var outerEnd = GetUsagePiePoint(center, startAngle + sweepAngle, UsageDonutOuterRadius);
+        var innerStart = GetUsagePiePoint(center, startAngle, UsageDonutInnerRadius);
+        var innerEnd = GetUsagePiePoint(center, startAngle + sweepAngle, UsageDonutInnerRadius);
         var figure = new PathFigure
         {
-            StartPoint = center,
+            StartPoint = outerStart,
             IsClosed = true,
             IsFilled = true
         };
-        figure.Segments.Add(new LineSegment(start, true));
         figure.Segments.Add(new ArcSegment(
-            end,
-            new WpfSize(radius, radius),
+            outerEnd,
+            new WpfSize(UsageDonutOuterRadius, UsageDonutOuterRadius),
             0,
             sweepAngle > 180,
             SweepDirection.Clockwise,
             true));
-        figure.Segments.Add(new LineSegment(center, true));
+        figure.Segments.Add(new LineSegment(innerEnd, true));
+        figure.Segments.Add(new ArcSegment(
+            innerStart,
+            new WpfSize(UsageDonutInnerRadius, UsageDonutInnerRadius),
+            0,
+            sweepAngle > 180,
+            SweepDirection.Counterclockwise,
+            true));
 
         var geometry = new PathGeometry([figure]);
         geometry.Freeze();
@@ -429,6 +442,9 @@ public partial class MainViewModel
         }
 
         HighlightedUsageStatsSlice = highlighted;
+        OnPropertyChanged(nameof(UsagePieCenterTitle));
+        OnPropertyChanged(nameof(UsagePieCenterValue));
+        OnPropertyChanged(nameof(UsagePieCenterCaption));
     }
 
     private static TimeSpan ClipDuration(ApplicationUsageSession session, DateTime start, DateTime end)

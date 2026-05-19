@@ -903,6 +903,14 @@
                                     <Grid ClipToBounds="True">
                                         <Viewbox Stretch="Uniform">
                                             <Canvas Width="100" Height="100">
+                                                <Ellipse Canvas.Left="8"
+                                                         Canvas.Top="8"
+                                                         Width="84"
+                                                         Height="84"
+                                                         Fill="Transparent"
+                                                         Stroke="{DynamicResource Perelegans.StatsChartMetricBackground}"
+                                                         StrokeThickness="13"
+                                                         Opacity="0.62"/>
                                                 <ItemsControl ItemsSource="{Binding UsageStatsSlices}">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
@@ -920,12 +928,12 @@
                                                             <Path Data="{Binding PieGeometry}"
                                                                   Fill="{Binding Fill}"
                                                                   Stroke="{DynamicResource Perelegans.WindowBackground}"
-                                                                  StrokeThickness="0.7"
+                                                                  StrokeThickness="0.55"
                                                                   RenderTransformOrigin="0.5,0.5"
                                                                   MouseEnter="UsageSlicePath_MouseEnter">
                                                                 <Path.Style>
                                                                     <Style TargetType="Path">
-                                                                        <Setter Property="Opacity" Value="0.96"/>
+                                                                        <Setter Property="Opacity" Value="0.78"/>
                                                                         <Setter Property="RenderTransform">
                                                                             <Setter.Value>
                                                                                 <ScaleTransform ScaleX="1" ScaleY="1"/>
@@ -934,10 +942,10 @@
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
                                                                                 <Setter Property="Opacity" Value="1"/>
-                                                                                <Setter Property="StrokeThickness" Value="1.2"/>
+                                                                                <Setter Property="StrokeThickness" Value="0.95"/>
                                                                                 <Setter Property="RenderTransform">
                                                                                     <Setter.Value>
-                                                                                        <ScaleTransform ScaleX="1.035" ScaleY="1.035"/>
+                                                                                        <ScaleTransform ScaleX="1.025" ScaleY="1.025"/>
                                                                                     </Setter.Value>
                                                                                 </Setter>
                                                                             </DataTrigger>
@@ -950,6 +958,30 @@
                                                 </ItemsControl>
                                             </Canvas>
                                         </Viewbox>
+                                        <StackPanel Width="126"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding HasUsageStatsSlices, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="{Binding UsagePieCenterTitle}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       TextAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource Perelegans.SubtleForegroundBrush}"/>
+                                            <TextBlock Text="{Binding UsagePieCenterValue}"
+                                                       Margin="0,3,0,0"
+                                                       FontSize="15"
+                                                       FontWeight="SemiBold"
+                                                       TextAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource Perelegans.ForegroundBrush}"/>
+                                            <TextBlock Text="{Binding UsagePieCenterCaption}"
+                                                       Margin="0,2,0,0"
+                                                       FontSize="10"
+                                                       TextAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource Perelegans.AccentBrush}"/>
+                                        </StackPanel>
                                         <TextBlock Text="{Binding UsageStatsEmptyText}"
                                                    VerticalAlignment="Center"
                                                    HorizontalAlignment="Center"
@@ -1097,6 +1129,7 @@
                                                     <Border Width="10"
                                                             Height="10"
                                                             Background="{Binding SwatchBrush}"
+                                                            Opacity="0.82"
                                                             VerticalAlignment="Center"/>
                                                     <StackPanel Grid.Column="1" Margin="8,0,8,0">
                                                         <TextBlock x:Name="LegendTitleText"
@@ -1121,6 +1154,7 @@
                                                 <DataTrigger Binding="{Binding IsHighlighted}" Value="True">
                                                     <Setter TargetName="LegendItemBorder" Property="Background" Value="{DynamicResource Perelegans.StatsChartHighlightBackground}"/>
                                                     <Setter TargetName="LegendItemBorder" Property="BorderBrush" Value="{DynamicResource Perelegans.StatsChartHighlightBorderBrush}"/>
+                                                    <Setter TargetName="LegendItemBorder" Property="Padding" Value="9,7"/>
                                                     <Setter TargetName="LegendTitleText" Property="FontWeight" Value="SemiBold"/>
                                                     <Setter TargetName="LegendPercentageText" Property="Foreground" Value="{DynamicResource Perelegans.StatsChartHighlightBorderBrush}"/>
                                                 </DataTrigger>

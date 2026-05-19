@@ -469,6 +469,18 @@ public class DatabaseService
 
     public async Task<bool> DeleteContextMemoryAsync(int id)
     {
+        try
+        {
+            return await DeleteContextMemoryDirectAsync(id);
+        }
+        catch (SqliteException ex) when (IsSqliteDatabaseMalformed(ex))
+        {
+            return await RepairContextMemoryStoreAndDeleteAsync(id);
+        }
+    }
+
+    private async Task<bool> DeleteContextMemoryDirectAsync(int id)
+    {
         await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
         await connection.OpenAsync();
 
@@ -476,6 +488,183 @@ public class DatabaseService
         command.CommandText = """DELETE FROM "ContextMemories" WHERE "Id" = $id;""";
         command.Parameters.AddWithValue("$id", id);
         return await command.ExecuteNonQueryAsync() > 0;
+    }
+
+    private async Task<bool> RepairContextMemoryStoreAndDeleteAsync(int id)
+    {
+        SqliteConnection.ClearAllPools();
+        try
+        {
+            await ReindexContextMemoriesAsync();
+            return await DeleteContextMemoryDirectAsync(id);
+        }
+        catch (SqliteException ex) when (IsSqliteDatabaseMalformed(ex))
+        {
+            SqliteConnection.ClearAllPools();
+            await RebuildContextMemoryTableSkippingAsync(id);
+            return true;
+        }
+    }
+
+    private async Task ReindexContextMemoriesAsync()
+    {
+        await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            REINDEX "IX_ContextMemories_Type";
+            REINDEX "IX_ContextMemories_UpdatedAt";
+            REINDEX "IX_ContextMemories_ReviewStatus";
+            """;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task RebuildContextMemoryTableSkippingAsync(int id)
+    {
+        BackupMalformedDatabaseFile();
+
+        await using var connection = new SqliteConnection(BuildConnectionString(GetDatabasePath()));
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            PRAGMA foreign_keys = OFF;
+
+            DROP TABLE IF EXISTS "ContextMemories_Recovered";
+            CREATE TABLE "ContextMemories_Recovered" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_ContextMemories" PRIMARY KEY AUTOINCREMENT,
+                "Type" INTEGER NOT NULL DEFAULT 5,
+                "Title" TEXT NOT NULL,
+                "Content" TEXT NOT NULL,
+                "Source" TEXT NOT NULL DEFAULT '',
+                "Tags" TEXT NOT NULL DEFAULT '',
+                "Weight" REAL NOT NULL DEFAULT 0.6,
+                "MentionCount" INTEGER NOT NULL DEFAULT 0,
+                "MemoryAxis" TEXT NOT NULL DEFAULT 'event',
+                "AiDescription" TEXT NOT NULL DEFAULT '',
+                "AiExplanation" TEXT NOT NULL DEFAULT '',
+                "NextPrediction" TEXT NOT NULL DEFAULT '',
+                "IsPlan" INTEGER NOT NULL DEFAULT 0,
+                "IsCompleted" INTEGER NOT NULL DEFAULT 0,
+                "CompletedAt" TEXT NULL,
+                "IsAbandoned" INTEGER NOT NULL DEFAULT 0,
+                "AbandonedAt" TEXT NULL,
+                "Lifecycle" INTEGER NOT NULL DEFAULT 0,
+                "AiWeightProfile" TEXT NOT NULL DEFAULT '',
+                "ConstellationName" TEXT NOT NULL DEFAULT '',
+                "ReviewStatus" INTEGER NOT NULL DEFAULT 0,
+                "SuggestedAt" TEXT NULL,
+                "ReviewedAt" TEXT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                "UpdatedAt" TEXT NOT NULL,
+                "LastUsedAt" TEXT NULL,
+                "X" REAL NOT NULL DEFAULT 0,
+                "Y" REAL NOT NULL DEFAULT 0,
+                "NodeSize" REAL NOT NULL DEFAULT 18
+            );
+
+            INSERT INTO "ContextMemories_Recovered" (
+                "Id",
+                "Type",
+                "Title",
+                "Content",
+                "Source",
+                "Tags",
+                "Weight",
+                "MentionCount",
+                "MemoryAxis",
+                "AiDescription",
+                "AiExplanation",
+                "NextPrediction",
+                "IsPlan",
+                "IsCompleted",
+                "CompletedAt",
+                "IsAbandoned",
+                "AbandonedAt",
+                "Lifecycle",
+                "AiWeightProfile",
+                "ConstellationName",
+                "ReviewStatus",
+                "SuggestedAt",
+                "ReviewedAt",
+                "CreatedAt",
+                "UpdatedAt",
+                "LastUsedAt",
+                "X",
+                "Y",
+                "NodeSize")
+            SELECT
+                "Id",
+                "Type",
+                "Title",
+                "Content",
+                COALESCE("Source", ''),
+                COALESCE("Tags", ''),
+                "Weight",
+                "MentionCount",
+                COALESCE("MemoryAxis", 'event'),
+                COALESCE("AiDescription", ''),
+                COALESCE("AiExplanation", ''),
+                COALESCE("NextPrediction", ''),
+                "IsPlan",
+                "IsCompleted",
+                "CompletedAt",
+                "IsAbandoned",
+                "AbandonedAt",
+                "Lifecycle",
+                COALESCE("AiWeightProfile", ''),
+                COALESCE("ConstellationName", ''),
+                "ReviewStatus",
+                "SuggestedAt",
+                "ReviewedAt",
+                "CreatedAt",
+                "UpdatedAt",
+                "LastUsedAt",
+                "X",
+                "Y",
+                "NodeSize"
+            FROM "ContextMemories"
+            WHERE "Id" <> $id;
+
+            DROP TABLE "ContextMemories";
+            ALTER TABLE "ContextMemories_Recovered" RENAME TO "ContextMemories";
+
+            CREATE INDEX IF NOT EXISTS "IX_ContextMemories_Type"
+            ON "ContextMemories" ("Type");
+
+            CREATE INDEX IF NOT EXISTS "IX_ContextMemories_UpdatedAt"
+            ON "ContextMemories" ("UpdatedAt");
+
+            CREATE INDEX IF NOT EXISTS "IX_ContextMemories_ReviewStatus"
+            ON "ContextMemories" ("ReviewStatus");
+
+            PRAGMA foreign_keys = ON;
+            """;
+        command.Parameters.AddWithValue("$id", id);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private void BackupMalformedDatabaseFile()
+    {
+        var dbPath = GetDatabasePath();
+        if (!File.Exists(dbPath))
+        {
+            return;
+        }
+
+        var backupPath = Path.Combine(
+            Path.GetDirectoryName(dbPath) ?? string.Empty,
+            $"{Path.GetFileNameWithoutExtension(dbPath)}.corrupt-{DateTime.Now:yyyyMMddHHmmss}{Path.GetExtension(dbPath)}.bak");
+        File.Copy(dbPath, backupPath, overwrite: false);
+    }
+
+    private static bool IsSqliteDatabaseMalformed(SqliteException ex)
+    {
+        return ex.SqliteErrorCode == 11 ||
+               ex.Message.Contains("database disk image is malformed", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task UpdateContextMemoryPositionAsync(int id, double x, double y)
