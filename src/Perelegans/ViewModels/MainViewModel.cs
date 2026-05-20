@@ -36,6 +36,7 @@ public partial class MainViewModel : ObservableObject
     private readonly FocusModeService _focusModeService;
     private readonly CodingClientMonitorService _codingClientMonitorService;
     private readonly Action _openSettings;
+    private readonly Action _openReplayWindow;
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _assistantThinkingTimer;
     private int _assistantThinkingIndex;
@@ -43,6 +44,7 @@ public partial class MainViewModel : ObservableObject
     private string _lastSceneCheckpointProcess = string.Empty;
     private CancellationTokenSource? _assistantResponseCancellation;
     private CodingClientActivitySnapshot? _latestCodingClientSnapshot;
+    private string _lastCodingReviewSignature = string.Empty;
     private string _focusInterventionProcess = string.Empty;
     private int _focusInterventionLevel;
     private Dictionary<int, string> _memorySearchIndex = [];
@@ -274,6 +276,7 @@ public partial class MainViewModel : ObservableObject
         FocusModeService focusModeService,
         CodingClientMonitorService codingClientMonitorService,
         Action openSettings,
+        Action openReplayWindow,
         Action exitApplication)
     {
         _dbService = dbService;
@@ -285,6 +288,7 @@ public partial class MainViewModel : ObservableObject
         _focusModeService = focusModeService;
         _codingClientMonitorService = codingClientMonitorService;
         _openSettings = openSettings;
+        _openReplayWindow = openReplayWindow;
         _exitApplication = exitApplication;
 
         _assistantThinkingTimer = new DispatcherTimer
@@ -561,6 +565,34 @@ public partial class MainViewModel : ObservableObject
     private void OnCodingClientActivityChanged(CodingClientActivitySnapshot snapshot)
     {
         _latestCodingClientSnapshot = snapshot;
+        if (snapshot.State == CodingClientActivityState.Completed)
+        {
+            _ = ShowCodingReviewAsync(snapshot);
+        }
+    }
+
+    private async Task ShowCodingReviewAsync(CodingClientActivitySnapshot snapshot)
+    {
+        var signature = $"{snapshot.ClientKind}|{snapshot.WorkspaceRoot}|{snapshot.LastChangedPath}|{snapshot.UpdatedAt:yyyyMMddHHmmss}";
+        if (string.Equals(_lastCodingReviewSignature, signature, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastCodingReviewSignature = signature;
+        try
+        {
+            var card = await CreateCodingReviewCardAsync(snapshot);
+            HasConversationStarted = true;
+            ConversationMessages.Add(ConversationMessage.AssistantWithCodingReviewCard(
+                $"{snapshot.ClientName} 刚完成了一轮生成。我先把检查顺序收成一张卡，避免直接被“完成了”三个字带跑。",
+                card));
+            StatusText = "AI 编程完成检查已生成";
+        }
+        catch (Exception ex)
+        {
+            App.WriteCrashLog(ex);
+        }
     }
 
     private void EvaluateFocusModeIntervention(ForegroundFocusSnapshot snapshot)
@@ -713,6 +745,8 @@ public partial class MainViewModel : ObservableObject
     private async Task GenerateDailyReview()
     {
         HasConversationStarted = true;
+        var progressMessage = ConversationMessage.AssistantInterruptible("正在生成每日总结。你可以先让我停下，等想清楚再继续。");
+        ConversationMessages.Add(progressMessage);
         StartAssistantThinking();
         _assistantResponseCancellation?.Cancel();
         using var responseCancellation = new CancellationTokenSource();
@@ -732,6 +766,8 @@ public partial class MainViewModel : ObservableObject
                 }
                 catch (OperationCanceledException)
                 {
+                    progressMessage.Text = "每日总结已打断。";
+                    progressMessage.StopStreaming();
                     StatusText = T("Main_AssistantStopped");
                     return;
                 }
@@ -757,11 +793,19 @@ public partial class MainViewModel : ObservableObject
             review ??= CreateFallbackDailyReview();
             var statsSnapshot = CreateDailyReviewUsageStatsSnapshot(sessions);
             var reviewCard = CreateDailyReviewCard(review, memories, sessions, archivePath ?? string.Empty);
+            progressMessage.StopStreaming();
+            ConversationMessages.Remove(progressMessage);
             ConversationMessages.Add(ConversationMessage.AssistantWithDailyReviewCard(
                 T("Main_DailyReviewReady"),
                 reviewCard,
                 statsSnapshot.HasSlices ? statsSnapshot : null));
             StatusText = T("Main_DailyReviewReady");
+        }
+        catch (OperationCanceledException)
+        {
+            progressMessage.Text = "每日总结已打断。";
+            progressMessage.StopStreaming();
+            StatusText = T("Main_AssistantStopped");
         }
         finally
         {
@@ -1404,6 +1448,8 @@ public partial class MainViewModel : ObservableObject
             "resume_scene" => CreateResumeSceneSummary(orderedSessions, openPlans, snapshot),
             "fishbone" => "已把最近进程行为按 plan/tag 做了一次本地鱼骨归因。",
             "galaxy" => "已根据星座、tag、plan 完成状态解释当前记忆星图。",
+            "memory_health" => CreateMemoryHealthSummary(memories),
+            "coding_review" => "已根据最近的 AI 编程活动、工作区变更和本地计划生成检查建议。",
             _ => "已生成一份本地桌面上下文摘要。"
         };
 
@@ -2628,6 +2674,15 @@ public partial class MainViewModel : ObservableObject
             .ToList();
     }
 
+    private static string CreateMemoryHealthSummary(IReadOnlyCollection<ContextMemory> memories)
+    {
+        var openPlans = memories.Count(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned);
+        var stale = memories.Count(memory => memory.Lifecycle == ContextMemoryLifecycle.Stale);
+        var contradicted = memories.Count(memory => memory.Lifecycle == ContextMemoryLifecycle.Contradicted);
+        var pending = memories.Count(memory => memory.ReviewStatus == ContextMemoryReviewStatus.Pending);
+        return $"本地记忆星图共有 {memories.Count} 条线索：{openPlans} 个未完成 plan，{stale} 条可能过期，{contradicted} 条已标记冲突，{pending} 条待确认。建议先处理待确认和过期 plan。";
+    }
+
     private static string CreateSuggestedNextAction(
         IReadOnlyList<ContextMemory> openPlans,
         IReadOnlyList<ApplicationUsageSession> sessions,
@@ -2837,6 +2892,110 @@ public partial class MainViewModel : ObservableObject
         ConversationMessages.Add(ConversationMessage.Assistant(T("Main_AssistantSeed")));
     }
 
+    private async Task<CodingReviewCardViewModel> CreateCodingReviewCardAsync(CodingClientActivitySnapshot snapshot)
+    {
+        var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(DateTime.Now.AddHours(-2));
+        var activePlan = await _dbService.GetLatestOpenPlanMemoryAsync();
+        var changedPath = string.IsNullOrWhiteSpace(snapshot.LastChangedPath)
+            ? string.Empty
+            : snapshot.LastChangedPath.Trim();
+        var extension = Path.GetExtension(changedPath);
+        var risk = CreateCodingRiskText(changedPath, extension, activePlan);
+        var checkpoints = CreateCodingReviewCheckpoints(changedPath, extension, activePlan, sessions);
+        var verification = CreateCodingVerificationText(snapshot.WorkspaceRoot, changedPath, extension);
+
+        return new CodingReviewCardViewModel(
+            "AI 编程完成检查",
+            DateTime.Now.ToString("HH:mm", CultureInfo.CurrentCulture),
+            $"客户端：{snapshot.ClientName}",
+            string.IsNullOrWhiteSpace(snapshot.WorkspaceRoot)
+                ? "Workspace：暂未识别"
+                : $"Workspace：{ShortenPath(snapshot.WorkspaceRoot)}",
+            string.IsNullOrWhiteSpace(changedPath)
+                ? "最近变更：暂未捕捉到明确文件"
+                : $"最近变更：{ShortenPath(changedPath)}",
+            risk,
+            checkpoints,
+            verification);
+    }
+
+    private static string CreateCodingRiskText(string changedPath, string extension, ContextMemory? activePlan)
+    {
+        if (string.IsNullOrWhiteSpace(changedPath))
+        {
+            return "风险：只捕捉到完成事件，没有明确文件路径；建议先看生成工具里的 diff 或变更列表。";
+        }
+
+        var planText = activePlan == null ? string.Empty : $"，当前未完成 plan 是「{activePlan.Title}」";
+        return extension.ToLowerInvariant() switch
+        {
+            ".xaml" => $"风险：改到了界面层{planText}；重点检查绑定名、资源键和窄窗口布局。",
+            ".cs" => $"风险：改到了 C# 逻辑{planText}；重点检查空值、异步取消、事件订阅和数据库写入路径。",
+            ".resx" => $"风险：改到了本地化资源{planText}；重点检查资源键是否两种语言都存在。",
+            ".csproj" => $"风险：改到了项目文件{planText}；重点检查包引用、目标框架和发布配置。",
+            ".json" or ".toml" or ".xml" => $"风险：改到了配置文件{planText}；重点检查默认值和旧配置兼容。",
+            _ => $"风险：AI 生成已完成{planText}；先确认变更是否落在预期范围。"
+        };
+    }
+
+    private static IReadOnlyList<string> CreateCodingReviewCheckpoints(
+        string changedPath,
+        string extension,
+        ContextMemory? activePlan,
+        IReadOnlyCollection<ApplicationUsageSession> sessions)
+    {
+        var checkpoints = new List<string>();
+        if (!string.IsNullOrWhiteSpace(changedPath))
+        {
+            checkpoints.Add($"先打开 {ShortenPath(changedPath)}，确认改动是否符合你的 prompt。");
+        }
+
+        if (activePlan != null)
+        {
+            checkpoints.Add($"对照当前 plan「{activePlan.Title}」检查有没有偏题或多改。");
+        }
+
+        var topProcess = sessions
+            .GroupBy(session => session.ProcessName)
+            .OrderByDescending(group => group.Sum(session => session.Duration.TotalMinutes))
+            .Select(group => group.Key)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(topProcess))
+        {
+            checkpoints.Add($"最近主要现场在 {topProcess}，优先验证这个工作流会不会被影响。");
+        }
+
+        if (extension.Equals(".xaml", StringComparison.OrdinalIgnoreCase))
+        {
+            checkpoints.Add("跑一次界面，检查新增文本是否溢出、卡片是否互相遮挡。");
+        }
+        else if (extension.Equals(".cs", StringComparison.OrdinalIgnoreCase))
+        {
+            checkpoints.Add("重点看异常分支和重复触发，尤其是 timer、event、async void 周边。");
+        }
+
+        checkpoints.Add("最后再决定是否把这次产出沉淀成记忆或完成对应 plan。");
+        return checkpoints.Take(5).ToList();
+    }
+
+    private static string CreateCodingVerificationText(string workspaceRoot, string changedPath, string extension)
+    {
+        if (extension.Equals(".cs", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".xaml", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".csproj", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".resx", StringComparison.OrdinalIgnoreCase))
+        {
+            return "建议验证：先运行 dotnet build，再手动打开相关窗口走一遍刚才的场景。";
+        }
+
+        if (!string.IsNullOrWhiteSpace(workspaceRoot) || !string.IsNullOrWhiteSpace(changedPath))
+        {
+            return "建议验证：查看 diff，运行项目现有的最小验证命令，再确认是否需要保存为记忆。";
+        }
+
+        return "建议验证：先回到 AI 编程客户端查看完成摘要和 diff，再决定下一步。";
+    }
+
     public void ShowBreakpointSnapshot(BreakpointSnapshot snapshot)
     {
         HasConversationStarted = true;
@@ -2897,11 +3056,7 @@ public partial class MainViewModel : ObservableObject
             CodingClientActivityState.Coding => "状态：还在生成中",
             _ => "状态：只恢复桌面断点"
         };
-        var nextStep = !string.IsNullOrWhiteSpace(snapshot.NextStep)
-            ? snapshot.NextStep
-            : codingSnapshot?.State == CodingClientActivityState.Completed
-                ? "先打开对应 workspace 看最近 diff，再决定是否运行验证。"
-                : "先回到刚才的窗口，确认还要不要把这个现场保存成 plan。";
+        var nextStep = CreateBreakpointNextSteps(snapshot, codingSnapshot);
 
         return new BreakpointResumeCardViewModel(
             "断点续做卡片",
@@ -2912,6 +3067,44 @@ public partial class MainViewModel : ObservableObject
             recentChange,
             status,
             nextStep);
+    }
+
+    private static string CreateBreakpointNextSteps(
+        BreakpointSnapshot snapshot,
+        CodingClientActivitySnapshot? codingSnapshot)
+    {
+        var steps = new List<string>();
+        if (!string.IsNullOrWhiteSpace(snapshot.NextStep))
+        {
+            steps.Add("1. " + snapshot.NextStep.Trim());
+        }
+        else if (!string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle))
+        {
+            steps.Add($"1. 先回到「{snapshot.RelatedPlanTitle}」，写下一句“我刚才停在什么问题上”。");
+        }
+        else
+        {
+            steps.Add($"1. 先回到 {snapshot.ProcessName}，用窗口标题恢复刚才的现场。");
+        }
+
+        if (codingSnapshot?.State == CodingClientActivityState.Completed)
+        {
+            var changed = string.IsNullOrWhiteSpace(codingSnapshot.LastChangedPath)
+                ? "AI 编程客户端的 diff"
+                : ShortenPath(codingSnapshot.LastChangedPath);
+            steps.Add($"2. 检查 {changed}，确认 AI 完成的内容没有偏离你的 prompt。");
+        }
+        else if (codingSnapshot?.State == CodingClientActivityState.WaitingForConfirmation)
+        {
+            steps.Add("2. 先处理 AI 编程客户端里的权限确认，确认命令安全后再继续。");
+        }
+        else
+        {
+            steps.Add("2. 不急着补全全部上下文，只确认一个最小可继续动作。");
+        }
+
+        steps.Add("3. 如果这次断点对应一个计划，把结果更新到记忆星图；如果只是临时现场，就继续工作，不必强行保存。");
+        return string.Join(Environment.NewLine, steps);
     }
 
     private static string FormatCodingState(CodingClientActivityState state)

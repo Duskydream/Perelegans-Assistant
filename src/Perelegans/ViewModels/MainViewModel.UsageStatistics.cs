@@ -63,10 +63,24 @@ public partial class MainViewModel
     [ObservableProperty]
     private string _usageStatsInsightText = string.Empty;
 
+    [ObservableProperty]
+    private bool _isUsageReplayGenerating;
+
+    [ObservableProperty]
+    private DesktopInsightCardViewModel? _usageReplayCard;
+
+    [ObservableProperty]
+    private bool _isMemoryHealthGenerating;
+
+    [ObservableProperty]
+    private DesktopInsightCardViewModel? _memoryHealthCard;
+
     public bool IsDailyUsageStatsMode => UsageStatsPeriod == "day";
     public bool IsMonthlyUsageStatsMode => UsageStatsPeriod == "month";
     public bool HasUsageStatsSlices => UsageStatsSlices.Count > 0;
     public bool HasUsageTimelineRows => UsageTimelineRows.Count > 0;
+    public bool HasUsageReplayCard => UsageReplayCard != null;
+    public bool HasMemoryHealthCard => MemoryHealthCard != null;
     public double UsageTimelineChartHeight => Math.Max(96, UsageTimelineRows.Count * 18 + 18);
     public string UsagePieCenterTitle => HighlightedUsageStatsSlice?.Title ?? "Total";
     public string UsagePieCenterValue => HighlightedUsageStatsSlice?.DurationText ?? UsageStatsTotalText;
@@ -94,6 +108,92 @@ public partial class MainViewModel
     {
         UsageStatsPeriod = period == "month" ? "month" : "day";
         await RefreshUsageStatisticsAsync();
+    }
+
+    [RelayCommand]
+    private void OpenReplayWindow()
+    {
+        _openReplayWindow();
+    }
+
+    [RelayCommand]
+    private async Task GenerateUsageReplay()
+    {
+        if (IsUsageReplayGenerating)
+        {
+            return;
+        }
+
+        IsUsageReplayGenerating = true;
+        StatusText = "正在生成 AI 工作现场回放";
+        try
+        {
+            var now = DateTime.Now;
+            var start = UsageStatsPeriod == "month"
+                ? now.AddHours(-24)
+                : DateTime.Today;
+            var snapshot = _processMonitor.SampleForegroundWindowFocus();
+            var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(start);
+            var memories = await GetInsightMemoriesAsync("工作现场回放 时间切片 统计窗口", snapshot);
+            var insight = await CreateDesktopInsightAsync(
+                "replay",
+                "统计窗口：生成工作现场时间切片回放，解释用户刚才在推进什么、在哪里切换、可能卡在哪里。",
+                memories,
+                sessions,
+                snapshot);
+            UsageReplayCard = CreateDesktopInsightCard(
+                "AI 工作现场回放",
+                $"{start:MM-dd HH:mm} - {now:HH:mm}",
+                insight);
+            StatusText = "AI 工作现场回放已生成";
+        }
+        catch (Exception ex)
+        {
+            App.WriteCrashLog(ex);
+            StatusText = "AI 工作现场回放生成失败";
+        }
+        finally
+        {
+            IsUsageReplayGenerating = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task GenerateMemoryHealth()
+    {
+        if (IsMemoryHealthGenerating)
+        {
+            return;
+        }
+
+        IsMemoryHealthGenerating = true;
+        StatusText = "正在体检本地记忆星图";
+        try
+        {
+            var snapshot = _processMonitor.SampleForegroundWindowFocus();
+            var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(DateTime.Now.AddHours(-24));
+            var memories = await _dbService.GetContextMemoriesAsync(includePending: true, includeRejected: true);
+            var insight = await CreateDesktopInsightAsync(
+                "memory_health",
+                "记忆体检：找出过期计划、互相冲突或证据不足的记忆，并给出维护建议。",
+                memories,
+                sessions,
+                snapshot);
+            MemoryHealthCard = CreateDesktopInsightCard(
+                "AI 记忆体检",
+                $"{memories.Count} 条本地记忆 / 最近 24 小时行为信号",
+                insight);
+            StatusText = "AI 记忆体检已生成";
+        }
+        catch (Exception ex)
+        {
+            App.WriteCrashLog(ex);
+            StatusText = "AI 记忆体检生成失败";
+        }
+        finally
+        {
+            IsMemoryHealthGenerating = false;
+        }
     }
 
     public void ClearUsagePieHover()
@@ -142,6 +242,31 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(UsagePieCenterTitle));
         OnPropertyChanged(nameof(UsagePieCenterValue));
         OnPropertyChanged(nameof(UsagePieCenterCaption));
+    }
+
+    private static DesktopInsightCardViewModel CreateDesktopInsightCard(
+        string title,
+        string subtitle,
+        DesktopContextInsight insight)
+    {
+        return new DesktopInsightCardViewModel(
+            title,
+            subtitle,
+            insight.Summary.Trim(),
+            NormalizeInsightItems(insight.Evidence),
+            NormalizeInsightItems(insight.PlanSuggestions),
+            NormalizeInsightItems(insight.Fishbone),
+            NormalizeInsightItems(insight.ConstellationExplanations),
+            insight.SuggestedNextAction.Trim());
+    }
+
+    private static IReadOnlyList<string> NormalizeInsightItems(IEnumerable<string> items)
+    {
+        return items
+            .Select(item => item.Trim())
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Take(6)
+            .ToList();
     }
 
     private static UsageStatsSnapshot CreateDailyReviewUsageStatsSnapshot(IReadOnlyCollection<ApplicationUsageSession> sessions)
@@ -487,5 +612,15 @@ public partial class MainViewModel
     {
         OnPropertyChanged(nameof(HasUsageTimelineRows));
         OnPropertyChanged(nameof(UsageTimelineChartHeight));
+    }
+
+    partial void OnUsageReplayCardChanged(DesktopInsightCardViewModel? value)
+    {
+        OnPropertyChanged(nameof(HasUsageReplayCard));
+    }
+
+    partial void OnMemoryHealthCardChanged(DesktopInsightCardViewModel? value)
+    {
+        OnPropertyChanged(nameof(HasMemoryHealthCard));
     }
 }

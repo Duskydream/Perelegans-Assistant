@@ -100,6 +100,52 @@ public sealed class UsageTimelineAxisLabelViewModel(double left, string text)
     public string Text { get; } = text;
 }
 
+public sealed class DesktopInsightCardViewModel(
+    string title,
+    string subtitle,
+    string summary,
+    IReadOnlyList<string> evidence,
+    IReadOnlyList<string> planSuggestions,
+    IReadOnlyList<string> fishbone,
+    IReadOnlyList<string> constellationExplanations,
+    string nextAction)
+{
+    public string Title { get; } = title;
+    public string Subtitle { get; } = subtitle;
+    public string Summary { get; } = summary;
+    public IReadOnlyList<string> Evidence { get; } = evidence;
+    public IReadOnlyList<string> PlanSuggestions { get; } = planSuggestions;
+    public IReadOnlyList<string> Fishbone { get; } = fishbone;
+    public IReadOnlyList<string> ConstellationExplanations { get; } = constellationExplanations;
+    public string NextAction { get; } = nextAction;
+    public bool HasEvidence => Evidence.Count > 0;
+    public bool HasPlanSuggestions => PlanSuggestions.Count > 0;
+    public bool HasFishbone => Fishbone.Count > 0;
+    public bool HasConstellationExplanations => ConstellationExplanations.Count > 0;
+    public bool HasNextAction => !string.IsNullOrWhiteSpace(NextAction);
+}
+
+public sealed class CodingReviewCardViewModel(
+    string title,
+    string subtitle,
+    string clientText,
+    string workspaceText,
+    string changedPathText,
+    string riskText,
+    IReadOnlyList<string> checkpoints,
+    string verificationText)
+{
+    public string Title { get; } = title;
+    public string Subtitle { get; } = subtitle;
+    public string ClientText { get; } = clientText;
+    public string WorkspaceText { get; } = workspaceText;
+    public string ChangedPathText { get; } = changedPathText;
+    public string RiskText { get; } = riskText;
+    public IReadOnlyList<string> Checkpoints { get; } = checkpoints;
+    public string VerificationText { get; } = verificationText;
+    public bool HasCheckpoints => Checkpoints.Count > 0;
+}
+
 public sealed class UsageStatsCollection : ObservableCollection<UsageStatsSliceViewModel>
 {
     public UsageStatsCollection()

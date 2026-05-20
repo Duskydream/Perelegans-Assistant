@@ -15,13 +15,17 @@ public partial class ConversationMessage : ObservableObject
         bool isUser,
         UsageStatsSnapshot? usageStats = null,
         BreakpointResumeCardViewModel? breakpointCard = null,
-        DailyReviewCardViewModel? dailyReviewCard = null)
+        DailyReviewCardViewModel? dailyReviewCard = null,
+        CodingReviewCardViewModel? codingReviewCard = null,
+        bool isInterruptible = false)
     {
         _text = isUser ? text : string.Empty;
         IsUser = isUser;
         UsageStats = usageStats;
         BreakpointCard = breakpointCard;
         DailyReviewCard = dailyReviewCard;
+        CodingReviewCard = codingReviewCard;
+        IsInterruptible = isInterruptible;
         Timestamp = DateTime.Now;
         Alignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left;
 
@@ -37,26 +41,35 @@ public partial class ConversationMessage : ObservableObject
     [ObservableProperty]
     private bool _isStreaming;
 
+    [ObservableProperty]
+    private bool _isInterruptible;
+
     public bool IsUser { get; }
     public bool IsAssistant => !IsUser;
     public bool HasUsageStats => UsageStats?.HasSlices == true;
     public bool HasBreakpointCard => BreakpointCard != null;
     public bool HasDailyReviewCard => DailyReviewCard != null;
+    public bool HasCodingReviewCard => CodingReviewCard != null;
     public UsageStatsSnapshot? UsageStats { get; }
     public BreakpointResumeCardViewModel? BreakpointCard { get; }
     public DailyReviewCardViewModel? DailyReviewCard { get; }
+    public CodingReviewCardViewModel? CodingReviewCard { get; }
     public DateTime Timestamp { get; }
     public HorizontalAlignment Alignment { get; }
 
     public static ConversationMessage User(string text) => new(text, true);
     public static ConversationMessage Assistant(string text) => new(text, false);
+    public static ConversationMessage AssistantInterruptible(string text) => new(text, false, isInterruptible: true);
     public static ConversationMessage AssistantWithUsageStats(string text, UsageStatsSnapshot usageStats) => new(text, false, usageStats);
     public static ConversationMessage AssistantWithBreakpointCard(string text, BreakpointResumeCardViewModel breakpointCard) => new(text, false, breakpointCard: breakpointCard);
+    public static ConversationMessage AssistantWithCodingReviewCard(string text, CodingReviewCardViewModel codingReviewCard) =>
+        new(text, false, codingReviewCard: codingReviewCard);
     public static ConversationMessage AssistantWithDailyReviewCard(string text, DailyReviewCardViewModel dailyReviewCard, UsageStatsSnapshot? usageStats = null) =>
         new(text, false, usageStats, dailyReviewCard: dailyReviewCard);
 
     public void StopStreaming()
     {
+        IsInterruptible = false;
         if (!IsStreaming)
         {
             return;

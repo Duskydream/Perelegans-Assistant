@@ -285,10 +285,7 @@ public sealed class CodingClientMonitorService : IDisposable
             return;
         }
 
-        var hasRecentCodexSignal = now - _lastCodexSignalAt <= CodexSignalWindow;
-        var hasRecentWorkspaceChange = now - lastWorkspaceChangeAt <= WorkspaceWriteWindow;
-        if (hasCodexLifecycleActivity ||
-            (hasRecentWorkspaceChange && hasRecentCodexSignal))
+        if (hasCodexLifecycleActivity)
         {
             Publish(CreateSnapshot(
                 CodingClientActivityState.Coding,
@@ -368,13 +365,10 @@ public sealed class CodingClientMonitorService : IDisposable
             return;
         }
 
-        var hasRecentCodexSignal = now - _lastCodexSignalAt <= CodexSignalWindow;
-        var hasRecentClaudeSignal = now - _lastClaudeSignalAt <= CodexSignalWindow;
         var hasRecentOpenCodeSignal = now - _lastOpenCodeSignalAt <= CodexSignalWindow;
         var hasRecentWorkspaceChange = now - lastWorkspaceChangeAt <= WorkspaceWriteWindow;
         if (codexEnabled &&
-            (hasCodexLifecycleActivity ||
-             (hasRecentWorkspaceChange && hasRecentCodexSignal)))
+            hasCodexLifecycleActivity)
         {
             Publish(CreateSnapshot(
                 CodingClientKind.CodexDesktop,
@@ -386,8 +380,7 @@ public sealed class CodingClientMonitorService : IDisposable
         }
 
         if (claudeEnabled &&
-            (hasClaudeLifecycleActivity ||
-             (hasRecentWorkspaceChange && hasRecentClaudeSignal)))
+            hasClaudeLifecycleActivity)
         {
             Publish(CreateSnapshot(
                 CodingClientKind.ClaudeDesktop,
@@ -777,17 +770,15 @@ public sealed class CodingClientMonitorService : IDisposable
             CodingClientKind.OpenCodeDesktop => hasOpenCodeLifecycleActivity,
             _ => false
         };
-        var lastSignalAt = kind switch
+        if (kind != CodingClientKind.OpenCodeDesktop)
         {
-            CodingClientKind.CodexDesktop => _lastCodexSignalAt,
-            CodingClientKind.ClaudeDesktop => _lastClaudeSignalAt,
-            CodingClientKind.OpenCodeDesktop => _lastOpenCodeSignalAt,
-            _ => DateTime.MinValue
-        };
+            return hasLifecycleActivity;
+        }
 
         return hasLifecycleActivity ||
-               (now - lastSignalAt <= CodexSignalWindow &&
-                now - lastWorkspaceChangeAt <= WorkspaceWriteWindow);
+               (now - _lastOpenCodeSignalAt <= CodexSignalWindow &&
+                now - lastWorkspaceChangeAt <= WorkspaceWriteWindow &&
+                IsOpenCodeProcessRunning());
     }
 
     private bool HasClientActivityAfter(
@@ -1153,7 +1144,7 @@ public sealed class CodingClientMonitorService : IDisposable
 
     private static bool IsCodexStartedEvent(string rootType, string payloadType)
     {
-        return rootType.Equals("turn_context", StringComparison.OrdinalIgnoreCase);
+        return false;
     }
 
     private static bool IsCodexCompletedEvent(string rootType, string payloadType)
@@ -1197,18 +1188,20 @@ public sealed class CodingClientMonitorService : IDisposable
 
     private static bool IsCodexActiveEvent(string rootType, string payloadType)
     {
-        return rootType.Equals("response_item", StringComparison.OrdinalIgnoreCase) ||
-               rootType.Equals("event_msg", StringComparison.OrdinalIgnoreCase) &&
+        if (rootType.Equals("response_item", StringComparison.OrdinalIgnoreCase))
+        {
+            return !ContainsAny(payloadType, "user_message");
+        }
+
+        return rootType.Equals("event_msg", StringComparison.OrdinalIgnoreCase) &&
                ContainsAny(
                    payloadType,
                    "agent_message",
-                   "token_count",
                    "patch",
                    "tool",
                    "exec",
                    "shell",
-                   "approval",
-                   "user_message");
+                   "approval");
     }
 
     private static string TryGetStringProperty(JsonElement element, string propertyName)
