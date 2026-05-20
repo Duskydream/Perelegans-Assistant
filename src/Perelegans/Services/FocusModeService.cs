@@ -29,6 +29,17 @@ public sealed class FocusModeService
         StateChanged?.Invoke();
     }
 
+    public void Start(string title, string tags, string nextAction, int? taskMemoryId = null)
+    {
+        IsActive = true;
+        TaskMemoryId = taskMemoryId;
+        TaskTitle = string.IsNullOrWhiteSpace(title) ? "当前任务" : title.Trim();
+        TaskTags = tags.Trim();
+        NextAction = nextAction.Trim();
+        StartedAt = DateTime.Now;
+        StateChanged?.Invoke();
+    }
+
     public void Stop()
     {
         if (!IsActive)

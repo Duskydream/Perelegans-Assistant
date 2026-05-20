@@ -492,6 +492,12 @@
   <data name="Main_PresetCodingPrompt" xml:space="preserve">
     <value>实现并验证当前开发任务</value>
   </data>
+  <data name="Main_PresetTaskPreview" xml:space="preserve">
+    <value>任务预览</value>
+  </data>
+  <data name="Main_PresetTaskPreviewPrompt" xml:space="preserve">
+    <value>任务预览</value>
+  </data>
   <data name="Main_AssistantSeed" xml:space="preserve">
     <value>可以自然地问我，也可以顺手留下一点以后要用的事。</value>
   </data>
@@ -565,13 +571,13 @@
     <value>上下文笔记</value>
   </data>
   <data name="Main_FallbackQuestNarrativeFormat" xml:space="preserve">
-    <value>已记录任务：「{0}」。先从一个可验证的小步骤开始。</value>
+    <value>我把「{0}」先收成一条清楚的任务线，不让它只停在脑子里打转。</value>
   </data>
   <data name="Main_FallbackTaskSummaryFormat" xml:space="preserve">
-    <value>聚焦完成「{0}」。</value>
+    <value>让「{0}」保持可回到的状态，不需要每次都重新解释一遍。</value>
   </data>
   <data name="Main_FallbackNextActionFormat" xml:space="preserve">
-    <value>打开相关材料，先完成「{0}」的第一个可见步骤。</value>
+    <value>回到「{0}」时，先判断它是在等推进、等验收，还是已经可以干净地暂停。</value>
   </data>
   <data name="Main_FallbackConstellationName" xml:space="preserve">
     <value>行动星座</value>

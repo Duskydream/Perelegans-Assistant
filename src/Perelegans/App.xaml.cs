@@ -24,7 +24,6 @@ public partial class App : System.Windows.Application
     private DatabaseService? _dbService;
     private MainWindow? _mainWindow;
     private FloatingPetWindow? _floatingPetWindow;
-    private AiReplayWindow? _aiReplayWindow;
     private Forms.NotifyIcon? _trayIcon;
     private bool _allowExit;
     private Mutex? _singleInstanceMutex;
@@ -87,7 +86,6 @@ public partial class App : System.Windows.Application
             _focusModeService,
             _codingClientMonitorService,
             OpenSettingsFromAgent,
-            OpenReplayWindow,
             RequestShutdown);
 
         // Create the data dashboard but keep it behind the floating agent until requested.
@@ -351,32 +349,6 @@ public partial class App : System.Windows.Application
         {
             _processMonitor?.SetInterval(_settingsService.Settings.MonitorIntervalSeconds);
         }
-    }
-
-    private void OpenReplayWindow()
-    {
-        if (_mainWindow?.DataContext is not MainViewModel viewModel)
-        {
-            return;
-        }
-
-        if (_aiReplayWindow == null)
-        {
-            _aiReplayWindow = new AiReplayWindow
-            {
-                DataContext = viewModel,
-                Owner = _mainWindow?.IsVisible == true ? _mainWindow : null
-            };
-            _aiReplayWindow.Closed += (_, _) => _aiReplayWindow = null;
-        }
-
-        _aiReplayWindow.Show();
-        if (_aiReplayWindow.WindowState == WindowState.Minimized)
-        {
-            _aiReplayWindow.WindowState = WindowState.Normal;
-        }
-
-        _aiReplayWindow.Activate();
     }
 
     private bool TryAcquireSingleInstanceLock()

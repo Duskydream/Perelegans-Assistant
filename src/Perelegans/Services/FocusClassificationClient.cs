@@ -131,17 +131,17 @@ public sealed class FocusClassificationClient
         }
 
         var prompt =
-            "你是一个个人行动系统的 AI 任务分析师。请把用户输入的任务转成可执行的任务洞察，不要使用 RPG、游戏、冒险或战斗叙事。\n" +
-            "目标：帮助用户知道这件事是什么、下一步怎么开始、它属于哪个长期行动星座。\n" +
-            "questTitle 是 12 字以内的短标题；questNarrative 是一句自然、实用的任务说明；rewardName 是完成后的真实产出名称。\n" +
-            "summary 是任务目的摘要；nextAction 必须是 15 分钟内可启动的具体动作；difficulty 为 1-5；estimatedMinutes 为合理分钟数。\n" +
+            "你是 Perelegans，像一个熟悉用户项目脉络的陪伴式任务搭档。请把用户输入的任务转成可执行的任务洞察，不要使用 RPG、游戏、冒险或战斗叙事。\n" +
+            "目标：帮助用户听见这件事真正想推进什么，并给一个自然、不施压的开场建议。\n" +
+            "questTitle 是 12 字以内的短标题；questNarrative 是一句像真人搭档说的话，承认任务处境，不要像系统通知；rewardName 是完成后的真实产出名称。\n" +
+            "summary 是任务目的摘要；nextAction 必须具体，但不要总写“拆成小动作”。可以建议先验收、先定位一个文件、先清理一条卡住的线、先确认是否还值得继续。difficulty 为 1-5；estimatedMinutes 为合理分钟数。\n" +
             "questTitle、questNarrative、rewardName、summary、nextAction、constellationName 必须使用简体中文；只有 tags 使用 2-6 个短英文标签。\n" +
             "constellationName 只能使用固定抽象分类或一层子类，例如“开发”“开发 / 桌面应用”“学习”“学习 / 深度学习”“游戏”“写作”“设计”“数据”“沟通”“生活”。不要用具体项目名、任务名或英文 tag 拼星座名。\n" +
             $"用户任务：{taskTitle.Trim()}\n" +
             "必须只返回 JSON，不要 Markdown，不要解释。格式：\n" +
-            "{\"questTitle\":\"整理论文摘要\",\"questNarrative\":\"把论文摘要整理成可提交的清晰版本。\",\"rewardName\":\"论文摘要初稿\",\"summary\":\"完成论文摘要的结构梳理和语言修订。\",\"nextAction\":\"打开文档，先列出摘要的三段结构。\",\"difficulty\":3,\"estimatedMinutes\":45,\"tags\":[\"writing\",\"paper\",\"editing\"],\"constellationName\":\"写作\"}";
+            "{\"questTitle\":\"整理论文摘要\",\"questNarrative\":\"这条任务的重点不是一口气写完，而是先把摘要的骨架扶起来。\",\"rewardName\":\"论文摘要初稿\",\"summary\":\"完成论文摘要的结构梳理和语言修订。\",\"nextAction\":\"打开摘要文档，先看三段结构是否能讲清楚研究问题、方法和结果。\",\"difficulty\":3,\"estimatedMinutes\":45,\"tags\":[\"writing\",\"paper\",\"editing\"],\"constellationName\":\"写作\"}";
 
-        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken);
+        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, temperature: 0.55);
         return string.IsNullOrWhiteSpace(content)
             ? null
             : TryDeserializeJson<TaskAdventureDraft>(content);
@@ -161,14 +161,14 @@ public sealed class FocusClassificationClient
 
         var reward = string.IsNullOrWhiteSpace(rewardName) ? "完成产出" : rewardName.Trim();
         var prompt =
-            "你是一个个人行动系统的完成复盘助手。\n" +
-            "用户刚完成一个现实任务，请生成一句简短、具体、不夸张的完成总结，并指出实际产出。\n" +
+            "你是 Perelegans，用户刚完成一个现实任务。请像熟悉的搭档那样给一句简短、具体、不夸张的完成确认，并指出实际产出。\n" +
+            "不要写成成就系统播报；允许一点温和的人味，但不要夸大。\n" +
             $"现实任务：{taskTitle.Trim()}\n" +
             $"候选产出：{reward}\n" +
             "必须只返回 JSON，不要 Markdown，不要解释。格式：\n" +
             "{\"completionNarrative\":\"已完成论文摘要整理，得到一版结构清晰、可继续润色的初稿。\",\"rewardName\":\"论文摘要初稿\"}";
 
-        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken);
+        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, temperature: 0.55);
         return string.IsNullOrWhiteSpace(content)
             ? null
             : TryDeserializeJson<TaskCompletionDraft>(content);
@@ -233,16 +233,101 @@ public sealed class FocusClassificationClient
         var prompt =
             "你是 Perelegans 的本地记忆复盘层，也是用户可靠、亲近的陪伴助手。请把任务星点、本地记忆星图和最近24小时 Win32 进程切换行为合并分析，生成简短日报。\n" +
             "不要使用 RPG 或游戏叙事。不要说教。不要写成冷冰冰的统计报表。把窗口/进程切换当作上下文线索，轻轻指出用户今天真正推进过什么、哪里可能有消耗。\n" +
-            "不要替用户安排明天的计划，不要输出命令式 next action。suggestedNextAction 字段请写成一个自然、亲和的问题，引导用户自己决定下一步，例如询问明天开场想先从哪件事开始。\n" +
-            "结构要清楚，但语气要像熟悉的伙伴在桌边复盘：温和、具体、有支撑感。encouragement 字段请写 1-2 句鼓励/安慰：承认今天真实发生过的努力，不夸张，不空泛，不否定疲惫。避免固定口头禅和重复短语。\n\n" +
+            "允许你有一点自己的观察和语气，像熟悉的真人搭档在收工前陪用户看一眼桌面。可以说“我看到...”“这不像浪费，更像...”，但每个判断都要能被输入信号支撑。\n" +
+            "不要替用户安排明天的计划，不要输出命令式 next action。suggestedNextAction 字段请写成一个自然、亲和的问题，引导用户自己决定下一步。问题要结合今天的真实上下文，不要每次都问同一句。\n" +
+            "encouragement 字段请写 1-2 句具体确认：承认今天真实发生过的努力、切换、犹豫或收束。不夸张，不空泛，不否定疲惫。避免固定口头禅和重复短语。\n" +
+            "review/highlights/risks 可以有一点生活感，但不要编造。risks 不要全部写“拆成小动作”，要指出更真实的风险：任务重叠、验证未闭环、命名含糊、open plan 太多、上下文切换消耗等。\n\n" +
             $"当前专注目标：{NormalizeFocusGoal(_settingsService.Settings.FocusGoal)}\n" +
             "今日任务：\n" + string.Join('\n', taskLines) + "\n\n" +
             "本地记忆星图：\n" + string.Join('\n', memoryLines) + "\n\n" +
             "最近24小时进程切换聚合：\n" + string.Join('\n', appLines) + "\n\n" +
             "必须只返回 JSON，不要 Markdown，不要解释。格式：\n" +
-            "{\"encouragement\":\"今天不只是窗口在切换，你确实把注意力落到了一些具体的事情上。就算节奏有点断，也已经留下了可以继续推进的线索。\",\"review\":\"今天主要在写作和代码验证之间来回推进，比较像是在把想法和实现慢慢对齐。\",\"highlights\":[\"论文摘要有推进\",\"WPF 桌宠和统计界面继续变清晰\"],\"risks\":[\"有些任务可能还没有被拆到足够轻\"],\"suggestedNextAction\":\"如果明天只选一个开场动作，你更想先从哪件事开始？\"}";
+            "{\"encouragement\":\"今天在 Codex 和 Perelegans 之间反复切换，不像是空转，更像是在一边做一边校准手感。这个节奏会累，但它确实把项目往前推了一截。\",\"review\":\"今天的主线集中在 Perelegans 的开发冲刺和验证闭环上，代码编辑、应用调试和任务整理交替出现。\",\"highlights\":[\"桌宠与主窗口的交互继续变清晰\",\"任务预览开始能承接本地记忆\"],\"risks\":[\"几个 open plan 指向同一条开发主线，容易让完成判断变含糊\",\"如果只继续加功能，验收和删减可能会被挤到后面\"],\"suggestedNextAction\":\"明天开场时，你更想先收掉一个已经接近完成的点，还是先挑一个最影响演示观感的细节？\"}";
 
-        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 700);
+        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 850, temperature: 0.72);
+        return string.IsNullOrWhiteSpace(content)
+            ? null
+            : TryDeserializeJson<DailyReviewDraft>(content);
+    }
+
+    public async Task<DailyReviewDraft?> CreateTaskPreviewAsync(
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<FocusTask> tasks,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured ||
+            !Uri.TryCreate(_settingsService.Settings.AiApiBaseUrl.Trim(), UriKind.Absolute, out var baseUri))
+        {
+            return null;
+        }
+
+        var openPlanLines = memories
+            .Where(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+            .OrderByDescending(memory => memory.UpdatedAt)
+            .Take(12)
+            .Select(memory =>
+                $"- [{memory.Id}] {memory.Title} | 星座:{memory.ConstellationName} | 标签:{memory.Tags} | 更新:{memory.UpdatedAt:MM-dd HH:mm} | 下一步:{memory.NextPrediction} | 内容:{memory.Content}")
+            .ToList();
+        if (openPlanLines.Count == 0)
+        {
+            openPlanLines.Add("- 暂无 open plan。");
+        }
+
+        var focusTaskLines = tasks
+            .Where(task => task.Status == FocusTaskStatus.Active)
+            .OrderByDescending(task => task.CreatedAt)
+            .Take(10)
+            .Select(task =>
+                $"- {task.Title} | 星座:{task.ConstellationName} | 标签:{task.Tags} | 创建:{task.CreatedAt:MM-dd HH:mm} | 下一步:{task.NextAction} | 摘要:{task.AiSummary}")
+            .ToList();
+        if (focusTaskLines.Count == 0)
+        {
+            focusTaskLines.Add("- 暂无 active FocusTask。");
+        }
+
+        var memoryLines = memories
+            .OrderByDescending(memory => memory.UpdatedAt)
+            .Take(20)
+            .Select(memory =>
+                $"- [{memory.Id}] {memory.Title} | type:{memory.Type} | plan:{memory.IsPlan}/{memory.IsCompleted}/abandoned:{memory.IsAbandoned} | lifecycle:{memory.Lifecycle} | 星座:{memory.ConstellationName} | 标签:{memory.Tags}")
+            .ToList();
+        if (memoryLines.Count == 0)
+        {
+            memoryLines.Add("- 暂无本地记忆。");
+        }
+
+        var appLines = sessions
+            .GroupBy(session => session.ProcessName)
+            .Select(group => new
+            {
+                ProcessName = group.Key,
+                Minutes = Math.Max(1, (int)Math.Round(group.Aggregate(TimeSpan.Zero, (total, session) => total + session.Duration).TotalMinutes)),
+                Switches = group.Count(),
+                Last = group.Max(session => session.EndTime)
+            })
+            .OrderByDescending(app => app.Minutes)
+            .Take(8)
+            .Select(app => $"- {app.ProcessName} | {app.Minutes}分钟 | 切换{app.Switches}次 | 最近{app.Last:HH:mm}")
+            .ToList();
+        if (appLines.Count == 0)
+        {
+            appLines.Add("- 最近24小时暂无应用切换记录。");
+        }
+
+        var prompt =
+            "你是 Perelegans 的任务预览助手，不是机械的 todo 整理器。请结合 open plan、最新 FocusTask、本地记忆和最近24小时进程行为，帮用户看清现在真正摊在桌面上的任务。\n" +
+            "语气要像熟悉的搭档：亲近、自然、带一点判断力。不要反复说“拆成一个可完成的小动作”；这句话最多不能出现。请给更贴合上下文的建议，例如：先验收、合并重复任务、搁置旧意图、确认一个文件/窗口、收掉最接近完成的点、把过大的愿望改名。\n" +
+            "review 写一小段总览，要有人味，不要像系统报表。encouragement 写 1-2 句，承认用户正在处理的真实压力或来回验证。highlights 写已经推进或最清晰的线索。risks 写需要注意的任务债务，每条都要具体到某条 plan、某类窗口行为或某个重复主题。suggestedNextAction 写成一个自然问题，不要命令用户。\n" +
+            "只基于输入信号，不要编造文件内容或用户没有说过的目标。\n\n" +
+            "Open plan：\n" + string.Join('\n', openPlanLines) + "\n\n" +
+            "Active FocusTask：\n" + string.Join('\n', focusTaskLines) + "\n\n" +
+            "相关记忆：\n" + string.Join('\n', memoryLines) + "\n\n" +
+            "最近24小时进程行为：\n" + string.Join('\n', appLines) + "\n\n" +
+            "必须只返回 JSON，不要 Markdown，不要解释。格式：\n" +
+            "{\"encouragement\":\"我看到这里不是单纯拖延，而是几条开发线索叠在一起，难怪会觉得有点乱。先把它们看清楚，比继续硬冲更省力。\",\"review\":\"现在的任务债务主要集中在 Perelegans 开发冲刺：几条 open plan 名字相近，Codex 和应用调试也反复出现，说明你在一边实现一边验收。\",\"highlights\":[\"Perelegans 开发仍是最清晰主线\",\"最近的代码/应用切换能支撑继续做验收\"],\"risks\":[\"“我要写代码”和“我要开发 Perelegans”可能属于同一条主线，建议合并或搁置一个\",\"如果先不验收最近改动，后面的功能会越来越难判断是否真的完成\"],\"suggestedNextAction\":\"你想先收掉最接近完成的一条，还是先把几个重复的 Perelegans 任务合并干净？\"}";
+
+        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 850, temperature: 0.75);
         return string.IsNullOrWhiteSpace(content)
             ? null
             : TryDeserializeJson<DailyReviewDraft>(content);
@@ -325,7 +410,6 @@ public sealed class FocusClassificationClient
             "resume_scene" => "生成回到现场：帮助用户恢复最近工作现场，指出停在哪里、下一步打开什么。",
             "fishbone" => "生成任务-进程鱼骨归因：把进程行为按 plan/tag 聚类到主骨和分支。",
             "galaxy" => "生成星图解释：解释星座归类、阻塞点、未完成 plan 和节点关系。",
-            "memory_health" => "生成记忆体检：找出过期计划、互相冲突的记忆、证据不足的节点，并给出温和维护建议。",
             "coding_review" => "生成 AI 编程完成检查：根据编码客户端状态、最近变更路径、计划和进程行为，提示可能影响面和验证步骤。",
             _ => "生成桌面上下文洞察：整合本地记忆、plan 状态和进程行为。"
         };
@@ -358,9 +442,9 @@ public sealed class FocusClassificationClient
             : $"{foregroundSnapshot.ProcessName} | {Math.Max(1, (int)Math.Round(foregroundSnapshot.Duration.TotalMinutes))}分钟 | {foregroundSnapshot.ExecutablePath}";
 
         var prompt =
-            "你是 Perelegans 的 Win32 本地上下文分析层。你不是聊天机器人，而是在解释本地记忆星图与进程传感数据。\n" +
+            "你是 Perelegans 的 Win32 本地上下文分析层，也要像一个懂分寸的陪伴搭档。请解释本地记忆星图与进程传感数据，但不要把自己写成冷冰冰的监控报告。\n" +
             "只基于给定信号做温和推断；不要装作看到了文件内容；不要说教；不要使用 RPG/游戏叙事。\n" +
-            "如果证据不足，明确说“证据不足”，但仍给一个最小可继续动作。\n" +
+            "如果证据不足，明确说“证据不足”。下一步要贴合上下文，可以是验收、合并、搁置、回到某个现场或向用户确认，不要总写“拆成小动作”。\n" +
             "plan 记忆：未完成 plan 代表未来意图，已完成 plan 代表产出证据。进程切换只能作为间接证据，不能自动完成任务。\n\n" +
             $"模式：{mode}\n" +
             $"任务：{modeInstruction}\n" +
@@ -368,10 +452,10 @@ public sealed class FocusClassificationClient
             $"当前前台：{foreground}\n\n" +
             "本地记忆/plan：\n" + string.Join('\n', memoryLines) + "\n\n" +
             "进程时间切片：\n" + string.Join('\n', sessionLines) + "\n\n" +
-            "返回 JSON only。字段含义：summary 是一段自然中文；evidence 是证据；planSuggestions 是计划完成/推进建议；fishbone 是鱼骨分支；constellationExplanations 是星图解释；suggestedNextAction 是下一步。\n" +
+            "返回 JSON only。字段含义：summary 是一段自然中文；evidence 是证据；planSuggestions 是计划完成/推进建议；fishbone 是鱼骨分支；constellationExplanations 是星图解释；suggestedNextAction 是下一步。语气可以亲近，但不要编造。\n" +
             "{\"summary\":\"...\",\"evidence\":[\"...\"],\"planSuggestions\":[\"...\"],\"fishbone\":[\"主骨：... / 分支：...\"],\"constellationExplanations\":[\"...\"],\"suggestedNextAction\":\"...\"}";
 
-        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 1000);
+        var content = await SendOpenAiCompatiblePromptAsync(baseUri, prompt, cancellationToken, maxTokens: 1000, temperature: 0.48);
         return string.IsNullOrWhiteSpace(content)
             ? null
             : TryDeserializeJson<DesktopContextInsight>(content);
@@ -447,7 +531,8 @@ public sealed class FocusClassificationClient
         Uri baseUri,
         string userPrompt,
         CancellationToken cancellationToken,
-        int maxTokens = 300)
+        int maxTokens = 300,
+        double temperature = 0.2)
     {
         var requestUri = BuildChatCompletionsUri(baseUri);
         using var request = new HttpRequestMessage(HttpMethod.Post, requestUri);
@@ -456,7 +541,7 @@ public sealed class FocusClassificationClient
         var payload = new
         {
             model = _settingsService.Settings.AiModel.Trim(),
-            temperature = 0.2,
+            temperature,
             max_tokens = maxTokens,
             response_format = new { type = "json_object" },
             messages = new[]
@@ -464,7 +549,7 @@ public sealed class FocusClassificationClient
                 new
                 {
                     role = "system",
-                    content = "You classify desktop app usage for a focus assistant. Return compact JSON only."
+                    content = "You are Perelegans' local-first assistant engine. Return compact JSON only, following the requested schema exactly."
                 },
                 new
                 {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -36,7 +37,6 @@ public partial class MainViewModel : ObservableObject
     private readonly FocusModeService _focusModeService;
     private readonly CodingClientMonitorService _codingClientMonitorService;
     private readonly Action _openSettings;
-    private readonly Action _openReplayWindow;
     private readonly Action _exitApplication;
     private readonly DispatcherTimer _assistantThinkingTimer;
     private int _assistantThinkingIndex;
@@ -276,7 +276,6 @@ public partial class MainViewModel : ObservableObject
         FocusModeService focusModeService,
         CodingClientMonitorService codingClientMonitorService,
         Action openSettings,
-        Action openReplayWindow,
         Action exitApplication)
     {
         _dbService = dbService;
@@ -288,7 +287,6 @@ public partial class MainViewModel : ObservableObject
         _focusModeService = focusModeService;
         _codingClientMonitorService = codingClientMonitorService;
         _openSettings = openSettings;
-        _openReplayWindow = openReplayWindow;
         _exitApplication = exitApplication;
 
         _assistantThinkingTimer = new DispatcherTimer
@@ -468,7 +466,21 @@ public partial class MainViewModel : ObservableObject
         var memory = await _dbService.GetLatestOpenPlanMemoryAsync();
         if (memory == null)
         {
-            ConversationMessages.Add(ConversationMessage.Assistant(T("Main_FocusModeNoPlan")));
+            var latestTask = await GetLatestActiveFocusTaskAsync();
+            if (latestTask == null)
+            {
+                ConversationMessages.Add(ConversationMessage.Assistant(T("Main_FocusModeNoPlan")));
+                return;
+            }
+
+            _focusModeService.Start(
+                latestTask.Title,
+                latestTask.Tags,
+                latestTask.NextAction,
+                null);
+            SetMonitorEnabled(true);
+            ConversationMessages.Add(ConversationMessage.Assistant(
+                $"专注模式已开启：我没有找到明确的 open plan，所以接上最新生成的任务「{latestTask.Title}」。"));
             return;
         }
 
@@ -476,6 +488,17 @@ public partial class MainViewModel : ObservableObject
         SetMonitorEnabled(true);
         ConversationMessages.Add(ConversationMessage.Assistant(
             string.Format(T("Main_FocusModeStartedFormat"), memory.Title)));
+    }
+
+    private async Task<FocusTask?> GetLatestActiveFocusTaskAsync()
+    {
+        var tasks = FocusTasks.Count > 0
+            ? FocusTasks
+            : new ObservableCollection<FocusTask>(await _dbService.GetFocusTasksAsync());
+        return tasks
+            .Where(task => task.Status == FocusTaskStatus.Active)
+            .OrderByDescending(task => task.CreatedAt)
+            .FirstOrDefault();
     }
 
     [RelayCommand]
@@ -587,6 +610,7 @@ public partial class MainViewModel : ObservableObject
             ConversationMessages.Add(ConversationMessage.AssistantWithCodingReviewCard(
                 $"{snapshot.ClientName} 刚完成了一轮生成。我先把检查顺序收成一张卡，避免直接被“完成了”三个字带跑。",
                 card));
+            _ = ExpireCodingPreviewAfterDelayAsync(card);
             StatusText = "AI 编程完成检查已生成";
         }
         catch (Exception ex)
@@ -671,7 +695,7 @@ public partial class MainViewModel : ObservableObject
             ? "当前 plan"
             : _focusModeService.TaskTitle;
         var nextAction = string.IsNullOrWhiteSpace(_focusModeService.NextAction)
-            ? $"先回到「{task}」，只做一个 10 分钟内能完成的小动作。"
+            ? $"先回到「{task}」，确认它现在最需要的是继续、验收，还是暂时放下。"
             : _focusModeService.NextAction.Trim();
         var minutes = Math.Max(1, (int)Math.Round(snapshot.Duration.TotalMinutes));
 
@@ -786,13 +810,14 @@ public partial class MainViewModel : ObservableObject
                 .ToList();
             var insight = await CreateDesktopInsightAsync("daily_review", "每日总结：生成计划推断、鱼骨归因和星图解释", insightMemories, sessions, snapshot, responseCancellation.Token);
             var archivePath = await ArchiveLocalContextDigestAsync("daily", insightMemories, sessions, insight);
+            var taskCapsulePath = await ExportDailyTaskCapsuleAsync(insightMemories, sessions, insight);
             await _dbService.RefreshMemoryLifecycleForDailyReviewAsync();
             await RefreshContextMemoriesAsync();
             await RefreshPetGrowthProfileAsync();
 
-            review ??= CreateFallbackDailyReview();
+            review ??= CreateFallbackDailyReview(memories, sessions);
             var statsSnapshot = CreateDailyReviewUsageStatsSnapshot(sessions);
-            var reviewCard = CreateDailyReviewCard(review, memories, sessions, archivePath ?? string.Empty);
+            var reviewCard = CreateDailyReviewCard(review, memories, sessions, archivePath ?? string.Empty, taskCapsulePath ?? string.Empty);
             progressMessage.StopStreaming();
             ConversationMessages.Remove(progressMessage);
             ConversationMessages.Add(ConversationMessage.AssistantWithDailyReviewCard(
@@ -1073,6 +1098,12 @@ public partial class MainViewModel : ObservableObject
         if (ContainsAny(normalized, "daily review", "recap", "日报", "每日总结", "总结今天", "今日复盘"))
         {
             await GenerateDailyReview();
+            return true;
+        }
+
+        if (ContainsAny(normalized, "任务预览", "任务债务", "清理任务", "task preview", "task debt"))
+        {
+            await ShowTaskPreviewAsync();
             return true;
         }
 
@@ -1448,7 +1479,6 @@ public partial class MainViewModel : ObservableObject
             "resume_scene" => CreateResumeSceneSummary(orderedSessions, openPlans, snapshot),
             "fishbone" => "已把最近进程行为按 plan/tag 做了一次本地鱼骨归因。",
             "galaxy" => "已根据星座、tag、plan 完成状态解释当前记忆星图。",
-            "memory_health" => CreateMemoryHealthSummary(memories),
             "coding_review" => "已根据最近的 AI 编程活动、工作区变更和本地计划生成检查建议。",
             _ => "已生成一份本地桌面上下文摘要。"
         };
@@ -1545,6 +1575,198 @@ public partial class MainViewModel : ObservableObject
             suppressPlanDetection: isDailyReview);
 
         return mdPath;
+    }
+
+    private async Task<string?> ExportDailyTaskCapsuleAsync(
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        DesktopContextInsight insight)
+    {
+        var taskMemories = memories
+            .Where(memory => memory.IsPlan)
+            .OrderByDescending(memory => !memory.IsCompleted && !memory.IsAbandoned)
+            .ThenByDescending(memory => memory.UpdatedAt)
+            .Take(16)
+            .ToList();
+        if (taskMemories.Count == 0)
+        {
+            return null;
+        }
+
+        var directory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Perelegans",
+            "memories",
+            "task-capsules");
+        Directory.CreateDirectory(directory);
+
+        var path = Path.Combine(directory, $"{DateTime.Now:yyyyMMdd}.task-capsule.md");
+        var markdown = BuildDailyTaskCapsuleMarkdown(taskMemories, sessions, insight);
+        await File.WriteAllTextAsync(path, markdown, Encoding.UTF8);
+        return path;
+    }
+
+    private static string BuildDailyTaskCapsuleMarkdown(
+        IReadOnlyCollection<ContextMemory> taskMemories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        DesktopContextInsight insight)
+    {
+        var memoryList = taskMemories.ToList();
+        var openTasks = memoryList
+            .Where(memory => !memory.IsCompleted && !memory.IsAbandoned)
+            .OrderByDescending(memory => memory.UpdatedAt)
+            .Take(10)
+            .ToList();
+        var completedTasks = memoryList
+            .Where(memory => memory.IsCompleted)
+            .OrderByDescending(memory => memory.CompletedAt ?? memory.UpdatedAt)
+            .Take(6)
+            .ToList();
+        var parkedTasks = memoryList
+            .Where(memory => memory.IsAbandoned)
+            .OrderByDescending(memory => memory.AbandonedAt ?? memory.UpdatedAt)
+            .Take(4)
+            .ToList();
+        var anchorTask = openTasks.FirstOrDefault() ?? completedTasks.FirstOrDefault() ?? memoryList.FirstOrDefault();
+        var mainLine = CreateTaskCapsuleMainLine(anchorTask, memoryList, sessions, insight);
+
+        var builder = new StringBuilder();
+        builder.AppendLine($"# {DateTime.Now:yyyy-MM-dd} 任务胶囊");
+        builder.AppendLine();
+        builder.AppendLine("这不是一份成绩单，只是给稍后回来的你留一张能接上手感的小纸条。");
+        builder.AppendLine($"今天这条线，我先替你握住：{mainLine}");
+        builder.AppendLine();
+
+        if (openTasks.Count > 0)
+        {
+            builder.AppendLine("## 还开着的任务");
+            foreach (var memory in openTasks)
+            {
+                builder.AppendLine($"- [ ] {memory.Title}");
+                builder.AppendLine($"  - 我会先从这里接你：{CreateContextualTaskDebtHint(memory, memoryList, sessions)}");
+                builder.AppendLine($"  - 现场感：{CreateTaskCapsuleMemoryMeta(memory)}");
+                if (!string.IsNullOrWhiteSpace(memory.Tags))
+                {
+                    builder.AppendLine($"  - 线索：{memory.Tags.Trim()}");
+                }
+            }
+
+            builder.AppendLine();
+        }
+
+        if (completedTasks.Count > 0)
+        {
+            builder.AppendLine("## 已经收好的");
+            foreach (var memory in completedTasks)
+            {
+                var completedAt = memory.CompletedAt.HasValue
+                    ? $"，完成于 {memory.CompletedAt.Value:MM-dd HH:mm}"
+                    : string.Empty;
+                builder.AppendLine($"- [x] {memory.Title}{completedAt}");
+            }
+
+            builder.AppendLine();
+        }
+
+        if (parkedTasks.Count > 0)
+        {
+            builder.AppendLine("## 可以先放过它们");
+            foreach (var memory in parkedTasks)
+            {
+                builder.AppendLine($"- {memory.Title}：已经搁置，不用继续占用今天的注意力。");
+            }
+
+            builder.AppendLine();
+        }
+
+        var topProcesses = sessions
+            .GroupBy(session => session.ProcessName)
+            .Select(group => new
+            {
+                ProcessName = group.Key,
+                Duration = group.Aggregate(TimeSpan.Zero, (total, session) => total + session.Duration)
+            })
+            .OrderByDescending(item => item.Duration)
+            .Take(5)
+            .ToList();
+        if (topProcesses.Count > 0)
+        {
+            builder.AppendLine("## 今天留下的现场感");
+            foreach (var process in topProcesses)
+            {
+                builder.AppendLine($"- {process.ProcessName} 陪了你大约 {FormatDurationForStats(process.Duration)}。这条记录只是证据，不是审判。");
+            }
+
+            builder.AppendLine();
+        }
+
+        builder.AppendLine("## 我替你看了一眼记忆");
+        foreach (var item in CreateMemoryIntegrityItems(memoryList))
+        {
+            builder.AppendLine($"- {item}");
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("## 回来时先做这个");
+        builder.AppendLine($"- {CreateTaskCapsuleReturnStep(anchorTask, memoryList, sessions, insight)}");
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private static string CreateTaskCapsuleMainLine(
+        ContextMemory? anchorTask,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        DesktopContextInsight insight)
+    {
+        if (anchorTask != null && !anchorTask.IsCompleted && !anchorTask.IsAbandoned)
+        {
+            return $"先把「{anchorTask.Title}」接回来。{CreateContextualTaskDebtHint(anchorTask, memories, sessions)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(insight.SuggestedNextAction))
+        {
+            return insight.SuggestedNextAction.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(insight.Summary))
+        {
+            return insight.Summary.Trim();
+        }
+
+        return "今天的任务线索不算多，先从最新那条未完成记忆开始就好。";
+    }
+
+    private static string CreateTaskCapsuleMemoryMeta(ContextMemory memory)
+    {
+        var updated = memory.UpdatedAt.Date == DateTime.Now.Date
+            ? $"今天 {memory.UpdatedAt:HH:mm} 还碰过"
+            : $"上次更新在 {memory.UpdatedAt:MM-dd HH:mm}";
+        var weight = memory.Weight >= 0.75
+            ? "它现在挺重要"
+            : memory.Weight <= 0.35
+                ? "它可以轻一点处理"
+                : "它还在中间地带";
+        return $"{updated}，{weight}";
+    }
+
+    private static string CreateTaskCapsuleReturnStep(
+        ContextMemory? anchorTask,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        DesktopContextInsight insight)
+    {
+        if (anchorTask != null && !anchorTask.IsCompleted && !anchorTask.IsAbandoned)
+        {
+            return $"打开「{anchorTask.Title}」相关窗口，先只确认一件事：{CreateContextualTaskDebtHint(anchorTask, memories, sessions)}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(insight.SuggestedNextAction))
+        {
+            return insight.SuggestedNextAction.Trim();
+        }
+
+        return "扫一眼还开着的任务，把已经不想做的先标成搁置，注意力会立刻清爽一点。";
     }
 
     private static string FormatDesktopInsight(DesktopContextInsight insight)
@@ -1993,6 +2215,185 @@ public partial class MainViewModel : ObservableObject
         IsCompanionRoomVisible = false;
     }
 
+    private async Task ShowTaskPreviewAsync()
+    {
+        HasConversationStarted = true;
+        var memories = await _dbService.GetContextMemoriesAsync();
+        var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(DateTime.Now.AddHours(-24));
+        var openPlans = memories
+            .Where(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+            .ToList();
+        DailyReviewDraft? review = null;
+        if (_focusClient?.IsConfigured == true)
+        {
+            try
+            {
+                review = await _focusClient.CreateTaskPreviewAsync(memories, FocusTasks, sessions);
+            }
+            catch (Exception ex)
+            {
+                App.WriteCrashLog(ex);
+            }
+        }
+
+        review ??= CreateFallbackTaskPreview(memories, sessions, openPlans);
+        var card = CreateDailyReviewCard(review, memories, sessions, string.Empty);
+        ConversationMessages.Add(ConversationMessage.AssistantWithDailyReviewCard("我把现在摊开的任务重新看了一遍。", card));
+    }
+
+    private static DailyReviewDraft CreateFallbackTaskPreview(
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions,
+        IReadOnlyCollection<ContextMemory> openPlans)
+    {
+        var topProcess = sessions
+            .GroupBy(session => session.ProcessName)
+            .Select(group => new
+            {
+                ProcessName = group.Key,
+                Minutes = Math.Max(1, (int)Math.Round(group.Sum(session => session.Duration.TotalMinutes)))
+            })
+            .OrderByDescending(item => item.Minutes)
+            .FirstOrDefault();
+        var completedToday = memories
+            .Where(memory => memory.IsPlan && memory.IsCompleted && memory.CompletedAt?.Date == DateTime.Today)
+            .Select(memory => memory.Title)
+            .Take(4)
+            .ToList();
+
+        return new DailyReviewDraft
+        {
+            Review = openPlans.Count == 0
+                ? "现在没有悬挂的 open plan，桌面反而比较干净。可以不用急着新开一条线，先确认手上有没有刚做完但还没记录的东西。"
+                : topProcess == null
+                    ? $"当前还有 {openPlans.Count} 个 open plan。它们更像几张摊在桌上的便签：有些要继续，有些可能只是旧想法还没被放下。"
+                    : $"当前还有 {openPlans.Count} 个 open plan；最近最显眼的现场是 {topProcess.ProcessName}（约 {topProcess.Minutes} 分钟）。我会优先把任务和这个现场、最近记忆放在一起看，而不是机械地催你拆任务。",
+            Encouragement = openPlans.Count == 0
+                ? "这不是空白，是难得的轻一点。没有悬挂任务的时候，Perelegans 可以少说一点，让你自己决定下一条线从哪里开始。"
+                : "我先不催你继续冲。现在更有价值的是把重复、含糊、已经失效的任务辨出来，让真正还值得做的那条线更亮一点。",
+            Highlights = completedToday.Count > 0
+                ? completedToday
+                : CreateTaskPreviewHighlights(openPlans, sessions),
+            Risks = openPlans
+                .OrderBy(memory => memory.UpdatedAt)
+                .Select(memory => CreateTaskPreviewRisk(memory, memories, sessions))
+                .Take(4)
+                .DefaultIfEmpty("暂无需要清理的任务债务。")
+                .ToList(),
+            SuggestedNextAction = openPlans
+                .OrderByDescending(memory => memory.UpdatedAt)
+                .Select(memory => $"你想先确认「{memory.Title}」还要继续，还是把它和相近任务合并掉？")
+                .FirstOrDefault() ?? "你想把刚才的现场保存成一条新任务，还是先保持轻一点？"
+        };
+    }
+
+    private static List<string> CreateTaskPreviewHighlights(
+        IReadOnlyCollection<ContextMemory> openPlans,
+        IReadOnlyCollection<ApplicationUsageSession> sessions)
+    {
+        var highlights = new List<string>();
+        var newestPlan = openPlans
+            .OrderByDescending(memory => memory.UpdatedAt)
+            .FirstOrDefault();
+        if (newestPlan != null)
+        {
+            highlights.Add($"最新还亮着的任务是「{newestPlan.Title}」。");
+        }
+
+        var topProcesses = sessions
+            .GroupBy(session => session.ProcessName)
+            .OrderByDescending(group => group.Sum(session => session.Duration.TotalMinutes))
+            .Take(2)
+            .Select(group => group.Key)
+            .ToList();
+        if (topProcesses.Count > 0)
+        {
+            highlights.Add($"最近现场主要落在 {string.Join("、", topProcesses)}，可以当作判断任务是否还活着的线索。");
+        }
+
+        return highlights.Count > 0 ? highlights : ["今天还没有明确的完成记录，但也没有必要把空白硬解释成失败。"];
+    }
+
+    private static string CreateTaskPreviewRisk(
+        ContextMemory plan,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions)
+    {
+        var similar = memories
+            .Where(memory => memory.Id != plan.Id && memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+            .Count(memory => HaveOverlappingTerms(plan, memory));
+        if (similar > 0)
+        {
+            return $"「{plan.Title}」旁边还有 {similar} 条相近 open plan，可能不是缺行动，而是需要合并命名。";
+        }
+
+        var matched = sessions
+            .Where(session => CalculateProcessPlanAffinity(session.ProcessName, plan) > 0)
+            .GroupBy(session => session.ProcessName)
+            .OrderByDescending(group => group.Sum(session => session.Duration.TotalMinutes))
+            .FirstOrDefault();
+        if (matched != null)
+        {
+            var minutes = Math.Max(1, (int)Math.Round(matched.Sum(session => session.Duration.TotalMinutes)));
+            return $"「{plan.Title}」和最近的 {matched.Key} 现场有关系（约 {minutes} 分钟），适合先判断它是不是已经推进到可以验收。";
+        }
+
+        var ageDays = Math.Max(0, (DateTime.Now.Date - plan.UpdatedAt.Date).Days);
+        if (ageDays >= 3)
+        {
+            return $"「{plan.Title}」已经安静了 {ageDays} 天，可能需要继续、合并或搁置，而不是继续挂着消耗注意力。";
+        }
+
+        if (IsMechanicalNextAction(plan.NextPrediction))
+        {
+            return $"「{plan.Title}」的下一步还比较泛，最好换成一个能看见对象的判断：文件、窗口、验收点或要删掉的旧分支。";
+        }
+
+        return string.IsNullOrWhiteSpace(plan.NextPrediction)
+            ? $"「{plan.Title}」还没有清楚的下一步，可以先问自己：它现在是在等验证，还是已经不重要了？"
+            : $"「{plan.Title}」下一步看起来是：{plan.NextPrediction.Trim()}";
+    }
+
+    [RelayCommand]
+    private async Task CompleteTaskDebtItem(TaskDebtItemViewModel? item)
+    {
+        if (item == null || !item.IsActionable)
+        {
+            return;
+        }
+
+        var completed = await _dbService.CompleteContextMemoryAsync(item.MemoryId);
+        if (completed == null)
+        {
+            return;
+        }
+
+        ConversationMessages.Add(ConversationMessage.Assistant($"已把「{completed.Title}」标记完成。"));
+        await RefreshContextMemoriesAsync(completed.Id);
+        await RefreshPetGrowthProfileAsync();
+        EndFocusModeIfMatches(completed.Id);
+    }
+
+    [RelayCommand]
+    private async Task AbandonTaskDebtItem(TaskDebtItemViewModel? item)
+    {
+        if (item == null || !item.IsActionable)
+        {
+            return;
+        }
+
+        var abandoned = await _dbService.AbandonContextMemoryAsync(item.MemoryId);
+        if (abandoned == null)
+        {
+            return;
+        }
+
+        ConversationMessages.Add(ConversationMessage.Assistant($"已把「{abandoned.Title}」搁置。"));
+        await RefreshContextMemoriesAsync(abandoned.Id);
+        await RefreshPetGrowthProfileAsync();
+        EndFocusModeIfMatches(abandoned.Id);
+    }
+
     private async Task RefreshFocusTasksAsync(int? selectedTaskId = null)
     {
         selectedTaskId ??= null;
@@ -2234,31 +2635,52 @@ public partial class MainViewModel : ObservableObject
                memory.Title.StartsWith("现场：", StringComparison.OrdinalIgnoreCase);
     }
 
-    private DailyReviewDraft CreateFallbackDailyReview()
+    private DailyReviewDraft CreateFallbackDailyReview(
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions)
     {
         var todayTasks = FocusTasks
             .Where(task => task.CreatedAt.Date == DateTime.Today || task.CompletedAt?.Date == DateTime.Today)
             .ToList();
         var completed = todayTasks.Count(task => task.Status == FocusTaskStatus.Completed);
         var active = todayTasks.Count(task => task.Status == FocusTaskStatus.Active);
+        var openPlans = memories
+            .Where(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+            .OrderByDescending(memory => memory.UpdatedAt)
+            .Take(4)
+            .ToList();
+        var topProcess = sessions
+            .GroupBy(session => session.ProcessName)
+            .Select(group => new
+            {
+                ProcessName = group.Key,
+                Minutes = Math.Max(1, (int)Math.Round(group.Sum(session => session.Duration.TotalMinutes)))
+            })
+            .OrderByDescending(item => item.Minutes)
+            .FirstOrDefault();
 
         return new DailyReviewDraft
         {
-            Review = string.Format(T("Main_FallbackDailyReviewFormat"), completed, active),
-            Encouragement = T("Main_DailyReviewFallbackEncouragement"),
+            Review = topProcess == null
+                ? $"今天完成 {completed} 个任务，还有 {active} 个任务保持活跃。记录不多的时候，不必硬凑结论；先把真实留下的线索收好就够了。"
+                : $"今天完成 {completed} 个任务，还有 {active} 个任务保持活跃。桌面现场里 {topProcess.ProcessName} 最显眼（约 {topProcess.Minutes} 分钟），它更像今天主线的一个入口，而不是单纯的时间数字。",
+            Encouragement = openPlans.Count > 0
+                ? "我看到你没有只是停在想法里，至少已经把几条要推进的线留了下来。现在要做的不是更用力，而是让最重要的一条别被其它便签盖住。"
+                : "今天的线索不一定多，但这也可以是休整。Perelegans 先帮你把现场收好，不把空白解释成失败。",
             Highlights = todayTasks
                 .Where(task => task.Status == FocusTaskStatus.Completed)
                 .Select(task => task.Title)
                 .Take(3)
-                .DefaultIfEmpty(T("Main_DailyReviewNoCompletedTasks"))
+                .DefaultIfEmpty(openPlans.FirstOrDefault()?.Title ?? "今天还没有明确完成项，但主线已经被记录下来。")
                 .ToList(),
-            Risks = todayTasks
-                .Where(task => task.Status == FocusTaskStatus.Active)
-                .Select(task => string.Format(T("Main_DailyReviewActiveTaskFormat"), task.Title))
+            Risks = openPlans
+                .Select(plan => CreateTaskPreviewRisk(plan, memories, sessions))
                 .Take(3)
-                .DefaultIfEmpty(T("Main_DailyReviewNoRisk"))
+                .DefaultIfEmpty("今天没有明显任务债务；如果要继续，可以从最近的现场而不是新计划开始。")
                 .ToList(),
-            SuggestedNextAction = T("Main_DailyReviewFallbackNextAction")
+            SuggestedNextAction = openPlans.Count > 0
+                ? $"明天开始时，你想先收掉「{openPlans[0].Title}」，还是先判断它是否该合并到别的任务里？"
+                : "明天开场时，你想先延续今天的现场，还是重新挑一条更轻的线？"
         };
     }
 
@@ -2266,7 +2688,8 @@ public partial class MainViewModel : ObservableObject
         DailyReviewDraft review,
         IReadOnlyCollection<ContextMemory> memories,
         IReadOnlyCollection<ApplicationUsageSession> sessions,
-        string archivePath)
+        string archivePath,
+        string taskCapsulePath = "")
     {
         var today = DateTime.Today;
         var todayTasks = FocusTasks
@@ -2325,7 +2748,177 @@ public partial class MainViewModel : ObservableObject
             T("Main_DailyReviewNextAction"),
             NormalizeReviewCardText(review.SuggestedNextAction, T("Main_DailyReviewFallbackNextAction")),
             metrics,
-            savedContextText);
+            savedContextText,
+            CreateTaskDebtItems(memorySignals, sessions),
+            CreateMemoryIntegrityItems(memorySignals),
+            taskCapsulePath);
+    }
+
+    private static IReadOnlyList<TaskDebtItemViewModel> CreateTaskDebtItems(
+        IEnumerable<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions)
+    {
+        var memoryList = memories.ToList();
+        return memories
+            .Where(memory => memory.IsPlan)
+            .OrderBy(memory => memory.IsCompleted || memory.IsAbandoned)
+            .ThenByDescending(memory => memory.UpdatedAt)
+            .Take(8)
+            .Select(memory =>
+            {
+                var ageDays = Math.Max(0, (DateTime.Now.Date - memory.UpdatedAt.Date).Days);
+                var status = memory.IsCompleted
+                    ? "已完成"
+                    : memory.IsAbandoned
+                        ? "已搁置"
+                        : ageDays >= 3
+                            ? $"悬停 {ageDays} 天"
+                            : "进行中";
+                var next = CreateContextualTaskDebtHint(memory, memoryList, sessions);
+                return new TaskDebtItemViewModel(
+                    memory.Id,
+                    memory.Title,
+                    $"{status} · {next}",
+                    memory.IsCompleted,
+                    !memory.IsCompleted && !memory.IsAbandoned);
+            })
+            .ToList();
+    }
+
+    private static string CreateContextualTaskDebtHint(
+        ContextMemory memory,
+        IReadOnlyCollection<ContextMemory> memories,
+        IReadOnlyCollection<ApplicationUsageSession> sessions)
+    {
+        if (memory.IsCompleted)
+        {
+            return memory.CompletedAt.HasValue
+                ? $"完成于 {memory.CompletedAt.Value:MM-dd HH:mm}，可以安心留作产出证据。"
+                : "这条线已经收束，可以作为产出证据留着。";
+        }
+
+        if (memory.IsAbandoned)
+        {
+            return "已经搁置，不必再占用今天的注意力。";
+        }
+
+        var similar = memories
+            .Where(other => other.Id != memory.Id && other.IsPlan && !other.IsCompleted && !other.IsAbandoned)
+            .Count(other => HaveOverlappingTerms(memory, other));
+        if (similar > 0)
+        {
+            return $"旁边有 {similar} 条相近任务，先考虑合并或改名。";
+        }
+
+        var matched = sessions
+            .Where(session => CalculateProcessPlanAffinity(session.ProcessName, memory) > 0)
+            .GroupBy(session => session.ProcessName)
+            .OrderByDescending(group => group.Sum(session => session.Duration.TotalMinutes))
+            .FirstOrDefault();
+        if (matched != null)
+        {
+            var minutes = Math.Max(1, (int)Math.Round(matched.Sum(session => session.Duration.TotalMinutes)));
+            return $"最近和 {matched.Key} 现场有关（约 {minutes} 分钟），适合先验收是否已经推进。";
+        }
+
+        if (!IsMechanicalNextAction(memory.NextPrediction))
+        {
+            return memory.NextPrediction.Trim();
+        }
+
+        var title = memory.Title.ToLowerInvariant();
+        var tags = memory.Tags.ToLowerInvariant();
+        if (ContainsAny(title + " " + tags, "perelegans", "wpf", "xaml", "code", "coding", "development", "开发", "代码"))
+        {
+            return "先选一个可见验收点：界面、桌宠气泡、构建结果，或最近改动文件。";
+        }
+
+        if (ContainsAny(title + " " + tags, "写", "writing", "文档", "文章", "论文"))
+        {
+            return "先看它现在缺的是结构、材料，还是最后一遍润色。";
+        }
+
+        var ageDays = Math.Max(0, (DateTime.Now.Date - memory.UpdatedAt.Date).Days);
+        return ageDays >= 3
+            ? "先判断它还值得继续，还是该合并进新任务。"
+            : "先给它换成一个更具体的对象：文件、窗口、材料或验收点。";
+    }
+
+    private static bool HaveOverlappingTerms(ContextMemory left, ContextMemory right)
+    {
+        var leftTerms = SplitTagsForInsight(string.Join(' ', left.Title, left.Tags, left.ConstellationName))
+            .Where(term => term.Length >= 2)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (leftTerms.Count == 0)
+        {
+            return false;
+        }
+
+        var rightTerms = SplitTagsForInsight(string.Join(' ', right.Title, right.Tags, right.ConstellationName))
+            .Where(term => term.Length >= 2)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return leftTerms.Intersect(rightTerms, StringComparer.OrdinalIgnoreCase).Take(2).Count() >= 2;
+    }
+
+    private static bool IsMechanicalNextAction(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        var normalized = text.Trim().ToLowerInvariant();
+        return ContainsAny(
+            normalized,
+            "拆成一个",
+            "小动作",
+            "最小可验证",
+            "15 分钟",
+            "15分钟",
+            "先推进",
+            "first visible step",
+            "small step");
+    }
+
+    private static IReadOnlyList<string> CreateMemoryIntegrityItems(IEnumerable<ContextMemory> memories)
+    {
+        var items = new List<string>();
+        var stale = memories
+            .Where(memory => memory.Lifecycle == ContextMemoryLifecycle.Stale)
+            .OrderByDescending(memory => memory.UpdatedAt)
+            .Take(2)
+            .Select(memory => $"可能过期：{memory.Title}");
+        items.AddRange(stale);
+
+        var contradictions = memories
+            .Where(memory => memory.Lifecycle == ContextMemoryLifecycle.Contradicted)
+            .OrderByDescending(memory => memory.UpdatedAt)
+            .Take(2)
+            .Select(memory => $"需要证伪：{memory.Title}");
+        items.AddRange(contradictions);
+
+        var duplicateOpenPlans = memories
+            .Where(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned)
+            .GroupBy(memory => NormalizeTaskKey(memory.Title))
+            .Where(group => !string.IsNullOrWhiteSpace(group.Key) && group.Count() > 1)
+            .Take(2)
+            .Select(group => $"疑似重复 plan：{group.First().Title}（{group.Count()} 条）");
+        items.AddRange(duplicateOpenPlans);
+
+        if (items.Count == 0)
+        {
+            items.Add("今天没有发现明显冲突记忆；过期、重复 plan 会在这里浮出水面。");
+        }
+
+        return items.Take(5).ToList();
+    }
+
+    private static string NormalizeTaskKey(string title)
+    {
+        var terms = SplitTagsForInsight(title)
+            .Where(term => term.Length > 1)
+            .Take(4);
+        return string.Join(" ", terms).ToLowerInvariant();
     }
 
     private static IReadOnlyList<string> NormalizeReviewCardItems(IReadOnlyCollection<string> items, string fallback)
@@ -2674,15 +3267,6 @@ public partial class MainViewModel : ObservableObject
             .ToList();
     }
 
-    private static string CreateMemoryHealthSummary(IReadOnlyCollection<ContextMemory> memories)
-    {
-        var openPlans = memories.Count(memory => memory.IsPlan && !memory.IsCompleted && !memory.IsAbandoned);
-        var stale = memories.Count(memory => memory.Lifecycle == ContextMemoryLifecycle.Stale);
-        var contradicted = memories.Count(memory => memory.Lifecycle == ContextMemoryLifecycle.Contradicted);
-        var pending = memories.Count(memory => memory.ReviewStatus == ContextMemoryReviewStatus.Pending);
-        return $"本地记忆星图共有 {memories.Count} 条线索：{openPlans} 个未完成 plan，{stale} 条可能过期，{contradicted} 条已标记冲突，{pending} 条待确认。建议先处理待确认和过期 plan。";
-    }
-
     private static string CreateSuggestedNextAction(
         IReadOnlyList<ContextMemory> openPlans,
         IReadOnlyList<ApplicationUsageSession> sessions,
@@ -2696,7 +3280,15 @@ public partial class MainViewModel : ObservableObject
 
         if (plan != null)
         {
-            return $"先回到「{plan.Title}」，把它拆成一个 15 分钟内能完成的小动作。";
+            var matchedProcess = sessions
+                .Where(session => CalculateProcessPlanAffinity(session.ProcessName, plan) > 0)
+                .GroupBy(session => session.ProcessName)
+                .OrderByDescending(group => group.Sum(session => session.Duration.TotalMinutes))
+                .Select(group => group.Key)
+                .FirstOrDefault();
+            return string.IsNullOrWhiteSpace(matchedProcess)
+                ? $"先回到「{plan.Title}」，判断它现在是在等验收、等材料，还是已经该搁置。"
+                : $"从 {matchedProcess} 的最近现场接回「{plan.Title}」，先确认这条线是否已经推进到可验收。";
         }
 
         var lastProcess = snapshot?.ProcessName ?? sessions.LastOrDefault()?.ProcessName;
@@ -2903,6 +3495,8 @@ public partial class MainViewModel : ObservableObject
         var risk = CreateCodingRiskText(changedPath, extension, activePlan);
         var checkpoints = CreateCodingReviewCheckpoints(changedPath, extension, activePlan, sessions);
         var verification = CreateCodingVerificationText(snapshot.WorkspaceRoot, changedPath, extension);
+        var resolvedChangedPath = ResolveChangedPath(snapshot.WorkspaceRoot, changedPath);
+        var preview = await CreateCodingFilePreviewAsync(snapshot.WorkspaceRoot, resolvedChangedPath);
 
         return new CodingReviewCardViewModel(
             "AI 编程完成检查",
@@ -2916,7 +3510,238 @@ public partial class MainViewModel : ObservableObject
                 : $"最近变更：{ShortenPath(changedPath)}",
             risk,
             checkpoints,
-            verification);
+            verification,
+            string.IsNullOrWhiteSpace(preview) ? string.Empty : "30 秒 diff / 文件预览",
+            preview,
+            resolvedChangedPath,
+            snapshot.ClientKind.ToString(),
+            snapshot.WorkspaceRoot);
+    }
+
+    private async Task ExpireCodingPreviewAfterDelayAsync(CodingReviewCardViewModel card)
+    {
+        if (!card.IsPreviewVisible)
+        {
+            return;
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(30));
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(card.ExpirePreview);
+    }
+
+    [RelayCommand]
+    private void OpenCodingReviewClient(CodingReviewCardViewModel? card)
+    {
+        if (card == null)
+        {
+            return;
+        }
+
+        if (TryActivateCodingClient(card.ClientKind))
+        {
+            return;
+        }
+
+        StatusText = "我没找到对应的编码客户端窗口，可以先把 Codex / Claude Code / OpenCode 打开到前台一次。";
+    }
+
+    [RelayCommand]
+    private void OpenDailyTaskCapsule(string? path)
+    {
+        OpenLocalPath(path);
+    }
+
+    private static void OpenLocalPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                var startInfo = new ProcessStartInfo("explorer.exe");
+                startInfo.ArgumentList.Add($"/select,{path}");
+                Process.Start(startInfo);
+                return;
+            }
+
+            if (Directory.Exists(path))
+            {
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteCrashLog(ex);
+        }
+    }
+
+    private static bool TryActivateCodingClient(string clientKind)
+    {
+        var candidates = clientKind switch
+        {
+            nameof(CodingClientKind.ClaudeDesktop) => new[] { "Claude", "Claude Code", "claude" },
+            nameof(CodingClientKind.OpenCodeDesktop) => new[] { "OpenCode", "opencode", "ai.opencode.desktop" },
+            _ => new[] { "Codex", "Codex Desktop", "codex" }
+        };
+
+        foreach (var candidate in candidates)
+        {
+            foreach (var process in Process.GetProcessesByName(candidate))
+            {
+                try
+                {
+                    if (process.MainWindowHandle == IntPtr.Zero)
+                    {
+                        continue;
+                    }
+
+                    ShowWindow(process.MainWindowHandle, 9);
+                    SetForegroundWindow(process.MainWindowHandle);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    App.WriteCrashLog(ex);
+                }
+            }
+        }
+
+        foreach (var process in Process.GetProcesses())
+        {
+            using (process)
+            {
+                try
+                {
+                    if (process.MainWindowHandle == IntPtr.Zero)
+                    {
+                        continue;
+                    }
+
+                    var name = process.ProcessName;
+                    var title = process.MainWindowTitle;
+                    if (!candidates.Any(candidate =>
+                            name.Contains(candidate, StringComparison.OrdinalIgnoreCase) ||
+                            title.Contains(candidate, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        continue;
+                    }
+
+                    ShowWindow(process.MainWindowHandle, 9);
+                    SetForegroundWindow(process.MainWindowHandle);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    App.WriteCrashLog(ex);
+                }
+            }
+        }
+
+        return false;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private static string ResolveChangedPath(string workspaceRoot, string changedPath)
+    {
+        if (string.IsNullOrWhiteSpace(changedPath))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = changedPath.Trim();
+        if (Path.IsPathRooted(trimmed))
+        {
+            return trimmed;
+        }
+
+        return string.IsNullOrWhiteSpace(workspaceRoot)
+            ? trimmed
+            : Path.GetFullPath(Path.Combine(workspaceRoot, trimmed));
+    }
+
+    private static async Task<string> CreateCodingFilePreviewAsync(string workspaceRoot, string changedPath)
+    {
+        if (string.IsNullOrWhiteSpace(changedPath) || !File.Exists(changedPath))
+        {
+            return string.Empty;
+        }
+
+        var diff = await TryReadGitDiffAsync(workspaceRoot, changedPath);
+        if (!string.IsNullOrWhiteSpace(diff))
+        {
+            return LimitPreview(diff);
+        }
+
+        try
+        {
+            var lines = await File.ReadAllLinesAsync(changedPath, Encoding.UTF8);
+            var preview = string.Join(Environment.NewLine, lines.Take(60));
+            return LimitPreview(preview);
+        }
+        catch (Exception ex)
+        {
+            App.WriteCrashLog(ex);
+            return string.Empty;
+        }
+    }
+
+    private static async Task<string> TryReadGitDiffAsync(string workspaceRoot, string changedPath)
+    {
+        var workingDirectory = Directory.Exists(workspaceRoot)
+            ? workspaceRoot
+            : Path.GetDirectoryName(changedPath);
+        if (string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            var startInfo = new ProcessStartInfo("git")
+            {
+                WorkingDirectory = workingDirectory,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add("diff");
+            startInfo.ArgumentList.Add("--no-ext-diff");
+            startInfo.ArgumentList.Add("--");
+            startInfo.ArgumentList.Add(changedPath);
+
+            using var process = Process.Start(startInfo);
+            if (process == null)
+            {
+                return string.Empty;
+            }
+
+            var outputTask = process.StandardOutput.ReadToEndAsync(timeout.Token);
+            await process.WaitForExitAsync(timeout.Token);
+            return await outputTask;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static string LimitPreview(string text)
+    {
+        var normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
+        var lines = normalized.Split('\n').Take(90).ToList();
+        var preview = string.Join(Environment.NewLine, lines);
+        return preview.Length <= 6000 ? preview : preview[..6000] + Environment.NewLine + "...";
     }
 
     private static string CreateCodingRiskText(string changedPath, string extension, ContextMemory? activePlan)
@@ -3006,19 +3831,15 @@ public partial class MainViewModel : ObservableObject
         var title = string.IsNullOrWhiteSpace(snapshot.WindowTitle)
             ? snapshot.ProcessName
             : snapshot.WindowTitle;
-        var planLine = string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle)
-            ? "没有强行写进星图，我只把这次断点留在本地卡点记录里。"
-            : $"相关计划：{snapshot.RelatedPlanTitle}";
         var codingSnapshot = GetRecentCodingClientSnapshot();
         var card = CreateBreakpointResumeCard(snapshot, codingSnapshot, title, returned);
 
         var message =
             $"欢迎回来。你大约在 {snapshot.LeftAt:HH:mm} 离开，{returned} 回来。\n\n" +
-            $"{planLine}\n\n" +
-            "我把现场整理成一张续做卡片了，先从最容易恢复的那一步开始。";
+            "我把刚才的窗口、计划线索和可继续动作压成一颗断点恢复胶囊了。先不用重新解释一遍，从下面三步接回去就行。";
 
         ConversationMessages.Add(ConversationMessage.AssistantWithBreakpointCard(message, card));
-        StatusText = "已唤出刚才的卡点提示";
+        StatusText = "已生成断点恢复胶囊";
     }
 
     private CodingClientActivitySnapshot? GetRecentCodingClientSnapshot()
@@ -3041,50 +3862,58 @@ public partial class MainViewModel : ObservableObject
         string returned)
     {
         var clientText = codingSnapshot == null
-            ? "Coding client：没有捕捉到最近生成事件"
-            : $"Coding client：{codingSnapshot.ClientName} · {FormatCodingState(codingSnapshot.State)}";
+            ? "AI 编程状态：未捕捉到最近生成事件"
+            : $"AI 编程状态：{codingSnapshot.ClientName} · {FormatCodingState(codingSnapshot.State)}";
         var workspaceText = codingSnapshot == null || string.IsNullOrWhiteSpace(codingSnapshot.WorkspaceRoot)
-            ? "Workspace：暂未识别"
-            : $"Workspace：{ShortenPath(codingSnapshot.WorkspaceRoot)}";
+            ? "工作区：暂未识别"
+            : $"工作区：{ShortenPath(codingSnapshot.WorkspaceRoot)}";
         var recentChange = codingSnapshot == null || string.IsNullOrWhiteSpace(codingSnapshot.LastChangedPath)
             ? "最近变动：暂无明确文件变动"
             : $"最近变动：{ShortenPath(codingSnapshot.LastChangedPath)}";
         var status = codingSnapshot?.State switch
         {
-            CodingClientActivityState.WaitingForConfirmation => "状态：正在等你确认",
-            CodingClientActivityState.Completed => "状态：代码生成已完成，可以检查 diff",
-            CodingClientActivityState.Coding => "状态：还在生成中",
-            _ => "状态：只恢复桌面断点"
+            CodingClientActivityState.WaitingForConfirmation => "胶囊状态：先处理权限确认，再恢复工作现场",
+            CodingClientActivityState.Completed => "胶囊状态：AI 已完成一轮生成，适合先检查 diff",
+            CodingClientActivityState.Coding => "胶囊状态：AI 仍在生成，适合先确认目标和等待完成",
+            _ => "胶囊状态：已捕获桌面断点，可以直接续做"
         };
-        var nextStep = CreateBreakpointNextSteps(snapshot, codingSnapshot);
+        var resumeSteps = CreateBreakpointResumeStepItems(snapshot, codingSnapshot);
+        var nextStep = string.Join(Environment.NewLine, resumeSteps.Select((step, index) => $"{index + 1}. {step}"));
+        var evidenceItems = CreateBreakpointEvidenceItems(snapshot, codingSnapshot, title);
+        var recoveryPrompt = CreateBreakpointRecoveryPrompt(snapshot, title);
+        var capsuleIntro = CreateBreakpointCapsuleIntro(snapshot, title);
 
         return new BreakpointResumeCardViewModel(
-            "断点续做卡片",
+            "断点恢复胶囊",
             $"{snapshot.LeftAt:HH:mm} 离开 · {returned} 回来",
             clientText,
             workspaceText,
-            $"活跃进程：{snapshot.ProcessName} · {title}",
+            $"离开前现场：{snapshot.ProcessName} · {title}",
             recentChange,
             status,
-            nextStep);
+            nextStep,
+            capsuleIntro,
+            recoveryPrompt,
+            evidenceItems,
+            resumeSteps);
     }
 
-    private static string CreateBreakpointNextSteps(
+    private static IReadOnlyList<string> CreateBreakpointResumeStepItems(
         BreakpointSnapshot snapshot,
         CodingClientActivitySnapshot? codingSnapshot)
     {
         var steps = new List<string>();
         if (!string.IsNullOrWhiteSpace(snapshot.NextStep))
         {
-            steps.Add("1. " + snapshot.NextStep.Trim());
+            steps.Add(snapshot.NextStep.Trim());
         }
         else if (!string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle))
         {
-            steps.Add($"1. 先回到「{snapshot.RelatedPlanTitle}」，写下一句“我刚才停在什么问题上”。");
+            steps.Add($"先回到「{snapshot.RelatedPlanTitle}」，写下一句“我刚才停在什么问题上”。");
         }
         else
         {
-            steps.Add($"1. 先回到 {snapshot.ProcessName}，用窗口标题恢复刚才的现场。");
+            steps.Add($"先回到 {snapshot.ProcessName}，用窗口标题恢复刚才的现场。");
         }
 
         if (codingSnapshot?.State == CodingClientActivityState.Completed)
@@ -3092,19 +3921,76 @@ public partial class MainViewModel : ObservableObject
             var changed = string.IsNullOrWhiteSpace(codingSnapshot.LastChangedPath)
                 ? "AI 编程客户端的 diff"
                 : ShortenPath(codingSnapshot.LastChangedPath);
-            steps.Add($"2. 检查 {changed}，确认 AI 完成的内容没有偏离你的 prompt。");
+            steps.Add($"检查 {changed}，确认 AI 完成的内容没有偏离你的 prompt。");
         }
         else if (codingSnapshot?.State == CodingClientActivityState.WaitingForConfirmation)
         {
-            steps.Add("2. 先处理 AI 编程客户端里的权限确认，确认命令安全后再继续。");
+            steps.Add("先处理 AI 编程客户端里的权限确认，确认命令安全后再继续。");
         }
         else
         {
-            steps.Add("2. 不急着补全全部上下文，只确认一个最小可继续动作。");
+            steps.Add("不急着补全全部上下文，只确认一个最小可继续动作。");
         }
 
-        steps.Add("3. 如果这次断点对应一个计划，把结果更新到记忆星图；如果只是临时现场，就继续工作，不必强行保存。");
-        return string.Join(Environment.NewLine, steps);
+        steps.Add("如果这个断点对应一个计划，把结果更新到记忆星图；如果只是临时现场，就继续工作，不必强行保存。");
+        return steps;
+    }
+
+    private static IReadOnlyList<string> CreateBreakpointEvidenceItems(
+        BreakpointSnapshot snapshot,
+        CodingClientActivitySnapshot? codingSnapshot,
+        string title)
+    {
+        var items = new List<string>
+        {
+            $"窗口：{title}",
+            $"进程：{snapshot.ProcessName}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle))
+        {
+            items.Add($"关联计划：{snapshot.RelatedPlanTitle}");
+        }
+
+        foreach (var line in SplitEvidenceLines(snapshot.Evidence).Take(3))
+        {
+            if (!items.Any(item => string.Equals(item, line, StringComparison.OrdinalIgnoreCase)))
+            {
+                items.Add(line);
+            }
+        }
+
+        if (codingSnapshot != null && codingSnapshot.State != CodingClientActivityState.Idle)
+        {
+            items.Add($"AI 编程状态：{codingSnapshot.ClientName} · {FormatCodingState(codingSnapshot.State)}");
+        }
+
+        return items.Take(6).ToList();
+    }
+
+    private static IEnumerable<string> SplitEvidenceLines(string evidence)
+    {
+        return evidence
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(line => !string.IsNullOrWhiteSpace(line));
+    }
+
+    private static string CreateBreakpointCapsuleIntro(BreakpointSnapshot snapshot, string title)
+    {
+        var plan = string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle)
+            ? "没有强行匹配到计划"
+            : $"关联「{snapshot.RelatedPlanTitle}」";
+        return $"你离开前停在「{title}」，{plan}。这颗胶囊只保留恢复现场最有用的线索。";
+    }
+
+    private static string CreateBreakpointRecoveryPrompt(BreakpointSnapshot snapshot, string title)
+    {
+        if (!string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle))
+        {
+            return $"恢复口令：继续「{snapshot.RelatedPlanTitle}」，我离开前停在「{title}」，先帮我找回下一步。";
+        }
+
+        return $"恢复口令：我刚才停在「{title}」，先帮我用 3 分钟找回现场和下一步。";
     }
 
     private static string FormatCodingState(CodingClientActivityState state)

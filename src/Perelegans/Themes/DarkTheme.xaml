@@ -7,12 +7,12 @@
     <!-- Window & Panel Backgrounds -->
     <SolidColorBrush x:Key="Perelegans.WindowBackground" Color="#1E1E1E"/>
     <SolidColorBrush x:Key="Perelegans.PanelBackground" Color="#242424"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBackground" Color="#1E1E1E"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBorderBrush" Color="#343434"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartMetricBackground" Color="#2A2A2A"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartSliceBorderBrush" Color="#1E1E1E"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBackground" Color="#30272A"/>
-    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBorderBrush" Color="#DFA8B5"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBackground" Color="#171B22"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartPanelBorderBrush" Color="#2E3A48"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartMetricBackground" Color="#1D2430"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartSliceBorderBrush" Color="#10151D"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBackground" Color="#142B34"/>
+    <SolidColorBrush x:Key="Perelegans.StatsChartHighlightBorderBrush" Color="#54E8FF"/>
     
     <!-- Accent (slightly desaturated pink for dark-mode contrast) -->
     <Color x:Key="Perelegans.AccentColor">#DFA8B5</Color>

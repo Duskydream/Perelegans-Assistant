@@ -47,10 +47,11 @@ public sealed class CodingClientMonitorService : IDisposable
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan CodexSignalWindow = TimeSpan.FromSeconds(16);
     private static readonly TimeSpan WorkspaceWriteWindow = TimeSpan.FromSeconds(7);
-    private static readonly TimeSpan CompletionVisibleWindow = TimeSpan.FromSeconds(14);
-    private static readonly TimeSpan CompletionSettledDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan CompletionVisibleWindow = TimeSpan.FromSeconds(120);
+    private static readonly TimeSpan CompletionSettledDelay = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan CompletionQuietWindow = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan NotificationWaitingVisibleWindow = TimeSpan.FromSeconds(45);
-    private static readonly TimeSpan CodexApprovalReviewSuppressionWindow = TimeSpan.FromSeconds(35);
+    private static readonly TimeSpan CodexApprovalReviewSuppressionWindow = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan WorkspaceRefreshInterval = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan CodexLifecycleActiveWindow = TimeSpan.FromHours(2);
     private static readonly TimeSpan ClaudeLifecycleActiveWindow = TimeSpan.FromHours(2);
@@ -305,7 +306,11 @@ public sealed class CodingClientMonitorService : IDisposable
             return;
         }
 
-        if (IsCompletionSettled(now, _lastCodexLifecycleCompletedAt))
+        if (IsCompletionReadyForReview(
+                CodingClientKind.CodexDesktop,
+                now,
+                _lastCodexLifecycleCompletedAt,
+                lastWorkspaceChangeAt))
         {
             Publish(CreateSnapshot(
                 CodingClientActivityState.Completed,
@@ -417,7 +422,11 @@ public sealed class CodingClientMonitorService : IDisposable
         }
 
         if (codexEnabled &&
-            IsCompletionSettled(now, _lastCodexLifecycleCompletedAt))
+            IsCompletionReadyForReview(
+                CodingClientKind.CodexDesktop,
+                now,
+                _lastCodexLifecycleCompletedAt,
+                lastWorkspaceChangeAt))
         {
             Publish(CreateSnapshot(
                 CodingClientKind.CodexDesktop,
@@ -429,7 +438,11 @@ public sealed class CodingClientMonitorService : IDisposable
         }
 
         if (claudeEnabled &&
-            IsCompletionSettled(now, _lastClaudeLifecycleCompletedAt))
+            IsCompletionReadyForReview(
+                CodingClientKind.ClaudeDesktop,
+                now,
+                _lastClaudeLifecycleCompletedAt,
+                lastWorkspaceChangeAt))
         {
             Publish(CreateSnapshot(
                 CodingClientKind.ClaudeDesktop,
@@ -441,7 +454,11 @@ public sealed class CodingClientMonitorService : IDisposable
         }
 
         if (openCodeEnabled &&
-            IsCompletionSettled(now, _lastOpenCodeLifecycleCompletedAt))
+            IsCompletionReadyForReview(
+                CodingClientKind.OpenCodeDesktop,
+                now,
+                _lastOpenCodeLifecycleCompletedAt,
+                lastWorkspaceChangeAt))
         {
             Publish(CreateSnapshot(
                 CodingClientKind.OpenCodeDesktop,
@@ -694,31 +711,27 @@ public sealed class CodingClientMonitorService : IDisposable
 
         if (state == CodingClientActivityState.Completed)
         {
+            var completedAt = GetLastLifecycleCompletedAt(kind);
             if (HasRecentApprovalReview(kind, now))
             {
                 return false;
             }
 
-            if (!IsCompletionSettled(now, updatedAt) ||
+            if (!IsCompletionReadyForReview(kind, now, completedAt, lastWorkspaceChangeAt) ||
                 IsClientCurrentlyCoding(
                     kind,
                     now,
                     hasCodexLifecycleActivity,
                     hasClaudeLifecycleActivity,
                     hasOpenCodeLifecycleActivity,
-                    lastWorkspaceChangeAt) ||
-                HasClientActivityAfter(kind, updatedAt, lastWorkspaceChangeAt))
+                    lastWorkspaceChangeAt))
             {
                 return false;
             }
         }
         else if (state == CodingClientActivityState.WaitingForConfirmation)
         {
-            var completedAt = kind == CodingClientKind.CodexDesktop
-                ? _lastCodexLifecycleCompletedAt
-                : kind == CodingClientKind.ClaudeDesktop
-                    ? _lastClaudeLifecycleCompletedAt
-                    : _lastOpenCodeLifecycleCompletedAt;
+            var completedAt = GetLastLifecycleCompletedAt(kind);
             if (completedAt > updatedAt &&
                 IsCompletionSettled(now, completedAt))
             {
@@ -739,6 +752,17 @@ public sealed class CodingClientMonitorService : IDisposable
         return true;
     }
 
+    private DateTime GetLastLifecycleCompletedAt(CodingClientKind kind)
+    {
+        return kind switch
+        {
+            CodingClientKind.CodexDesktop => _lastCodexLifecycleCompletedAt,
+            CodingClientKind.ClaudeDesktop => _lastClaudeLifecycleCompletedAt,
+            CodingClientKind.OpenCodeDesktop => _lastOpenCodeLifecycleCompletedAt,
+            _ => DateTime.MinValue
+        };
+    }
+
     private static bool IsCompletionSettled(DateTime now, DateTime completedAt)
     {
         return completedAt != DateTime.MinValue &&
@@ -746,13 +770,31 @@ public sealed class CodingClientMonitorService : IDisposable
                now - completedAt <= CompletionVisibleWindow;
     }
 
+    private bool IsCompletionReadyForReview(
+        CodingClientKind kind,
+        DateTime now,
+        DateTime completedAt,
+        DateTime lastWorkspaceChangeAt)
+    {
+        return IsCompletionSettled(now, completedAt) &&
+               !HasRecentApprovalReview(kind, now) &&
+               !HasUnsettledClientActivityAfter(kind, completedAt, lastWorkspaceChangeAt, now);
+    }
+
     private bool HasRecentApprovalReview(CodingClientKind kind, DateTime now)
     {
-        return kind == CodingClientKind.CodexDesktop &&
-               _lastCodexApprovalReviewAt != DateTime.MinValue &&
-               !(_lastCodexLifecycleCompletedAt != DateTime.MinValue &&
-                 now - _lastCodexLifecycleCompletedAt <= CompletionVisibleWindow) &&
-               now - _lastCodexApprovalReviewAt <= CodexApprovalReviewSuppressionWindow;
+        if (kind != CodingClientKind.CodexDesktop ||
+            _lastCodexApprovalReviewAt == DateTime.MinValue)
+        {
+            return false;
+        }
+
+        if (_lastCodexLifecycleCompletedAt > _lastCodexApprovalReviewAt)
+        {
+            return false;
+        }
+
+        return now - _lastCodexApprovalReviewAt <= CodexApprovalReviewSuppressionWindow;
     }
 
     private bool IsClientCurrentlyCoding(
@@ -781,10 +823,11 @@ public sealed class CodingClientMonitorService : IDisposable
                 IsOpenCodeProcessRunning());
     }
 
-    private bool HasClientActivityAfter(
+    private bool HasUnsettledClientActivityAfter(
         CodingClientKind kind,
         DateTime timestamp,
-        DateTime lastWorkspaceChangeAt)
+        DateTime lastWorkspaceChangeAt,
+        DateTime now)
     {
         var lastSignalAt = kind switch
         {
@@ -794,8 +837,9 @@ public sealed class CodingClientMonitorService : IDisposable
             _ => DateTime.MinValue
         };
 
-        return lastSignalAt > timestamp.AddMilliseconds(500) ||
-               lastWorkspaceChangeAt > timestamp.AddMilliseconds(500);
+        var lastActivityAt = new[] { lastSignalAt, lastWorkspaceChangeAt }.Max();
+        return lastActivityAt > timestamp.AddMilliseconds(500) &&
+               now - lastActivityAt < CompletionQuietWindow;
     }
 
     private bool UpdateCodexSignalFiles(DateTime now, bool baselineOnly)
@@ -2508,6 +2552,11 @@ public sealed class CodingClientMonitorService : IDisposable
         }
 
         var normalized = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        if (IsTemporaryAutomationPath(normalized))
+        {
+            return false;
+        }
+
         foreach (var segment in IgnoredPathSegments)
         {
             if (normalized.Contains(segment, StringComparison.OrdinalIgnoreCase))
@@ -2519,6 +2568,20 @@ public sealed class CodingClientMonitorService : IDisposable
         var extension = Path.GetExtension(path);
         return !string.IsNullOrWhiteSpace(extension) &&
                InterestingExtensions.Contains(extension);
+    }
+
+    private static bool IsTemporaryAutomationPath(string normalizedPath)
+    {
+        var fileName = Path.GetFileName(normalizedPath);
+        if (fileName.Contains("PSScriptPolicyTest", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var tempSegment = $"{Path.DirectorySeparatorChar}Temp{Path.DirectorySeparatorChar}";
+        return normalizedPath.Contains(tempSegment, StringComparison.OrdinalIgnoreCase) &&
+               fileName.StartsWith("_", StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(Path.GetExtension(fileName), ".ps1", StringComparison.OrdinalIgnoreCase);
     }
 
     public void Dispose()

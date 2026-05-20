@@ -1,3 +1,5 @@
+using System.IO;
+using System.Diagnostics;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -9,6 +11,7 @@ namespace Perelegans.ViewModels;
 public partial class FloatingPetViewModel : ObservableObject, IDisposable
 {
     private static readonly TimeSpan CodingClientCelebrationHold = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan CodingReviewCardHold = TimeSpan.FromSeconds(30);
 
     private readonly ProcessMonitorService _processMonitor;
     private readonly FocusClassificationClient _focusClassificationClient;
@@ -63,11 +66,28 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     private bool _showCelebrationMarks;
 
     [ObservableProperty]
+    private bool _hasCodingReviewCard;
+
+    [ObservableProperty]
+    private string _codingReviewTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _codingReviewClientText = string.Empty;
+
+    [ObservableProperty]
+    private string _codingReviewChangedText = string.Empty;
+
+    [ObservableProperty]
+    private string _codingReviewRiskText = string.Empty;
+
+    [ObservableProperty]
     private bool _hasPendingMemoryPrompt;
 
-    public string BreakpointContinueText => "继续";
+    public string BreakpointContinueText => "打开胶囊";
 
     public string MemoryReviewText => _pendingMemoryCount <= 1 ? "查看" : $"查看 {_pendingMemoryCount}";
+
+    public string CodingReviewActionText => "打开验收";
 
     public string SelectedPetSkinId => PetSkinPresets.Normalize(_settingsService.Settings.FloatingPetSkinId);
 
@@ -198,6 +218,18 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void OpenCodingReview()
+    {
+        if (_codingClientSnapshot != null && TryActivateCodingClient(_codingClientSnapshot.ClientKind))
+        {
+            HasCodingReviewCard = false;
+            return;
+        }
+
+        BubbleText = "我没找到对应的编码窗口。先把 Codex / Claude Code / OpenCode 打开到前台一次，我再帮你跳过去。";
+    }
+
+    [RelayCommand]
     private void ToggleMonitor()
     {
         SetMonitorEnabled(!_settingsService.Settings.MonitorEnabled);
@@ -217,7 +249,23 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         var memory = await _databaseService.GetLatestOpenPlanMemoryAsync();
         if (memory == null)
         {
-            BubbleText = "还没有未完成的 plan 记忆。先在记忆里说“我计划……”，我就能陪你专注。";
+            var latestTask = (await _databaseService.GetFocusTasksAsync())
+                .Where(task => task.Status == FocusTaskStatus.Active)
+                .OrderByDescending(task => task.CreatedAt)
+                .FirstOrDefault();
+            if (latestTask == null)
+            {
+                BubbleText = "还没有未完成的 plan 或最新任务。先在对话里写一句“我要……”，我就能接上那条任务陪你专注。";
+                return;
+            }
+
+            _focusModeService.Start(
+                latestTask.Title,
+                latestTask.Tags,
+                latestTask.NextAction);
+            SetMonitorEnabled(true);
+            UpdatePetMood();
+            BubbleText = $"已接上最新任务「{latestTask.Title}」，专注模式开启。";
             return;
         }
 
@@ -442,8 +490,8 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         HasBreakpointPrompt = true;
         SetPetSpritePose(PetSpritePose.Breakpoint);
         BubbleText = string.IsNullOrWhiteSpace(snapshot.RelatedPlanTitle)
-            ? $"欢迎回来。你离开前停在 {snapshot.ProcessName}，要不要接着刚才的思路？"
-            : $"欢迎回来。你离开前可能在推进「{snapshot.RelatedPlanTitle}」，要不要继续？";
+            ? $"欢迎回来。我把你离开前的 {snapshot.ProcessName} 现场收成一颗恢复胶囊了。"
+            : $"欢迎回来。我把「{snapshot.RelatedPlanTitle}」的断点收成一颗恢复胶囊了。";
     }
 
     private static bool IsProcessRelevantToFocus(string processName, string tags)
@@ -515,6 +563,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
                 ShowCodingKeyboard = false;
                 ShowQuestionBadge = false;
                 ShowCelebrationMarks = true;
+                HasCodingReviewCard = true;
                 CurrentPetSpritePose = PetSpritePose.Productive;
                 PetMood = "celebrate";
                 BubbleText = _codingClientCelebrationMessage;
@@ -534,6 +583,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
             case CodingClientActivityState.Coding:
                 _codingClientCelebrationUntil = DateTime.MinValue;
                 _codingCelebrationTimer.Stop();
+                HasCodingReviewCard = false;
                 CurrentPetSpritePose = PetSpritePose.Focus;
                 PetMood = "coding";
                 ShowCodingKeyboard = true;
@@ -542,15 +592,18 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
             case CodingClientActivityState.WaitingForConfirmation:
                 _codingClientCelebrationUntil = DateTime.MinValue;
                 _codingCelebrationTimer.Stop();
+                HasCodingReviewCard = false;
                 CurrentPetSpritePose = PetSpritePose.Breakpoint;
                 PetMood = "question";
                 ShowQuestionBadge = true;
                 BubbleText = _codingClientSnapshot.Message;
                 return true;
             case CodingClientActivityState.Completed:
-                _codingClientCelebrationUntil = DateTime.Now + CodingClientCelebrationHold;
-                _codingClientCelebrationMessage = _codingClientSnapshot.Message;
+                _codingClientCelebrationUntil = DateTime.Now + CodingReviewCardHold;
+                ApplyCodingReviewCard(_codingClientSnapshot);
+                _codingClientCelebrationMessage = "AI 写完了，先验收再合并。";
                 _codingCelebrationTimer.Stop();
+                _codingCelebrationTimer.Interval = CodingReviewCardHold;
                 _codingCelebrationTimer.Start();
                 if (PetMood == "celebrate")
                 {
@@ -560,7 +613,7 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
                 CurrentPetSpritePose = PetSpritePose.Productive;
                 PetMood = "celebrate";
                 ShowCelebrationMarks = true;
-                BubbleText = _codingClientSnapshot.Message;
+                BubbleText = _codingClientCelebrationMessage;
                 return true;
             default:
                 ResetCodingClientAdornments();
@@ -576,6 +629,38 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
                snapshot.State != CodingClientActivityState.Idle;
     }
 
+    private void ApplyCodingReviewCard(CodingClientActivitySnapshot snapshot)
+    {
+        var changedPath = snapshot.LastChangedPath.Trim();
+        var extension = Path.GetExtension(changedPath).ToLowerInvariant();
+        CodingReviewTitle = "AI 编码完成验收";
+        CodingReviewClientText = snapshot.ClientName;
+        CodingReviewChangedText = string.IsNullOrWhiteSpace(changedPath)
+            ? "最近变更：未捕捉到明确文件"
+            : $"最近变更：{ShortenPath(changedPath)}";
+        CodingReviewRiskText = extension switch
+        {
+            ".xaml" => "先看绑定、资源键和布局是否被挤爆。",
+            ".cs" => "先看空值、异步取消、事件订阅和数据库写入。",
+            ".resx" => "先看资源键是否成对存在，中文是否乱码。",
+            ".csproj" => "先看包引用、目标框架和发布配置。",
+            _ => "先确认变更范围，再跑一次验证。"
+        };
+        HasCodingReviewCard = true;
+    }
+
+    private static string ShortenPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        var fileName = Path.GetFileName(path);
+        var directory = Path.GetFileName(Path.GetDirectoryName(path));
+        return string.IsNullOrWhiteSpace(directory) ? fileName : $"{directory}\\{fileName}";
+    }
+
     private bool IsCodingClientEnabled(CodingClientKind kind)
     {
         return kind switch
@@ -586,14 +671,88 @@ public partial class FloatingPetViewModel : ObservableObject, IDisposable
         };
     }
 
+    private static bool TryActivateCodingClient(CodingClientKind kind)
+    {
+        var candidates = kind switch
+        {
+            CodingClientKind.ClaudeDesktop => new[] { "Claude", "Claude Code", "claude" },
+            CodingClientKind.OpenCodeDesktop => new[] { "OpenCode", "opencode", "ai.opencode.desktop" },
+            _ => new[] { "Codex", "Codex Desktop", "codex" }
+        };
+
+        foreach (var candidate in candidates)
+        {
+            foreach (var process in Process.GetProcessesByName(candidate))
+            {
+                try
+                {
+                    if (process.MainWindowHandle == IntPtr.Zero)
+                    {
+                        continue;
+                    }
+
+                    ShowWindow(process.MainWindowHandle, 9);
+                    SetForegroundWindow(process.MainWindowHandle);
+                    return true;
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        foreach (var process in Process.GetProcesses())
+        {
+            using (process)
+            {
+                try
+                {
+                    if (process.MainWindowHandle == IntPtr.Zero)
+                    {
+                        continue;
+                    }
+
+                    var name = process.ProcessName;
+                    var title = process.MainWindowTitle;
+                    if (!candidates.Any(candidate =>
+                            name.Contains(candidate, StringComparison.OrdinalIgnoreCase) ||
+                            title.Contains(candidate, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        continue;
+                    }
+
+                    ShowWindow(process.MainWindowHandle, 9);
+                    SetForegroundWindow(process.MainWindowHandle);
+                    return true;
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        return false;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
     private void ResetCodingClientAdornments()
     {
         ShowCodingKeyboard = false;
         ShowQuestionBadge = false;
         ShowCelebrationMarks = false;
+        HasCodingReviewCard = false;
         if (DateTime.Now > _codingClientCelebrationUntil)
         {
             _codingClientCelebrationMessage = string.Empty;
+            CodingReviewTitle = string.Empty;
+            CodingReviewClientText = string.Empty;
+            CodingReviewChangedText = string.Empty;
+            CodingReviewRiskText = string.Empty;
         }
     }
 

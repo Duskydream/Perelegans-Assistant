@@ -200,7 +200,7 @@ public sealed class MemoryExtractionService
     private static string CreatePlanNextPrediction(string content)
     {
         var title = CreateTitle(content);
-        return $"下一步先把「{title}」拆成一个可完成的小动作，并在完成后勾选。";
+        return $"回到「{title}」时，先判断它是在等推进、等验收，还是已经可以合并或放下。";
     }
 
     private static IEnumerable<string> CreateSemanticTags(string content)

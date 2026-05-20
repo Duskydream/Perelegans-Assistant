@@ -164,6 +164,8 @@
   <data name="Main_PresetStudyPrompt" xml:space="preserve"><value>Study and review notes for the current course</value></data>
   <data name="Main_PresetWritingPrompt" xml:space="preserve"><value>Draft and revise a focused writing task</value></data>
   <data name="Main_PresetCodingPrompt" xml:space="preserve"><value>Implement and verify the current development task</value></data>
+  <data name="Main_PresetTaskPreview" xml:space="preserve"><value>Task preview</value></data>
+  <data name="Main_PresetTaskPreviewPrompt" xml:space="preserve"><value>task preview</value></data>
   <data name="Main_AssistantSeed" xml:space="preserve"><value>Ask naturally, or leave me a note to remember for later.</value></data>
   <data name="Main_AssistantCurrentTaskFormat" xml:space="preserve"><value>Pinned context: {0}</value></data>
   <data name="Main_AssistantHelp" xml:space="preserve"><value>Ask with local context, or use settings, refresh, backup, restore, clear memories, or clear records.</value></data>
@@ -188,9 +190,9 @@
   <data name="Main_DailyReviewActiveTaskFormat" xml:space="preserve"><value>Still active: {0}</value></data>
   <data name="Main_DailyReviewFallbackNextAction" xml:space="preserve"><value>If tomorrow starts with just one gentle step, what would you like to pick up first?</value></data>
   <data name="Main_FallbackQuestTitle" xml:space="preserve"><value>Context Note</value></data>
-  <data name="Main_FallbackQuestNarrativeFormat" xml:space="preserve"><value>Recorded task: “{0}”. Start from one small, verifiable step.</value></data>
-  <data name="Main_FallbackTaskSummaryFormat" xml:space="preserve"><value>Focus on completing “{0}”.</value></data>
-  <data name="Main_FallbackNextActionFormat" xml:space="preserve"><value>Open the relevant material and do the first visible step for “{0}”.</value></data>
+  <data name="Main_FallbackQuestNarrativeFormat" xml:space="preserve"><value>I saved “{0}” as a real thread, not another thing to feel guilty about.</value></data>
+  <data name="Main_FallbackTaskSummaryFormat" xml:space="preserve"><value>Keep “{0}” visible enough to return to it without rebuilding the whole context.</value></data>
+  <data name="Main_FallbackNextActionFormat" xml:space="preserve"><value>When you return to “{0}”, first decide whether it needs progress, verification, or a clean pause.</value></data>
   <data name="Main_FallbackConstellationName" xml:space="preserve"><value>Action Constellation</value></data>
   <data name="Main_FallbackRewardName" xml:space="preserve"><value>Finished output</value></data>
   <data name="Main_FallbackCompletionNarrativeFormat" xml:space="preserve"><value>Completed “{0}” and produced “{1}”.</value></data>

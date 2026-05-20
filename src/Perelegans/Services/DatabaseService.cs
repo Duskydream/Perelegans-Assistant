@@ -1944,7 +1944,9 @@ public class DatabaseService
             _ => "事件"
         };
         var constellation = CreateMemoryConstellationName(type, tags, content, content);
-        return $"按「{axis}」主轴保存；根据 tag「{tags}」与内容语义归入「{constellation}」。";
+        return isPlan
+            ? $"这是一条还可能继续往前走的「{axis}」线索，先放进「{constellation}」，以后复盘时能从这里接回现场。"
+            : $"这条记忆先归到「{constellation}」里。它不需要现在立刻行动，但以后聊到相关项目或习惯时，可以作为一块可靠背景。";
     }
 
     private static string CreateMemoryConstellationName(
@@ -2355,7 +2357,18 @@ public class DatabaseService
 
     private static string CreateFallbackNextAction(string title)
     {
-        return $"先推进「{title}」最小可验证的一步。";
+        var normalized = title.Trim();
+        if (ContainsAny(normalized.ToLowerInvariant(), "perelegans", "wpf", "xaml", "code", "coding", "开发", "代码"))
+        {
+            return $"回到「{normalized}」时，先挑一个最影响演示或验收的点看：界面、构建结果、最近改动文件，三者选一个就好。";
+        }
+
+        if (ContainsAny(normalized.ToLowerInvariant(), "写", "writing", "文档", "文章", "论文"))
+        {
+            return $"回到「{normalized}」时，先判断它缺的是结构、材料，还是最后一遍润色。";
+        }
+
+        return $"回到「{normalized}」时，先确认它现在是在等继续、等验证，还是已经可以放心放下。";
     }
 
     private static string CreateFallbackConstellationName(string title)

@@ -11,13 +11,14 @@ namespace Perelegans.ViewModels;
 
 public partial class MainViewModel
 {
-    private const byte UsageStatsFillAlpha = 188;
+    private const byte UsageStatsLightFillAlpha = 188;
+    private const byte UsageStatsDarkFillAlpha = 172;
     private const double UsagePieCenter = 50;
     private const double UsageDonutInnerRadius = 27;
     private const double UsageDonutOuterRadius = 42;
     private const double UsagePieExplodeOffset = 2.2;
 
-    private static readonly MediaColor[] UsageStatsPalette =
+    private static readonly MediaColor[] UsageStatsLightPalette =
     [
         MediaColor.FromRgb(0xEC, 0x82, 0xAD),
         MediaColor.FromRgb(0x79, 0xB5, 0xE0),
@@ -29,6 +30,20 @@ public partial class MainViewModel
         MediaColor.FromRgb(0xC0, 0xA0, 0x8F),
         MediaColor.FromRgb(0x9B, 0xAF, 0xC8),
         MediaColor.FromRgb(0xD0, 0x8F, 0xB0)
+    ];
+
+    private static readonly MediaColor[] UsageStatsDarkPalette =
+    [
+        MediaColor.FromRgb(0x54, 0xE8, 0xFF),
+        MediaColor.FromRgb(0xFF, 0x6F, 0xB4),
+        MediaColor.FromRgb(0x8F, 0x7B, 0xFF),
+        MediaColor.FromRgb(0x62, 0xF2, 0xB4),
+        MediaColor.FromRgb(0xFF, 0xD1, 0x66),
+        MediaColor.FromRgb(0x4D, 0xA3, 0xFF),
+        MediaColor.FromRgb(0xFF, 0x8A, 0x6A),
+        MediaColor.FromRgb(0xA8, 0xF0, 0x72),
+        MediaColor.FromRgb(0xD8, 0x7C, 0xFF),
+        MediaColor.FromRgb(0x65, 0xE5, 0xDA)
     ];
 
     private string? _hoveredUsagePieKey;
@@ -63,24 +78,10 @@ public partial class MainViewModel
     [ObservableProperty]
     private string _usageStatsInsightText = string.Empty;
 
-    [ObservableProperty]
-    private bool _isUsageReplayGenerating;
-
-    [ObservableProperty]
-    private DesktopInsightCardViewModel? _usageReplayCard;
-
-    [ObservableProperty]
-    private bool _isMemoryHealthGenerating;
-
-    [ObservableProperty]
-    private DesktopInsightCardViewModel? _memoryHealthCard;
-
     public bool IsDailyUsageStatsMode => UsageStatsPeriod == "day";
     public bool IsMonthlyUsageStatsMode => UsageStatsPeriod == "month";
     public bool HasUsageStatsSlices => UsageStatsSlices.Count > 0;
     public bool HasUsageTimelineRows => UsageTimelineRows.Count > 0;
-    public bool HasUsageReplayCard => UsageReplayCard != null;
-    public bool HasMemoryHealthCard => MemoryHealthCard != null;
     public double UsageTimelineChartHeight => Math.Max(96, UsageTimelineRows.Count * 18 + 18);
     public string UsagePieCenterTitle => HighlightedUsageStatsSlice?.Title ?? "Total";
     public string UsagePieCenterValue => HighlightedUsageStatsSlice?.DurationText ?? UsageStatsTotalText;
@@ -110,92 +111,6 @@ public partial class MainViewModel
         await RefreshUsageStatisticsAsync();
     }
 
-    [RelayCommand]
-    private void OpenReplayWindow()
-    {
-        _openReplayWindow();
-    }
-
-    [RelayCommand]
-    private async Task GenerateUsageReplay()
-    {
-        if (IsUsageReplayGenerating)
-        {
-            return;
-        }
-
-        IsUsageReplayGenerating = true;
-        StatusText = "正在生成 AI 工作现场回放";
-        try
-        {
-            var now = DateTime.Now;
-            var start = UsageStatsPeriod == "month"
-                ? now.AddHours(-24)
-                : DateTime.Today;
-            var snapshot = _processMonitor.SampleForegroundWindowFocus();
-            var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(start);
-            var memories = await GetInsightMemoriesAsync("工作现场回放 时间切片 统计窗口", snapshot);
-            var insight = await CreateDesktopInsightAsync(
-                "replay",
-                "统计窗口：生成工作现场时间切片回放，解释用户刚才在推进什么、在哪里切换、可能卡在哪里。",
-                memories,
-                sessions,
-                snapshot);
-            UsageReplayCard = CreateDesktopInsightCard(
-                "AI 工作现场回放",
-                $"{start:MM-dd HH:mm} - {now:HH:mm}",
-                insight);
-            StatusText = "AI 工作现场回放已生成";
-        }
-        catch (Exception ex)
-        {
-            App.WriteCrashLog(ex);
-            StatusText = "AI 工作现场回放生成失败";
-        }
-        finally
-        {
-            IsUsageReplayGenerating = false;
-        }
-    }
-
-    [RelayCommand]
-    private async Task GenerateMemoryHealth()
-    {
-        if (IsMemoryHealthGenerating)
-        {
-            return;
-        }
-
-        IsMemoryHealthGenerating = true;
-        StatusText = "正在体检本地记忆星图";
-        try
-        {
-            var snapshot = _processMonitor.SampleForegroundWindowFocus();
-            var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(DateTime.Now.AddHours(-24));
-            var memories = await _dbService.GetContextMemoriesAsync(includePending: true, includeRejected: true);
-            var insight = await CreateDesktopInsightAsync(
-                "memory_health",
-                "记忆体检：找出过期计划、互相冲突或证据不足的记忆，并给出维护建议。",
-                memories,
-                sessions,
-                snapshot);
-            MemoryHealthCard = CreateDesktopInsightCard(
-                "AI 记忆体检",
-                $"{memories.Count} 条本地记忆 / 最近 24 小时行为信号",
-                insight);
-            StatusText = "AI 记忆体检已生成";
-        }
-        catch (Exception ex)
-        {
-            App.WriteCrashLog(ex);
-            StatusText = "AI 记忆体检生成失败";
-        }
-        finally
-        {
-            IsMemoryHealthGenerating = false;
-        }
-    }
-
     public void ClearUsagePieHover()
     {
         SetHoveredUsagePieKey(null);
@@ -220,7 +135,7 @@ public partial class MainViewModel
             : string.Format(T("Main_UsageStatsDailySubtitleFormat"), start.ToString("MM-dd"));
 
         var sessions = await _dbService.GetApplicationUsageSessionsSinceAsync(start);
-        ApplyUsageStatsSnapshot(CreateUsageStatsSnapshot(sessions, title, subtitle, start, now));
+        ApplyUsageStatsSnapshot(CreateUsageStatsSnapshot(sessions, title, subtitle, start, now, IsUsageStatsDarkThemeActive()));
     }
 
     private void ApplyUsageStatsSnapshot(UsageStatsSnapshot snapshot)
@@ -244,31 +159,6 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(UsagePieCenterCaption));
     }
 
-    private static DesktopInsightCardViewModel CreateDesktopInsightCard(
-        string title,
-        string subtitle,
-        DesktopContextInsight insight)
-    {
-        return new DesktopInsightCardViewModel(
-            title,
-            subtitle,
-            insight.Summary.Trim(),
-            NormalizeInsightItems(insight.Evidence),
-            NormalizeInsightItems(insight.PlanSuggestions),
-            NormalizeInsightItems(insight.Fishbone),
-            NormalizeInsightItems(insight.ConstellationExplanations),
-            insight.SuggestedNextAction.Trim());
-    }
-
-    private static IReadOnlyList<string> NormalizeInsightItems(IEnumerable<string> items)
-    {
-        return items
-            .Select(item => item.Trim())
-            .Where(item => !string.IsNullOrWhiteSpace(item))
-            .Take(6)
-            .ToList();
-    }
-
     private static UsageStatsSnapshot CreateDailyReviewUsageStatsSnapshot(IReadOnlyCollection<ApplicationUsageSession> sessions)
     {
         var start = DateTime.Now.AddHours(-24);
@@ -277,7 +167,8 @@ public partial class MainViewModel
             T("Main_UsageStatsReviewTitle"),
             T("Main_UsageStatsReviewSubtitle"),
             start,
-            DateTime.Now);
+            DateTime.Now,
+            IsUsageStatsDarkThemeActive());
     }
 
     private static UsageStatsSnapshot CreateUsageStatsSnapshot(
@@ -285,7 +176,8 @@ public partial class MainViewModel
         string title,
         string subtitle,
         DateTime start,
-        DateTime end)
+        DateTime end,
+        bool useDarkPalette)
     {
         var grouped = sessions
             .Select(session => new
@@ -320,17 +212,19 @@ public partial class MainViewModel
         }
 
         var slices = new List<UsageStatsSliceViewModel>();
+        var palette = useDarkPalette ? UsageStatsDarkPalette : UsageStatsLightPalette;
+        var fillAlpha = useDarkPalette ? UsageStatsDarkFillAlpha : UsageStatsLightFillAlpha;
         for (var i = 0; i < chartItems.Count; i++)
         {
             var item = chartItems[i];
             var share = item.Duration.TotalSeconds / total.TotalSeconds;
-            var color = UsageStatsPalette[i % UsageStatsPalette.Length];
+            var color = palette[i % palette.Length];
             slices.Add(new UsageStatsSliceViewModel(
                 item.ProcessName,
                 item.ProcessName,
                 item.Duration,
                 share,
-                CreateBrush(color)));
+                CreateBrush(color, fillAlpha)));
         }
 
         AssignUsagePieGeometries(slices);
@@ -341,7 +235,7 @@ public partial class MainViewModel
             string.Format(T("Main_UsageStatsTotalFormat"), FormatDurationForStats(total)),
             CreateUsageBehaviorInsight(sessions, grouped.Select(item => (item.ProcessName, item.Duration)).ToList(), total, start, end),
             slices,
-            CreateUsageTimelineRows(sessions, chartItems.Select(item => item.ProcessName).ToList(), slices, start, end),
+            CreateUsageTimelineRows(sessions, chartItems.Select(item => item.ProcessName).ToList(), slices, start, end, useDarkPalette),
             CreateUsageTimelineAxisLabels(start, end));
     }
 
@@ -483,11 +377,14 @@ public partial class MainViewModel
         IReadOnlyList<string> processNames,
         IReadOnlyList<UsageStatsSliceViewModel> slices,
         DateTime start,
-        DateTime end)
+        DateTime end,
+        bool useDarkPalette)
     {
         var durationSeconds = Math.Max(1, (end - start).TotalSeconds);
         var brushByProcess = slices.ToDictionary(slice => slice.ProcessName, slice => slice.SwatchBrush);
         var rows = new List<UsageTimelineRowViewModel>();
+        var fallbackPalette = useDarkPalette ? UsageStatsDarkPalette : UsageStatsLightPalette;
+        var fallbackFillAlpha = useDarkPalette ? UsageStatsDarkFillAlpha : UsageStatsLightFillAlpha;
         foreach (var processName in processNames.Take(8))
         {
             var rowTop = rows.Count * 18d;
@@ -515,7 +412,7 @@ public partial class MainViewModel
                     return new UsageTimelineSegmentViewModel(
                         left,
                         width,
-                        brushByProcess.GetValueOrDefault(processName) ?? CreateBrush(UsageStatsPalette[rows.Count % UsageStatsPalette.Length]),
+                        brushByProcess.GetValueOrDefault(processName) ?? CreateBrush(fallbackPalette[rows.Count % fallbackPalette.Length], fallbackFillAlpha),
                         $"{processName} {from:HH:mm}-{to:HH:mm}");
                 })
                 .Where(segment => segment != null)
@@ -580,11 +477,25 @@ public partial class MainViewModel
         return to > from ? to - from : TimeSpan.Zero;
     }
 
-    private static SolidColorBrush CreateBrush(MediaColor color)
+    private static SolidColorBrush CreateBrush(MediaColor color, byte alpha)
     {
-        var brush = new SolidColorBrush(MediaColor.FromArgb(UsageStatsFillAlpha, color.R, color.G, color.B));
+        var brush = new SolidColorBrush(MediaColor.FromArgb(alpha, color.R, color.G, color.B));
         brush.Freeze();
         return brush;
+    }
+
+    private static bool IsUsageStatsDarkThemeActive() => IsCurrentThemeResourceDark();
+
+    private static bool IsCurrentThemeResourceDark()
+    {
+        if (System.Windows.Application.Current?.Resources["Perelegans.WindowBackground"] is not SolidColorBrush brush)
+        {
+            return false;
+        }
+
+        var color = brush.Color;
+        var luminance = (0.2126 * color.R + 0.7152 * color.G + 0.0722 * color.B) / 255d;
+        return luminance < 0.35;
     }
 
     public static string FormatDurationForStats(TimeSpan duration)
@@ -614,13 +525,4 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(UsageTimelineChartHeight));
     }
 
-    partial void OnUsageReplayCardChanged(DesktopInsightCardViewModel? value)
-    {
-        OnPropertyChanged(nameof(HasUsageReplayCard));
-    }
-
-    partial void OnMemoryHealthCardChanged(DesktopInsightCardViewModel? value)
-    {
-        OnPropertyChanged(nameof(HasMemoryHealthCard));
-    }
 }
